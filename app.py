@@ -10,9 +10,9 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v9-permanent-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v10-permanent-2026')
 
-# مسیر ذخیره‌سازی دائمی دیتابیس
+# تنظیم مسیر دیتابیس برای ذخیره ابدی روی Volume ریل‌وی یا لوکال
 DATA_DIR = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '/data')
 if not os.path.exists(DATA_DIR):
     DATA_DIR = os.path.join(app.root_path, 'instance')
@@ -31,7 +31,7 @@ PERSIAN_MONTHS = {
     10: 'دی', 11: 'بهمن', 12: 'اسفند'
 }
 
-PRODUCT_CATEGORIES = [
+DEFAULT_CATEGORIES = [
     'هود', 'سینک', 'گاز صفحه‌ای', 'شیرآلات',
     'روشویی کابینتی', 'آینه و آینه بک‌لایت', 'علم دوش',
     'توالت فرنگی', 'توالت ایرانی', 'فلاش تانک', 'سایر و اکسسوری'
@@ -52,7 +52,12 @@ class Shop(db.Model):
     users = db.relationship('User', backref='shop', lazy=True)
     invoices = db.relationship('Invoice', backref='shop', lazy=True)
     expenses = db.relationship('Expense', backref='shop', lazy=True)
+    petty_deposits = db.relationship('PettyCashDeposit', backref='shop', lazy=True)
     inventory = db.relationship('InventoryItem', backref='shop', lazy=True)
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -80,7 +85,7 @@ class Settings(db.Model):
 class InventoryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
-    category = db.Column(db.String(50), nullable=False)
+    category = db.Column(db.String(100), nullable=False)
     shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
     stock_quantity = db.Column(db.Integer, default=5)
     min_alert_stock = db.Column(db.Integer, default=2)
@@ -115,7 +120,6 @@ class Invoice(db.Model):
     dest_card_number = db.Column(db.String(50), nullable=True)
     payment_tracking_code = db.Column(db.String(50), nullable=True)
     
-    # اطلاعات چک صیادی
     cheque_sayad = db.Column(db.String(50), nullable=True)
     cheque_bank = db.Column(db.String(100), nullable=True)
     cheque_due_date = db.Column(db.String(30), nullable=True)
@@ -150,6 +154,18 @@ class Cheque(db.Model):
     shop_id = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(30), default='pending')
 
+# مدل شارژ تنخواه شعبه (واریزی‌های مدیر به مغازه)
+class PettyCashDeposit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    amount = db.Column(db.BigInteger, nullable=False)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shop.id'), nullable=False)
+    shamsi_year = db.Column(db.Integer, nullable=False)
+    shamsi_month = db.Column(db.Integer, nullable=False)
+    shamsi_date_time = db.Column(db.String(40), nullable=False)
+    created_by = db.Column(db.String(100), nullable=False)
+
+# مدل هزینه‌های جاری (خرج‌شده از تنخواه)
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
@@ -249,7 +265,7 @@ BASE_TEMPLATE = """
                     <span class="text-2xl">✨</span>
                     <div>
                         <a href="{{ url_for('index') }}" class="text-base md:text-xl font-black">مجموعه فروشگاه‌های تخصصی طهماسبی</a>
-                        <p class="text-[10px] text-slate-400">سامانه جامع فروش، پورسانت، انبارداری و مدیریت چک‌ها</p>
+                        <p class="text-[10px] text-slate-400">سامانه جامع فروش، پورسانت، انبارداری و تنخواه شعب</p>
                     </div>
                 </div>
                 {% if session.get('user_id') %}
@@ -279,7 +295,7 @@ BASE_TEMPLATE = """
     </div>
 
     <footer class="py-4 text-center text-xs text-gray-400 no-print border-t border-gray-200 mt-8">
-        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۹.۰ نهایی
+        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۱۰.۰ کامل
     </footer>
 
     <script>
@@ -397,13 +413,13 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
             </div>
 
             <!-- باکس مهلت پیش فاکتور -->
-            <div id="proformaDateBox" class="mb-3 hidden bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+            <div id="proformaDateBox" style="display: none;" class="mb-3 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
                 <label class="block text-[11px] font-bold text-indigo-800 mb-1">📅 مهلت اعتبار پیش‌فاکتور (تاریخ شمسی):</label>
                 <input type="text" name="proforma_valid_until" placeholder="مثلاً: 1405/06/12 - تا ۴۸ ساعت" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
             </div>
 
             <!-- باکس علت مرجوعی -->
-            <div id="returnReasonBox" class="mb-3 hidden bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+            <div id="returnReasonBox" style="display: none;" class="mb-3 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
                 <label class="block text-[11px] font-bold text-rose-800 mb-1">⚠️ علت دقیق مرجوعی کالا:</label>
                 <select name="return_reason" class="w-full p-2 border border-rose-300 rounded-lg text-xs bg-white font-bold text-rose-700">
                     {% for reason in return_reasons %}
@@ -430,7 +446,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
             </div>
 
             <!-- فیلدهای کارت به کارت -->
-            <div id="cardTrackingBox" class="mb-3 hidden bg-blue-50 p-2.5 rounded-xl border border-blue-200 space-y-2">
+            <div id="cardTrackingBox" style="display: none;" class="mb-3 bg-blue-50 p-2.5 rounded-xl border border-blue-200 space-y-2">
                 <div>
                     <label class="block text-[11px] font-bold text-blue-900 mb-1">💳 واریز به کدام شماره کارت طهماسبی (کارت مقصد)؟</label>
                     <input type="text" name="dest_card_number" placeholder="مثال: 6037... بنام طهماسبی" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
@@ -441,8 +457,8 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                 </div>
             </div>
 
-            <!-- فیلدهای چک صیادی کامل و شیک -->
-            <div id="chequeDirectBox" class="mb-3 hidden bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-2">
+            <!-- فیلدهای چک صیادی -->
+            <div id="chequeDirectBox" style="display: none;" class="mb-3 bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-2">
                 <span class="text-xs font-bold text-indigo-900 block border-b border-indigo-200 pb-1 flex items-center gap-1">
                     <span>🗓️</span> مشخصات چک صیادی مشتری:
                 </span>
@@ -463,7 +479,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
             </div>
 
             <!-- فیلدهای بیعانه -->
-            <div id="depositDetailsBox" class="mb-3 hidden bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+            <div id="depositDetailsBox" style="display: none;" class="mb-3 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-[11px] font-bold text-amber-900 mb-1">مبلغ بیعانه دریافتی:</label>
@@ -508,10 +524,10 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
             <div class="mb-3">
                 <label class="block text-xs font-bold text-gray-600 mb-1.5">اقلام فاکتور:</label>
                 <div class="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-xl bg-slate-50 text-[11px]">
-                    {% for cat in product_categories %}
+                    {% for cat in all_categories %}
                     <label class="flex items-center gap-1.5 cursor-pointer hover:text-indigo-600">
-                        <input type="checkbox" name="categories" value="{{ cat }}" class="rounded text-slate-800">
-                        <span>{{ cat }}</span>
+                        <input type="checkbox" name="categories" value="{{ cat.name }}" class="rounded text-slate-800">
+                        <span>{{ cat.name }}</span>
                     </label>
                     {% endfor %}
                 </div>
@@ -540,7 +556,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
         </form>
 
         <div class="mt-6 border-t pt-4">
-            <h4 class="text-xs font-bold text-rose-700 mb-2">💸 ثبت هزینه جاری مغازه (تنخواه)</h4>
+            <h4 class="text-xs font-bold text-rose-700 mb-2">💸 ثبت هزینه جاری مغازه (خرج از تنخواه)</h4>
             <form method="POST" action="{{ url_for('add_expense') }}" onsubmit="unformatOnSubmit(this)">
                 <div class="mb-2">
                     <input type="text" name="title" required placeholder="عنوان (کرایه وانت، نصاب و...)" class="w-full p-1.5 border rounded-lg text-xs">
@@ -554,7 +570,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                         <option value="سایر">سایر</option>
                     </select>
                 </div>
-                <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-1.5 rounded-lg transition">ثبت هزینه</button>
+                <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-1.5 rounded-lg transition">ثبت هزینه تنخواه</button>
             </form>
         </div>
     </div>
@@ -677,29 +693,20 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
 
 <script>
     function handleDocTypeChange(type) {
-        const proformaBox = document.getElementById('proformaDateBox');
-        const returnBox = document.getElementById('returnReasonBox');
-        if (type === 'proforma') {
-            proformaBox.classList.remove('hidden');
-        } else {
-            proformaBox.classList.add('hidden');
-        }
-        if (type === 'return') {
-            returnBox.classList.remove('hidden');
-        } else {
-            returnBox.classList.add('hidden');
-        }
+        document.getElementById('proformaDateBox').style.display = (type === 'proforma') ? 'block' : 'none';
+        document.getElementById('returnReasonBox').style.display = (type === 'return') ? 'block' : 'none';
     }
 
     function togglePaymentInputs(val) {
-        const cardBox = document.getElementById('cardTrackingBox');
-        const depositBox = document.getElementById('depositDetailsBox');
-        const chequeBox = document.getElementById('chequeDirectBox');
-
-        if (val === 'card_to_card') { cardBox.classList.remove('hidden'); } else { cardBox.classList.add('hidden'); }
-        if (val === 'deposit') { depositBox.classList.remove('hidden'); } else { depositBox.classList.add('hidden'); }
-        if (val === 'cheque') { chequeBox.classList.remove('hidden'); } else { chequeBox.classList.add('hidden'); }
+        document.getElementById('cardTrackingBox').style.display = (val === 'card_to_card') ? 'block' : 'none';
+        document.getElementById('depositDetailsBox').style.display = (val === 'deposit') ? 'block' : 'none';
+        document.getElementById('chequeDirectBox').style.display = (val === 'cheque') ? 'block' : 'none';
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var pSelect = document.getElementById('paymentMethodSelect');
+        if (pSelect) { togglePaymentInputs(pSelect.value); }
+    });
 </script>
 """)
 
@@ -710,7 +717,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
         <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
             <span>👑</span> پنل مدیریت جامع فروشگاه‌های طهماسبی
         </h2>
-        <p class="text-xs text-gray-500 mt-1">گزارش مالی دقیق، کارت به کارت، بیعانه‌ها، چک‌های صیادی در {{ selected_month_name }} {{ current_year }}</p>
+        <p class="text-xs text-gray-500 mt-1">گزارش مالی دقیق، تنخواه، چک‌های صیادی و انبارداری در {{ selected_month_name }} {{ current_year }}</p>
     </div>
     
     <div class="flex flex-wrap items-center gap-2">
@@ -724,6 +731,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
 
         <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow transition">📥 اکسل جامع</a>
         <a href="{{ url_for('download_backup') }}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow transition">🛡️ بکاپ دیتابیس</a>
+        <button onclick="document.getElementById('pettyDepositModal').classList.remove('hidden')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3 py-2 rounded-xl transition">💵 شارژ تنخواه شعب</button>
         <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition">⚙️ تنظیم تارگت‌ها</button>
         <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl transition">➕ پرسنل جدید</button>
         <button onclick="document.getElementById('chequeModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition">✍️ ثبت چک صیادی</button>
@@ -743,9 +751,9 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
         <p class="text-[10px] text-emerald-500 mt-1">فروش منهای بهای خرید کالاها</p>
     </div>
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 border-r-4 border-r-rose-600">
-        <span class="text-xs text-gray-500 font-bold">مجموع پورسانت و هزینه‌ها</span>
-        <h3 class="text-xl font-black text-rose-600 mt-2">{{ "{:,}".format(total_commissions + total_expenses) }} <span class="text-xs font-normal text-gray-400">تومان</span></h3>
-        <p class="text-[10px] text-gray-400 mt-1">پورسانت: {{ "{:,}".format(total_commissions) }} | تنخواه: {{ "{:,}".format(total_expenses) }}</p>
+        <span class="text-xs text-gray-500 font-bold">وضعیت حساب تنخواه شعب</span>
+        <h3 class="text-xl font-black text-rose-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-xs font-normal text-gray-400">تومان خرج‌شده</span></h3>
+        <p class="text-[10px] text-emerald-600 mt-1 font-bold">مانده موجودی تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} تومان</p>
     </div>
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 border-r-4 border-r-amber-500">
         <span class="text-xs text-gray-500 font-bold">چک‌های صیادی در انتظار وصول</span>
@@ -765,7 +773,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
-<!-- جدول پورسانت و عملکرد پرسنل -->
+<!-- جدول پورسانت پرسنل -->
 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
     <h3 class="text-md font-bold text-slate-800 mb-4 flex justify-between items-center">
         <span>👥 پورسانت پرسنل و کارنامه رضایت در {{ selected_month_name }}</span>
@@ -878,14 +886,26 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </table>
 </div>
 
-<!-- جستجوی پیشرفته و مدیریت فاکتورها -->
+<!-- جستجوی پیشرفته با فیلتر نام فروشنده -->
 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
     <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
-        <h3 class="text-md font-bold text-slate-800">🔍 جستجو و مدیریت کلیه فاکتورهای شعب</h3>
-        <form method="GET" class="flex gap-2 w-full md:w-auto">
+        <h3 class="text-md font-bold text-slate-800">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
+        <form method="GET" class="flex flex-wrap gap-2 w-full md:w-auto items-center">
             <input type="hidden" name="month" value="{{ selected_month }}">
-            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="شماره فاکتور، تلفن یا نام خریدار..." class="p-2 border border-gray-300 rounded-xl text-xs w-full md:w-64">
-            <button type="submit" class="bg-slate-800 text-white text-xs px-4 py-2 rounded-xl font-bold">جستجو</button>
+            
+            <!-- فیلتر نام فروشنده -->
+            <select name="seller_filter" class="p-2 border border-gray-300 rounded-xl text-xs bg-slate-50 font-bold">
+                <option value="">👤 همه فروشندگان</option>
+                {% for s in all_sellers %}
+                <option value="{{ s.id }}" {% if seller_filter == s.id|string %}selected{% endif %}>{{ s.full_name }} ({{ s.shop.name }})</option>
+                {% endfor %}
+            </select>
+
+            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="شماره فاکتور، تلفن یا خریدار..." class="p-2 border border-gray-300 rounded-xl text-xs w-full md:w-56">
+            <button type="submit" class="bg-slate-800 text-white text-xs px-4 py-2 rounded-xl font-bold">جستجو و فیلتر</button>
+            {% if search_query or seller_filter %}
+            <a href="{{ url_for('admin_dashboard', month=selected_month) }}" class="text-xs text-rose-600 hover:underline">حذف فیلترها</a>
+            {% endif %}
         </form>
     </div>
 
@@ -919,7 +939,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                     {% endif %}
                 </td>
                 <td class="p-2.5 text-gray-600">{{ inv.shop_name }}</td>
-                <td class="p-2.5 font-medium">{{ inv.seller_name }}</td>
+                <td class="p-2.5 font-bold text-indigo-900">{{ inv.seller_name }}</td>
                 <td class="p-2.5">{{ inv.customer_name }} <span class="text-gray-400 block text-[10px]">{{ inv.customer_phone or '' }}</span></td>
                 <td class="p-2.5 font-bold {% if inv.invoice_type == 'return' %}text-rose-600{% else %}text-emerald-700{% endif %}">
                     {% if inv.invoice_type == 'return' %}-{% endif %}{{ "{:,}".format(inv.total_amount) }}
@@ -951,13 +971,13 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="11" class="text-center p-6 text-gray-400">فاکتوری یافت نشد.</td></tr>
+            <tr><td colspan="11" class="text-center p-6 text-gray-400">فاکتوری با این فیلترها یافت نشد.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<!-- مدال نمایش ریزِ ریز جزئیات فاکتور برای مدیر -->
+<!-- مدال نمایش ریز جزئیات فاکتور -->
 <div id="invoiceDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center border-b pb-3">
@@ -1004,43 +1024,36 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
-<!-- مدال‌ها -->
-<div id="chequeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+<!-- مدال شارژ تنخواه شعب -->
+<div id="pettyDepositModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-3">✍️ ثبت چک صیادی مشتری</h3>
-        <form method="POST" action="{{ url_for('add_cheque') }}" onsubmit="unformatOnSubmit(this)">
+        <h3 class="text-md font-bold text-slate-800 mb-3">💵 واریز و شارژ تنخواه به مغازه</h3>
+        <form method="POST" action="{{ url_for('add_petty_deposit') }}" onsubmit="unformatOnSubmit(this)">
             <div class="mb-2">
-                <label class="block text-[11px] text-gray-600 mb-1">شناسه ۱۶ رقمی صیادی:</label>
-                <input type="text" name="sayad_number" required class="w-full p-2 border rounded-lg text-xs font-mono font-bold text-left" dir="ltr">
+                <label class="block text-[11px] text-gray-600 mb-1">کدام شعبه؟</label>
+                <select name="shop_id" class="w-full p-2 border rounded-lg text-xs font-bold">
+                    {% for s in shops %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="mb-2">
-                <label class="block text-[11px] text-gray-600 mb-1">نام بانک:</label>
-                <input type="text" name="bank_name" required placeholder="مثلاً: ملت / صادرات" class="w-full p-2 border rounded-lg text-xs">
-            </div>
-            <div class="mb-2">
-                <label class="block text-[11px] text-gray-600 mb-1">نام خریدار:</label>
-                <input type="text" name="customer_name" required class="w-full p-2 border rounded-lg text-xs">
-            </div>
-            <div class="mb-2">
-                <label class="block text-[11px] text-gray-600 mb-1">تلفن خریدار:</label>
-                <input type="text" name="customer_phone" class="w-full p-2 border rounded-lg text-xs text-left" dir="ltr">
-            </div>
-            <div class="mb-2">
-                <label class="block text-[11px] text-gray-600 mb-1">مبلغ چک (تومان):</label>
-                <input type="text" name="amount" required onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-lg text-xs font-bold text-emerald-700">
+                <label class="block text-[11px] text-gray-600 mb-1">عنوان واریزی:</label>
+                <input type="text" name="title" required placeholder="مثال: شارژ تنخواه اول ماه" class="w-full p-2 border rounded-lg text-xs">
             </div>
             <div class="mb-3">
-                <label class="block text-[11px] text-gray-600 mb-1">تاریخ سررسید شمسی:</label>
-                <input type="text" name="due_shamsi_date" placeholder="1405/08/15" required class="w-full p-2 border rounded-lg text-xs text-left" dir="ltr">
+                <label class="block text-[11px] text-gray-600 mb-1">مبلغ واریزی (تومان):</label>
+                <input type="text" name="amount" required onkeyup="formatNumber(this)" placeholder="مثال: 5,000,000" class="currency-input w-full p-2 border rounded-lg text-xs font-bold text-emerald-700">
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-slate-900 text-white py-2 rounded-xl text-xs font-bold">ثبت چک</button>
-                <button type="button" onclick="document.getElementById('chequeModal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs">بستن</button>
+                <button type="submit" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded-xl text-xs font-bold">ثبت واریز تنخواه</button>
+                <button type="button" onclick="document.getElementById('pettyDepositModal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs">بستن</button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- مدال تعریف کالا در انبار با قابلیت دسته‌بندی جدید -->
 <div id="inventoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <h3 class="text-md font-bold text-slate-800 mb-3">📦 افزودن کالا به انبار فروشگاه</h3>
@@ -1049,14 +1062,21 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                 <label class="block text-[11px] text-gray-600 mb-1">نام کامل کالا و مدل:</label>
                 <input type="text" name="name" required placeholder="مثال: گاز 5 شعله اخوان مدل GI-135" class="w-full p-2 border rounded-lg text-xs font-bold">
             </div>
+            
             <div class="mb-2">
-                <label class="block text-[11px] text-gray-600 mb-1">دسته‌بندی:</label>
-                <select name="category" class="w-full p-2 border rounded-lg text-xs">
-                    {% for cat in product_categories %}
-                    <option value="{{ cat }}">{{ cat }}</option>
+                <label class="block text-[11px] text-gray-600 mb-1">دسته‌بندی کالا:</label>
+                <select name="category" id="invCategorySelect" onchange="toggleCustomCategory(this.value)" class="w-full p-2 border rounded-lg text-xs font-bold bg-white">
+                    {% for cat in all_categories %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
                     {% endfor %}
+                    <option value="__custom__" class="text-indigo-700 font-bold">➕ تعریف دسته‌بندی جدید...</option>
                 </select>
+                <!-- اینپوت دسته جدید -->
+                <div id="customCategoryInputBox" style="display: none;" class="mt-2">
+                    <input type="text" name="custom_category_name" placeholder="نام دسته‌بندی جدید (مثلاً: پنل دوش)" class="w-full p-2 border border-indigo-300 rounded-lg text-xs font-bold text-indigo-800 bg-indigo-50">
+                </div>
             </div>
+
             <div class="mb-2">
                 <label class="block text-[11px] text-gray-600 mb-1">شعبه:</label>
                 <select name="shop_id" class="w-full p-2 border rounded-lg text-xs">
@@ -1093,6 +1113,44 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
+<!-- مدال ثبت چک صیادی -->
+<div id="chequeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">✍️ ثبت چک صیادی مشتری</h3>
+        <form method="POST" action="{{ url_for('add_cheque') }}" onsubmit="unformatOnSubmit(this)">
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">شناسه ۱۶ رقمی صیادی:</label>
+                <input type="text" name="sayad_number" required class="w-full p-2 border rounded-lg text-xs font-mono font-bold text-left" dir="ltr">
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">نام بانک:</label>
+                <input type="text" name="bank_name" required placeholder="مثلاً: ملت / صادرات" class="w-full p-2 border rounded-lg text-xs">
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">نام خریدار:</label>
+                <input type="text" name="customer_name" required class="w-full p-2 border rounded-lg text-xs">
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">تلفن خریدار:</label>
+                <input type="text" name="customer_phone" class="w-full p-2 border rounded-lg text-xs text-left" dir="ltr">
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">مبلغ چک (تومان):</label>
+                <input type="text" name="amount" required onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-lg text-xs font-bold text-emerald-700">
+            </div>
+            <div class="mb-3">
+                <label class="block text-[11px] text-gray-600 mb-1">تاریخ سررسید شمسی:</label>
+                <input type="text" name="due_shamsi_date" placeholder="1405/08/15" required class="w-full p-2 border rounded-lg text-xs text-left" dir="ltr">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-slate-900 text-white py-2 rounded-xl text-xs font-bold">ثبت چک</button>
+                <button type="button" onclick="document.getElementById('chequeModal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs">بستن</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- مدال تغییر رمز -->
 <div id="customPasswordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <h3 class="text-md font-bold text-slate-800 mb-2">🔑 تغییر رمز پرسنل</h3>
@@ -1110,6 +1168,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
+<!-- مدال تعریف پرسنل جدید -->
 <div id="addUserModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <h3 class="text-md font-bold text-slate-800 mb-4">➕ تعریف پرسنل جدید</h3>
@@ -1146,6 +1205,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
+<!-- مدال تنظیم تارگت‌ها -->
 <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
         <h3 class="text-md font-bold text-slate-800 mb-3">⚙️ تنظیم پله‌های پورسانت طهماسبی</h3>
@@ -1173,6 +1233,13 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
 </div>
 
 <script>
+    function toggleCustomCategory(val) {
+        var box = document.getElementById('customCategoryInputBox');
+        if (box) {
+            box.style.display = (val === '__custom__') ? 'block' : 'none';
+        }
+    }
+
     function openPasswordModal(userId, userName) {
         document.getElementById('pwModalUser').innerText = 'کاربر: ' + userName;
         document.getElementById('passwordForm').action = '/admin/user/set_password/' + userId;
@@ -1391,6 +1458,7 @@ def seller_dashboard():
     colleagues = User.query.filter(User.role == 'seller', User.id != user.id, User.is_active == True).all()
     other_shops = Shop.query.filter(Shop.id != user.shop_id).all()
     inventory_items = InventoryItem.query.all()
+    all_categories = Category.query.all()
     
     all_sellers = User.query.filter_by(role='seller', is_active=True).all()
     leaderboard = []
@@ -1408,7 +1476,7 @@ def seller_dashboard():
         selected_month=selected_month,
         current_month_name=PERSIAN_MONTHS[selected_month],
         current_year=now_j.year,
-        product_categories=PRODUCT_CATEGORIES,
+        all_categories=all_categories,
         return_reasons=RETURN_REASONS,
         colleagues=colleagues,
         other_shops=other_shops,
@@ -1473,7 +1541,6 @@ def add_invoice():
     db.session.add(new_inv)
     db.session.commit()
     
-    # ثبت خودکار چک در دفترچه چک‌های صیادی
     if pay_method == 'cheque' and cheque_sayad:
         chk = Cheque(
             invoice_id=new_inv.id,
@@ -1515,25 +1582,47 @@ def settle_deposit(invoice_id):
     flash(f'مانده فاکتور {inv.invoice_number} به طور کامل تسویه شد.', 'success')
     return redirect(url_for('seller_dashboard'))
 
+# ثبت شارژ تنخواه توسط مدیر
+@app.route('/admin/petty_deposit/add', methods=['POST'])
+def add_petty_deposit():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    now_j = jdatetime.datetime.now()
+    amount = int(request.form.get('amount', '0').replace(',', ''))
+    dep = PettyCashDeposit(
+        title=request.form.get('title'),
+        amount=amount,
+        shop_id=int(request.form.get('shop_id')),
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_date_time=now_j.strftime("%Y/%m/%d - %H:%M:%S"),
+        created_by=session['full_name']
+    )
+    db.session.add(dep)
+    db.session.commit()
+    log_activity(f"شارژ تنخواه به مبلغ {amount:,} تومان برای شعبه {dep.shop_id}", session.get('full_name'))
+    flash('شارژ تنخواه با موفقیت ثبت شد.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/expense/add', methods=['POST'])
 def add_expense():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    now_j = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
+    now_j = jdatetime.datetime.now()
     amount = int(request.form.get('amount', '0').replace(',', ''))
     exp = Expense(
         title=request.form.get('title'),
         amount=amount,
         category=request.form.get('category'),
-        shamsi_year=jdatetime.datetime.now().year,
-        shamsi_month=jdatetime.datetime.now().month,
-        shamsi_date_time=now_j,
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_date_time=now_j.strftime("%Y/%m/%d - %H:%M:%S"),
         shop_id=session['shop_id'],
         created_by=session['full_name']
     )
     db.session.add(exp)
     db.session.commit()
-    log_activity(f"ثبت هزینه {exp.title} به مبلغ {exp.amount:,} تومان", session.get('full_name'))
+    log_activity(f"ثبت هزینه تنخواه {exp.title} به مبلغ {exp.amount:,} تومان", session.get('full_name'))
     flash('هزینه در تنخواه ثبت شد.', 'success')
     return redirect(url_for('index'))
 
@@ -1552,6 +1641,7 @@ def admin_dashboard():
     now_j = jdatetime.datetime.now()
     selected_month = request.args.get('month', default=now_j.month, type=int)
     search_query = request.args.get('search', '').strip()
+    seller_filter = request.args.get('seller_filter', '').strip()
     
     settings = Settings.query.first()
     sellers = User.query.filter_by(role='seller', is_active=True).all()
@@ -1584,10 +1674,15 @@ def admin_dashboard():
         
     expenses = Expense.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month).all()
     total_expenses = sum(e.amount for e in expenses)
+    
+    petty_deposits = PettyCashDeposit.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month).all()
+    total_petty_deposits = sum(d.amount for d in petty_deposits)
+    
     estimated_gross_profit = max(int(total_sales_all * 0.25), 0)
     
+    all_categories = Category.query.all()
     all_month_invoices = Invoice.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month, invoice_type='sale', status='final').all()
-    cat_counts = {cat: 0 for cat in PRODUCT_CATEGORIES}
+    cat_counts = {cat.name: 0 for cat in all_categories}
     for inv in all_month_invoices:
         try:
             cats = json.loads(inv.categories_json or '[]')
@@ -1604,7 +1699,11 @@ def admin_dashboard():
     pending_cheques = [c for c in cheques if c.status == 'pending']
     pending_cheques_total = sum(c.amount for c in pending_cheques)
     
+    # کوئری جستجو با فیلتر نام فروشنده
     query = Invoice.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
+    if seller_filter:
+        query = query.filter_by(seller_id=int(seller_filter))
+        
     if search_query:
         query = query.filter(
             (Invoice.customer_name.contains(search_query)) |
@@ -1647,10 +1746,13 @@ def admin_dashboard():
     return render_template_string(
         ADMIN_DASHBOARD,
         sellers_data=sellers_data,
+        all_sellers=sellers,
+        seller_filter=seller_filter,
         shop1_total=shop1_total,
         shop2_total=shop2_total,
         total_commissions=total_commissions,
         total_expenses=total_expenses,
+        total_petty_deposits=total_petty_deposits,
         estimated_gross_profit=estimated_gross_profit,
         cheques=cheques,
         pending_cheques_count=len(pending_cheques),
@@ -1660,7 +1762,7 @@ def admin_dashboard():
         selected_month_name=PERSIAN_MONTHS[selected_month],
         current_year=now_j.year,
         shops=shops,
-        product_categories=PRODUCT_CATEGORIES,
+        all_categories=all_categories,
         chart_sellers_labels=chart_sellers_labels,
         chart_sellers_data=chart_sellers_data,
         chart_category_labels=chart_category_labels,
@@ -1789,11 +1891,22 @@ def update_cheque_status(cheque_id):
 def add_inventory_item():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
+    
+    category_val = request.form.get('category')
+    if category_val == '__custom__':
+        category_val = request.form.get('custom_category_name', '').strip()
+        if not category_val:
+            category_val = 'سایر و متفرقه'
+        # ذخیره در جدول دسته‌بندی‌ها برای دسترسی‌های بعدی
+        if not Category.query.filter_by(name=category_val).first():
+            db.session.add(Category(name=category_val))
+            db.session.commit()
+            
     buy_raw = request.form.get('buy_price', '').replace(',', '')
     sell_raw = request.form.get('sell_price', '').replace(',', '')
     item = InventoryItem(
         name=request.form.get('name'),
-        category=request.form.get('category'),
+        category=category_val,
         shop_id=int(request.form.get('shop_id')),
         stock_quantity=int(request.form.get('stock_quantity', 5)),
         min_alert_stock=int(request.form.get('min_alert_stock', 2)),
@@ -1802,8 +1915,8 @@ def add_inventory_item():
     )
     db.session.add(item)
     db.session.commit()
-    log_activity(f"افزودن کالای {item.name} به انبار", session.get('full_name'))
-    flash('کالا با موفقیت در انبار ثبت شد.', 'success')
+    log_activity(f"افزودن کالای {item.name} در دسته {category_val} به انبار", session.get('full_name'))
+    flash(f'کالای {item.name} با موفقیت در انبار ثبت گردید.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/backup')
@@ -1858,9 +1971,17 @@ def export_excel():
 
 with app.app_context():
     db.create_all()
+    
+    # ساخت دسته‌بندی‌های پیش‌فرض
+    for cat_name in DEFAULT_CATEGORIES:
+        if not Category.query.filter_by(name=cat_name).first():
+            db.session.add(Category(name=cat_name))
+    db.session.commit()
+    
     if not Settings.query.first():
         db.session.add(Settings())
         db.session.commit()
+        
     if not Shop.query.first():
         shop1 = Shop(name='فروشگاه طهماسبی - شعبه ۱ (مرکزی)')
         shop2 = Shop(name='فروشگاه طهماسبی - شعبه ۲')

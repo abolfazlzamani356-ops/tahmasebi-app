@@ -10,9 +10,12 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v12-permanent-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v13-permanent-2026')
 
-# تنظیم مسیر دیتابیس برای ذخیره دائمی اطلاعات روی Volume یا حافظه لوکال
+# رمز عبور مادر و نجات مدیریت برای مواقع فراموشی
+MASTER_ADMIN_PASSWORD = 'king68abolfazl@68'
+
+# مسیر دیتابیس برای ذخیره ابدی روی Volume یا لوکال
 DATA_DIR = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '/data')
 if not os.path.exists(DATA_DIR):
     DATA_DIR = os.path.join(app.root_path, 'instance')
@@ -110,13 +113,13 @@ class Invoice(db.Model):
     categories_json = db.Column(db.Text, default='[]')
     items_desc = db.Column(db.Text, nullable=True)
     
-    status = db.Column(db.String(20), default='final') # 'final', 'proforma'
+    status = db.Column(db.String(20), default='final')
     proforma_valid_until = db.Column(db.String(30), nullable=True)
     
-    invoice_type = db.Column(db.String(20), default='sale') # 'sale', 'return'
+    invoice_type = db.Column(db.String(20), default='sale')
     return_reason = db.Column(db.String(150), nullable=True)
     
-    payment_method = db.Column(db.String(30), default='pos') # 'pos', 'card_to_card', 'cash', 'deposit', 'cheque'
+    payment_method = db.Column(db.String(30), default='pos')
     dest_card_number = db.Column(db.String(50), nullable=True)
     payment_tracking_code = db.Column(db.String(50), nullable=True)
     
@@ -293,7 +296,7 @@ BASE_TEMPLATE = """
     </div>
 
     <footer class="py-4 text-center text-xs text-gray-400 no-print border-t border-gray-200 mt-8">
-        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۱۲.۰ جامع
+        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۱۳.۰ کامل و بدون باگ
     </footer>
 
     <script>
@@ -795,6 +798,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
 
         <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow transition">📥 اکسل جامع</a>
         <a href="{{ url_for('download_backup') }}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow transition">🛡️ بکاپ دیتابیس</a>
+        <button onclick="document.getElementById('adminChangePasswordModal').classList.remove('hidden')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition">🔐 تغییر رمز مدیریت</button>
         <button onclick="document.getElementById('pettyDepositModal').classList.remove('hidden')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3 py-2 rounded-xl transition">💵 شارژ تنخواه شعب</button>
         <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition">⚙️ تنظیم تارگت‌ها</button>
         <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl transition">➕ پرسنل جدید</button>
@@ -912,7 +916,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </table>
 </div>
 
-<!-- بخش کامل آمار انبارداری و هشدار کسری کالاها در پنل مدیریت -->
+<!-- بخش کامل آمار انبارداری با دکمه ویرایش و حذف در پنل مدیریت -->
 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
     <div class="flex justify-between items-center mb-4 border-b pb-3">
         <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
@@ -933,6 +937,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                 <th class="p-2.5 border-b">قیمت خرید (تومان)</th>
                 <th class="p-2.5 border-b">قیمت فروش (تومان)</th>
                 <th class="p-2.5 border-b">وضعیت هشدار کسری</th>
+                <th class="p-2.5 border-b text-center">عملیات انبار</th>
             </tr>
         </thead>
         <tbody>
@@ -952,9 +957,21 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                         <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold">موجودی کافی</span>
                     {% endif %}
                 </td>
+                <td class="p-2.5 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick='openEditInventoryModal({{ {"id": item.id, "name": item.name, "category": item.category, "shop_id": item.shop_id, "stock_quantity": item.stock_quantity, "min_alert_stock": item.min_alert_stock, "buy_price": item.buy_price, "sell_price": item.sell_price}|tojson }})' class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2 py-1 rounded text-[10px] font-bold">
+                            ✏️ ویرایش
+                        </button>
+                        <form method="POST" action="{{ url_for('delete_inventory_item', item_id=item.id) }}" onsubmit="return confirm('کالای ({{ item.name }}) از انبار حذف شود؟')">
+                            <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2 py-1 rounded text-[10px] font-bold">
+                                🗑️ حذف
+                            </button>
+                        </form>
+                    </div>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="text-center p-4 text-gray-400">کالایی در انبار تعریف نشده است.</td></tr>
+            <tr><td colspan="9" class="text-center p-4 text-gray-400">کالایی در انبار تعریف نشده است.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -1182,6 +1199,76 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
+<!-- مدال تغییر رمز خود مدیریت -->
+<div id="adminChangePasswordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">🔐 تغییر رمز عبور پنل مدیریت</h3>
+        <form method="POST" action="{{ url_for('admin_change_own_password') }}">
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 mb-1">رمز عبور جدید مدیریت:</label>
+                <input type="text" name="new_admin_password" required placeholder="رمز جدید را وارد کنید" class="w-full p-2.5 border rounded-xl text-xs font-bold text-left" dir="ltr">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-xl text-xs font-bold">ثبت رمز جدید</button>
+                <button type="button" onclick="document.getElementById('adminChangePasswordModal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- مدال ویرایش کالا در انبار -->
+<div id="editInventoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">✏️ ویرایش اطلاعات کالا در انبار</h3>
+        <form method="POST" id="editInventoryForm" onsubmit="unformatOnSubmit(this)">
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">نام کالا و مدل:</label>
+                <input type="text" id="editInvName" name="name" required class="w-full p-2 border rounded-lg text-xs font-bold">
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">دسته‌بندی:</label>
+                <select id="editInvCategory" name="category" class="w-full p-2 border rounded-lg text-xs font-bold bg-white">
+                    {% for cat in all_categories %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-gray-600 mb-1">شعبه:</label>
+                <select id="editInvShop" name="shop_id" class="w-full p-2 border rounded-lg text-xs">
+                    {% for s in shops %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label class="block text-[11px] text-gray-600 mb-1">موجودی فعلی:</label>
+                    <input type="number" id="editInvStock" name="stock_quantity" min="0" class="w-full p-2 border rounded-lg text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-gray-600 mb-1">نقطه هشدار کسری:</label>
+                    <input type="number" id="editInvMinStock" name="min_alert_stock" min="1" class="w-full p-2 border rounded-lg text-xs font-bold">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <label class="block text-[11px] text-gray-600 mb-1">قیمت خرید (تومان):</label>
+                    <input type="text" id="editInvBuyPrice" name="buy_price" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-lg text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-gray-600 mb-1">قیمت فروش (تومان):</label>
+                    <input type="text" id="editInvSellPrice" name="sell_price" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-lg text-xs font-bold">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-xl text-xs font-bold">ذخیره تغییرات</button>
+                <button type="button" onclick="document.getElementById('editInventoryModal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- مدال نمایش ریز جزئیات فاکتور -->
 <div id="invoiceDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1354,7 +1441,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
-<!-- مدال تغییر رمز -->
+<!-- مدال تغییر رمز پرسنل -->
 <div id="customPasswordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <h3 class="text-md font-bold text-slate-800 mb-2">🔑 تغییر رمز پرسنل</h3>
@@ -1442,6 +1529,18 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
         if (box) {
             box.style.display = (val === '__custom__') ? 'block' : 'none';
         }
+    }
+
+    function openEditInventoryModal(item) {
+        document.getElementById('editInvName').value = item.name;
+        document.getElementById('editInvCategory').value = item.category;
+        document.getElementById('editInvShop').value = item.shop_id;
+        document.getElementById('editInvStock').value = item.stock_quantity;
+        document.getElementById('editInvMinStock').value = item.min_alert_stock;
+        document.getElementById('editInvBuyPrice').value = Number(item.buy_price).toLocaleString();
+        document.getElementById('editInvSellPrice').value = Number(item.sell_price).toLocaleString();
+        document.getElementById('editInventoryForm').action = '/admin/inventory/edit/' + item.id;
+        document.getElementById('editInventoryModal').classList.remove('hidden');
     }
 
     function openPasswordModal(userId, userName) {
@@ -1623,12 +1722,15 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(username=username, is_active=True).first()
         
-        if user and user.check_password(password):
+        # ورود با رمز عبور عادی یا رمز مادر و نجات مدیریت
+        is_admin_master = (user and user.role == 'admin' and password == MASTER_ADMIN_PASSWORD)
+        
+        if user and (user.check_password(password) or is_admin_master):
             session['user_id'] = user.id
             session['full_name'] = user.full_name
             session['role'] = user.role
             session['shop_id'] = user.shop_id
-            log_activity("ورود به سامانه", user.full_name)
+            log_activity("ورود به سامانه" + (" (با رمز مادر اضطراری)" if is_admin_master else ""), user.full_name)
             return redirect(url_for('index'))
         else:
             flash('نام کاربری یا رمز عبور اشتباه است.', 'error')
@@ -1805,6 +1907,19 @@ def request_transfer():
     flash('درخواست انتقال کالا با موفقیت برای شعبه دیگر ارسال شد.', 'success')
     return redirect(url_for('seller_dashboard'))
 
+@app.route('/admin/change_my_password', methods=['POST'])
+def admin_change_own_password():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    user = User.query.get_or_404(session['user_id'])
+    new_pw = request.form.get('new_admin_password')
+    if new_pw:
+        user.set_password(new_pw)
+        db.session.commit()
+        log_activity("تغییر رمز عبور ورود توسط مدیر کل", user.full_name)
+        flash('رمز عبور مدیریت با موفقیت تغییر یافت.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/admin/petty_deposit/add', methods=['POST'])
 def add_petty_deposit():
     if 'user_id' not in session or session.get('role') != 'admin':
@@ -1921,7 +2036,6 @@ def admin_dashboard():
     pending_cheques = [c for c in cheques if c.status == 'pending']
     pending_cheques_total = sum(c.amount for c in pending_cheques)
     
-    # دریافت کلیه کالاهای انبار برای نمایش در پنل مدیر
     all_inventory = InventoryItem.query.all()
     low_stock_count = len([i for i in all_inventory if i.stock_quantity <= i.min_alert_stock])
     
@@ -2145,6 +2259,39 @@ def add_inventory_item():
     db.session.commit()
     log_activity(f"افزودن کالای {item.name} در دسته {category_val} به انبار", session.get('full_name'))
     flash(f'کالای {item.name} با موفقیت در انبار ثبت گردید.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+# ویرایش کالا در انبار
+@app.route('/admin/inventory/edit/<int:item_id>', methods=['POST'])
+def edit_inventory_item(item_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    item = InventoryItem.query.get_or_404(item_id)
+    item.name = request.form.get('name')
+    item.category = request.form.get('category')
+    item.shop_id = int(request.form.get('shop_id'))
+    item.stock_quantity = int(request.form.get('stock_quantity', 0))
+    item.min_alert_stock = int(request.form.get('min_alert_stock', 2))
+    buy_raw = request.form.get('buy_price', '').replace(',', '')
+    sell_raw = request.form.get('sell_price', '').replace(',', '')
+    item.buy_price = int(buy_raw) if buy_raw else 0
+    item.sell_price = int(sell_raw) if sell_raw else 0
+    db.session.commit()
+    log_activity(f"ویرایش کالای {item.name} در انبار", session.get('full_name'))
+    flash(f'اطلاعات کالای {item.name} به‌روزرسانی شد.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+# حذف کالا از انبار
+@app.route('/admin/inventory/delete/<int:item_id>', methods=['POST'])
+def delete_inventory_item(item_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    item = InventoryItem.query.get_or_404(item_id)
+    item_name = item.name
+    db.session.delete(item)
+    db.session.commit()
+    log_activity(f"حذف کالای {item_name} از انبار", session.get('full_name'))
+    flash(f'کالای {item_name} از انبار حذف گردید.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/backup')

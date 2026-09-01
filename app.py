@@ -10,8 +10,16 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v7-2026')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tahmasebi_store_v7.db'
+app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v8-permanent-2026')
+
+# تنظیم مسیر دیتابیس برای ذخیره دائمی اطلاعات روی سرور ابری (Volume) یا لوکال
+DATA_DIR = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '/data')
+if not os.path.exists(DATA_DIR):
+    DATA_DIR = os.path.join(app.root_path, 'instance')
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+db_path = os.path.join(DATA_DIR, 'tahmasebi_store_persistent.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -101,10 +109,15 @@ class Invoice(db.Model):
     proforma_valid_until = db.Column(db.String(30), nullable=True)
     
     invoice_type = db.Column(db.String(20), default='sale') # 'sale', 'return'
-    return_reason = db.Column(db.String(150), nullable=True) # علت دقیق مرجوعی
+    return_reason = db.Column(db.String(150), nullable=True)
     
     payment_method = db.Column(db.String(30), default='pos') # 'pos', 'card_to_card', 'cash', 'deposit', 'cheque'
+    dest_card_number = db.Column(db.String(50), nullable=True)
     payment_tracking_code = db.Column(db.String(50), nullable=True)
+    
+    cheque_sayad = db.Column(db.String(50), nullable=True)
+    cheque_bank = db.Column(db.String(100), nullable=True)
+    cheque_due_date = db.Column(db.String(30), nullable=True)
     
     total_amount = db.Column(db.BigInteger, nullable=False)
     paid_amount = db.Column(db.BigInteger, default=0)
@@ -235,7 +248,7 @@ BASE_TEMPLATE = """
                     <span class="text-2xl">✨</span>
                     <div>
                         <a href="{{ url_for('index') }}" class="text-base md:text-xl font-black">مجموعه فروشگاه‌های تخصصی طهماسبی</a>
-                        <p class="text-[10px] text-slate-400">سامانه هوشمند فروش، پورسانت، انبارداری و مدیریت چک‌ها</p>
+                        <p class="text-[10px] text-slate-400">سامانه جامع فروش، پورسانت، انبارداری و مدیریت چک‌ها</p>
                     </div>
                 </div>
                 {% if session.get('user_id') %}
@@ -265,7 +278,7 @@ BASE_TEMPLATE = """
     </div>
 
     <footer class="py-4 text-center text-xs text-gray-400 no-print border-t border-gray-200 mt-8">
-        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۷.۰ نهایی
+        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۸.۰ دائمی
     </footer>
 
     <script>
@@ -382,13 +395,11 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                 </div>
             </div>
 
-            <!-- باکس مهلت پیش فاکتور -->
             <div id="proformaDateBox" class="mb-3 hidden bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
                 <label class="block text-[11px] font-bold text-indigo-800 mb-1">📅 مهلت اعتبار پیش‌فاکتور (تاریخ شمسی):</label>
                 <input type="text" name="proforma_valid_until" placeholder="مثلاً: 1405/06/12 - تا ۴۸ ساعت" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
             </div>
 
-            <!-- باکس انتخاب علت دقیق مرجوعی (فعال در حالت مرجوعی) -->
             <div id="returnReasonBox" class="mb-3 hidden bg-rose-50 p-2.5 rounded-xl border border-rose-200">
                 <label class="block text-[11px] font-bold text-rose-800 mb-1">⚠️ علت دقیق مرجوعی کالا:</label>
                 <select name="return_reason" class="w-full p-2 border border-rose-300 rounded-lg text-xs bg-white font-bold text-rose-700">
@@ -415,13 +426,35 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                 </div>
             </div>
 
-            <!-- فیلد کارت به کارت -->
-            <div id="cardTrackingBox" class="mb-3 hidden bg-blue-50 p-2.5 rounded-xl border border-blue-200">
-                <label class="block text-[11px] font-bold text-blue-900 mb-1">💳 شماره پیگیری کارت به کارت / ۴ رقم کارت:</label>
-                <input type="text" name="payment_tracking_code" placeholder="مثال: پیگیری 489201 یا کارت 6037" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
+            <div id="cardTrackingBox" class="mb-3 hidden bg-blue-50 p-2.5 rounded-xl border border-blue-200 space-y-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-blue-900 mb-1">💳 واریز به کدام شماره کارت طهماسبی (کارت مقصد)؟</label>
+                    <input type="text" name="dest_card_number" placeholder="مثال: 6037... بنام طهماسبی" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-blue-900 mb-1">شماره پیگیری فیش / ۴ رقم آخر کارت خریدار:</label>
+                    <input type="text" name="payment_tracking_code" placeholder="مثال: پیگیری 489201" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
+                </div>
             </div>
 
-            <!-- فیلدهای بیعانه و موعد تسویه نهایی -->
+            <div id="chequeDirectBox" class="mb-3 hidden bg-indigo-50 p-2.5 rounded-xl border border-indigo-200 space-y-2">
+                <span class="text-xs font-bold text-indigo-900 block border-b pb-1">✍️ اطلاعات چک صیادی مشتری:</span>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-600 mb-1">شناسه ۱۶ رقمی صیادی:</label>
+                    <input type="text" name="cheque_sayad" placeholder="16 رقم صیادی" class="w-full p-2 border rounded-lg text-xs bg-white font-mono text-left font-bold" dir="ltr">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-600 mb-1">نام بانک:</label>
+                        <input type="text" name="cheque_bank" placeholder="مثلاً: ملت" class="w-full p-2 border rounded-lg text-xs bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-600 mb-1">تاریخ سررسید:</label>
+                        <input type="text" name="cheque_due_date" placeholder="1405/08/20" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
+                    </div>
+                </div>
+            </div>
+
             <div id="depositDetailsBox" class="mb-3 hidden bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
@@ -562,7 +595,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                     <td class="p-2.5">
                         {% if inv.payment_method == 'card_to_card' %}
                             <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-bold">کارت به کارت</span>
-                            <span class="text-[9px] text-gray-500 block">{{ inv.payment_tracking_code or '' }}</span>
+                            {% if inv.dest_card_number %}<span class="text-[9px] text-blue-600 block">کارت مقصد: {{ inv.dest_card_number }}</span>{% endif %}
                         {% elif inv.payment_method == 'deposit' and inv.total_amount > (inv.paid_amount or 0) %}
                             <span class="text-amber-600 font-bold block">{{ "{:,}".format(inv.paid_amount or 0) }} بیعانه</span>
                             <span class="text-rose-500 text-[10px] block">مانده: {{ "{:,}".format(inv.total_amount - (inv.paid_amount or 0)) }}</span>
@@ -571,6 +604,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                             {% endif %}
                         {% elif inv.payment_method == 'cheque' %}
                             <span class="text-indigo-600 font-bold">چک صیادی</span>
+                            {% if inv.cheque_sayad %}<span class="text-[9px] text-gray-500 block">صیادی: {{ inv.cheque_sayad }}</span>{% endif %}
                         {% else %}
                             <span class="text-gray-600">تسویه کامل</span>
                         {% endif %}
@@ -601,7 +635,6 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
     </div>
 </div>
 
-<!-- تابلوی رقابت پرسنل -->
 <div id="leaderboard" class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white p-6 rounded-3xl shadow-xl mb-8">
     <div class="text-center mb-6">
         <span class="text-3xl">🏆</span>
@@ -642,6 +675,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
     function togglePaymentInputs(val) {
         document.getElementById('cardTrackingBox').style.display = (val === 'card_to_card') ? 'block' : 'none';
         document.getElementById('depositDetailsBox').style.display = (val === 'deposit') ? 'block' : 'none';
+        document.getElementById('chequeDirectBox').style.display = (val === 'cheque') ? 'block' : 'none';
     }
 </script>
 """)
@@ -821,7 +855,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </table>
 </div>
 
-<!-- جستجوی پیشرفته و مدیریت فاکتورها با نمایش شفاف علت مرجوعی -->
+<!-- جستجوی پیشرفته و مدیریت فاکتورها -->
 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
     <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
         <h3 class="text-md font-bold text-slate-800">🔍 جستجو و مدیریت کلیه فاکتورهای شعب</h3>
@@ -843,6 +877,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                 <th class="p-2.5 border-b">مبلغ (تومان)</th>
                 <th class="p-2.5 border-b">نحوه پرداخت / مانده</th>
                 <th class="p-2.5 border-b">تاریخ و ساعت</th>
+                <th class="p-2.5 border-b text-center">مشاهده ریز جزئیات</th>
                 <th class="p-2.5 border-b">چاپ</th>
                 <th class="p-2.5 border-b">حذف</th>
             </tr>
@@ -856,15 +891,12 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                         <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold text-[10px]">پیش‌فاکتور</span>
                     {% elif inv.invoice_type == 'return' %}
                         <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold text-[10px]">مرجوعی</span>
-                        {% if inv.return_reason %}
-                            <span class="text-[9px] text-rose-600 block font-medium">علت: {{ inv.return_reason }}</span>
-                        {% endif %}
                     {% else %}
                         <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold text-[10px]">قطعی</span>
                     {% endif %}
                 </td>
-                <td class="p-2.5 text-gray-600">{{ inv.shop.name }}</td>
-                <td class="p-2.5 font-medium">{{ inv.seller.full_name }}</td>
+                <td class="p-2.5 text-gray-600">{{ inv.shop_name }}</td>
+                <td class="p-2.5 font-medium">{{ inv.seller_name }}</td>
                 <td class="p-2.5">{{ inv.customer_name }} <span class="text-gray-400 block text-[10px]">{{ inv.customer_phone or '' }}</span></td>
                 <td class="p-2.5 font-bold {% if inv.invoice_type == 'return' %}text-rose-600{% else %}text-emerald-700{% endif %}">
                     {% if inv.invoice_type == 'return' %}-{% endif %}{{ "{:,}".format(inv.total_amount) }}
@@ -874,14 +906,18 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                         <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-bold">کارت به کارت</span>
                     {% elif inv.payment_method == 'deposit' and inv.total_amount > (inv.paid_amount or 0) %}
                         <span class="text-rose-500 font-bold text-[10px]">مانده: {{ "{:,}".format(inv.total_amount - (inv.paid_amount or 0)) }}</span>
-                        {% if inv.due_settlement_date %}
-                            <span class="text-[9px] text-gray-500 block">موعد: {{ inv.due_settlement_date }}</span>
-                        {% endif %}
+                    {% elif inv.payment_method == 'cheque' %}
+                        <span class="text-indigo-600 font-bold">چک صیادی</span>
                     {% else %}
                         <span class="text-gray-600">تسویه کامل</span>
                     {% endif %}
                 </td>
                 <td class="p-2.5 text-gray-400 text-[11px]" dir="ltr">{{ inv.shamsi_date_time }}</td>
+                <td class="p-2.5 text-center">
+                    <button onclick='openInvoiceDetailModal({{ inv|tojson }})' class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg text-[10px] transition">
+                        👁️ جزئیات کامل
+                    </button>
+                </td>
                 <td class="p-2.5">
                     <a href="{{ url_for('print_invoice', invoice_id=inv.id) }}" target="_blank" class="text-indigo-600 font-bold">🖨️ چاپ</a>
                 </td>
@@ -892,36 +928,56 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="10" class="text-center p-6 text-gray-400">فاکتوری یافت نشد.</td></tr>
+            <tr><td colspan="11" class="text-center p-6 text-gray-400">فاکتوری یافت نشد.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<!-- لاگ‌های امنیتی -->
-<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
-    <h3 class="text-md font-bold text-slate-800 mb-3 flex items-center gap-2">
-        <span>🛡️</span> گزارش رویدادها و لاگ امنیتی سیستم
-    </h3>
-    <div class="max-h-48 overflow-y-auto">
-        <table class="w-full text-right border-collapse text-xs">
-            <thead>
-                <tr class="bg-slate-50 text-gray-600">
-                    <th class="p-2 border-b">شرح عملیات</th>
-                    <th class="p-2 border-b">کاربر</th>
-                    <th class="p-2 border-b">زمان دقیق</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in logs %}
-                <tr class="border-b text-[11px]">
-                    <td class="p-2 font-medium text-slate-700">{{ log.action }}</td>
-                    <td class="p-2 text-indigo-700 font-bold">{{ log.user_name }}</td>
-                    <td class="p-2 text-gray-400" dir="ltr">{{ log.shamsi_date_time }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!-- مدال نمایش ریزِ ریز جزئیات فاکتور برای مدیر -->
+<div id="invoiceDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                <span>📑</span> جزئیات دقیق سند شماره <span id="dtInvNum" class="text-indigo-600"></span>
+            </h3>
+            <button onclick="document.getElementById('invoiceDetailModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-700 text-lg font-bold">✕</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-gray-500 block mb-0.5">فروشنده ثبت‌کننده:</span><span id="dtSeller" class="font-bold text-slate-800"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-gray-500 block mb-0.5">فروش مشترک (شراکتی):</span><span id="dtSplit" class="font-bold text-indigo-700"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-gray-500 block mb-0.5">نام خریدار:</span><span id="dtCustomer" class="font-bold text-slate-800"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-gray-500 block mb-0.5">تلفن خریدار:</span><span id="dtPhone" class="font-bold text-slate-800" dir="ltr"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-gray-500 block mb-0.5">مبلغ کل فاکتور:</span><span id="dtAmount" class="font-black text-emerald-600 text-sm"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-gray-500 block mb-0.5">نحوه تسویه:</span><span id="dtPayment" class="font-bold text-slate-800"></span></div>
+        </div>
+
+        <div id="dtCardBox" class="hidden bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs space-y-1">
+            <p><span class="font-bold text-blue-900">کارت مقصد طهماسبی:</span> <span id="dtDestCard" class="font-mono font-bold"></span></p>
+            <p><span class="font-bold text-blue-900">کد پیگیری فیش:</span> <span id="dtTracking" class="font-mono font-bold"></span></p>
+        </div>
+
+        <div id="dtChequeBox" class="hidden bg-indigo-50 p-3 rounded-xl border border-indigo-200 text-xs space-y-1">
+            <p><span class="font-bold text-indigo-900">شناسه ۱۶ رقمی صیادی:</span> <span id="dtSayad" class="font-mono font-bold"></span></p>
+            <p><span class="font-bold text-indigo-900">بانک صادرکننده:</span> <span id="dtBank"></span></p>
+            <p><span class="font-bold text-indigo-900">تاریخ سررسید:</span> <span id="dtDueDate" class="font-bold text-amber-700"></span></p>
+        </div>
+
+        <div id="dtDepositBox" class="hidden bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs space-y-1">
+            <p><span class="font-bold text-amber-900">مبلغ بیعانه نقدی:</span> <span id="dtPaid"></span></p>
+            <p><span class="font-bold text-amber-900">مانده بدهی مشتری:</span> <span id="dtRemaining" class="text-rose-600 font-black"></span></p>
+            <p><span class="font-bold text-amber-900">موعد تسویه مانده:</span> <span id="dtDepositDate" class="font-bold"></span></p>
+        </div>
+
+        <div class="bg-slate-50 p-3 rounded-xl border text-xs">
+            <span class="text-gray-500 block mb-1 font-bold">دسته‌بندی و شرح کالاهای سفارش:</span>
+            <p id="dtDesc" class="text-slate-800 whitespace-pre-line leading-relaxed font-medium"></p>
+        </div>
+
+        <div class="flex justify-end">
+            <button onclick="document.getElementById('invoiceDetailModal').classList.add('hidden')" class="bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-bold">بستن</button>
+        </div>
     </div>
 </div>
 
@@ -1100,6 +1156,46 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
         document.getElementById('customPasswordModal').classList.remove('hidden');
     }
 
+    function openInvoiceDetailModal(inv) {
+        document.getElementById('dtInvNum').innerText = inv.invoice_number;
+        document.getElementById('dtSeller').innerText = inv.seller_name || inv.seller_id;
+        document.getElementById('dtSplit').innerText = inv.second_seller_id ? ('شراکتی (سهم اصلی: ' + inv.split_ratio + '%)') : 'تکی (بدون همکار)';
+        document.getElementById('dtCustomer').innerText = inv.customer_name;
+        document.getElementById('dtPhone').innerText = inv.customer_phone || '-';
+        document.getElementById('dtAmount').innerText = Number(inv.total_amount).toLocaleString() + ' تومان';
+        document.getElementById('dtPayment').innerText = inv.payment_method;
+
+        if (inv.payment_method === 'card_to_card') {
+            document.getElementById('dtCardBox').classList.remove('hidden');
+            document.getElementById('dtDestCard').innerText = inv.dest_card_number || '-';
+            document.getElementById('dtTracking').innerText = inv.payment_tracking_code || '-';
+        } else {
+            document.getElementById('dtCardBox').classList.add('hidden');
+        }
+
+        if (inv.payment_method === 'cheque') {
+            document.getElementById('dtChequeBox').classList.remove('hidden');
+            document.getElementById('dtSayad').innerText = inv.cheque_sayad || '-';
+            document.getElementById('dtBank').innerText = inv.cheque_bank || '-';
+            document.getElementById('dtDueDate').innerText = inv.cheque_due_date || '-';
+        } else {
+            document.getElementById('dtChequeBox').classList.add('hidden');
+        }
+
+        if (inv.payment_method === 'deposit') {
+            document.getElementById('dtDepositBox').classList.remove('hidden');
+            document.getElementById('dtPaid').innerText = Number(inv.paid_amount || 0).toLocaleString() + ' تومان';
+            document.getElementById('dtRemaining').innerText = Number(inv.total_amount - (inv.paid_amount || 0)).toLocaleString() + ' تومان';
+            document.getElementById('dtDepositDate').innerText = inv.due_settlement_date || '-';
+        } else {
+            document.getElementById('dtDepositBox').classList.add('hidden');
+        }
+
+        let descText = (inv.categories_json ? inv.categories_json.replace(/["\\[\\]]/g, '') : '') + '\\n' + (inv.items_desc || 'بدون توضیحات');
+        document.getElementById('dtDesc').innerText = descText;
+        document.getElementById('invoiceDetailModal').classList.remove('hidden');
+    }
+
     const sellerCtx = document.getElementById('sellerSalesChart').getContext('2d');
     new Chart(sellerCtx, {
         type: 'bar',
@@ -1190,11 +1286,11 @@ PRINT_INVOICE_TEMPLATE = """
                 <span class="text-xs text-gray-300 block">
                     نحوه تسویه: 
                     {% if invoice.payment_method == 'card_to_card' %}
-                        کارت به کارت (پیگیری: {{ invoice.payment_tracking_code or '-' }})
+                        کارت به کارت (واریز به: {{ invoice.dest_card_number or '-' }} | پیگیری: {{ invoice.payment_tracking_code or '-' }})
                     {% elif invoice.payment_method == 'deposit' %}
                         بیعانه: {{ "{:,}".format(invoice.paid_amount or 0) }} تومان (مانده: {{ "{:,}".format(invoice.total_amount - (invoice.paid_amount or 0)) }} تومان)
                     {% elif invoice.payment_method == 'cheque' %}
-                        چک صیادی
+                        چک صیادی (شناسه: {{ invoice.cheque_sayad or '-' }} - سررسید: {{ invoice.cheque_due_date or '-' }})
                     {% else %}
                         کارتخوان مغازه (POS)
                     {% endif %}
@@ -1317,6 +1413,11 @@ def add_invoice():
     paid_amount = int(paid_raw) if paid_raw else total_amount
     estimated_buy_cost = int(total_amount * 0.75)
     
+    pay_method = request.form.get('payment_method', 'pos')
+    cheque_sayad = request.form.get('cheque_sayad')
+    cheque_bank = request.form.get('cheque_bank')
+    cheque_due_date = request.form.get('cheque_due_date')
+    
     new_inv = Invoice(
         invoice_number=request.form.get('invoice_number'),
         customer_name=request.form.get('customer_name'),
@@ -1327,8 +1428,12 @@ def add_invoice():
         proforma_valid_until=request.form.get('proforma_valid_until'),
         invoice_type=inv_type,
         return_reason=request.form.get('return_reason'),
-        payment_method=request.form.get('payment_method', 'pos'),
+        payment_method=pay_method,
+        dest_card_number=request.form.get('dest_card_number'),
         payment_tracking_code=request.form.get('payment_tracking_code'),
+        cheque_sayad=cheque_sayad,
+        cheque_bank=cheque_bank,
+        cheque_due_date=cheque_due_date,
         total_amount=total_amount,
         paid_amount=paid_amount,
         due_settlement_date=request.form.get('due_settlement_date'),
@@ -1344,6 +1449,20 @@ def add_invoice():
     )
     db.session.add(new_inv)
     db.session.commit()
+    
+    if pay_method == 'cheque' and cheque_sayad:
+        chk = Cheque(
+            invoice_id=new_inv.id,
+            sayad_number=cheque_sayad,
+            bank_name=cheque_bank or 'نامشخص',
+            customer_name=new_inv.customer_name,
+            customer_phone=new_inv.customer_phone,
+            amount=total_amount,
+            due_shamsi_date=cheque_due_date or 'نامشخص',
+            shop_id=session['shop_id']
+        )
+        db.session.add(chk)
+        db.session.commit()
     
     log_activity(f"ثبت سند {new_inv.invoice_number} ({status}) به مبلغ {total_amount:,} تومان", session.get('full_name'))
     flash('سند با موفقیت در سیستم ثبت گردید.', 'success')
@@ -1468,7 +1587,35 @@ def admin_dashboard():
             (Invoice.customer_phone.contains(search_query)) |
             (Invoice.invoice_number.contains(search_query))
         )
-    all_invoices = query.order_by(Invoice.created_at.desc()).all()
+    all_invoices_raw = query.order_by(Invoice.created_at.desc()).all()
+    
+    all_invoices = []
+    for inv in all_invoices_raw:
+        all_invoices.append({
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'status': inv.status,
+            'invoice_type': inv.invoice_type,
+            'return_reason': inv.return_reason,
+            'shop_name': inv.shop.name,
+            'seller_name': inv.seller.full_name,
+            'second_seller_id': inv.second_seller_id,
+            'split_ratio': inv.split_ratio,
+            'customer_name': inv.customer_name,
+            'customer_phone': inv.customer_phone,
+            'total_amount': inv.total_amount,
+            'paid_amount': inv.paid_amount,
+            'payment_method': inv.payment_method,
+            'dest_card_number': inv.dest_card_number,
+            'payment_tracking_code': inv.payment_tracking_code,
+            'cheque_sayad': inv.cheque_sayad,
+            'cheque_bank': inv.cheque_bank,
+            'cheque_due_date': inv.cheque_due_date,
+            'due_settlement_date': inv.due_settlement_date,
+            'shamsi_date_time': inv.shamsi_date_time,
+            'items_desc': inv.items_desc,
+            'categories_json': inv.categories_json
+        })
     
     shops = Shop.query.all()
     logs = AuditLog.query.order_by(AuditLog.id.desc()).limit(15).all()
@@ -1639,9 +1786,6 @@ def add_inventory_item():
 def download_backup():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
-    db_path = os.path.join(app.root_path, 'instance', 'tahmasebi_store_v7.db')
-    if not os.path.exists(db_path):
-        db_path = os.path.join(app.root_path, 'tahmasebi_store_v7.db')
     now_str = jdatetime.datetime.now().strftime("%Y%m%d_%H%M")
     log_activity("دانلود فایل بکاپ دیتابیس", session.get('full_name'))
     return send_file(db_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
@@ -1726,4 +1870,5 @@ with app.app_context():
         db.session.commit()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

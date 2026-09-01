@@ -10,9 +10,9 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v10-permanent-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v12-permanent-2026')
 
-# تنظیم مسیر دیتابیس برای ذخیره ابدی روی Volume ریل‌وی یا لوکال
+# تنظیم مسیر دیتابیس برای ذخیره دائمی اطلاعات روی Volume یا حافظه لوکال
 DATA_DIR = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '/data')
 if not os.path.exists(DATA_DIR):
     DATA_DIR = os.path.join(app.root_path, 'instance')
@@ -154,7 +154,6 @@ class Cheque(db.Model):
     shop_id = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(30), default='pending')
 
-# مدل شارژ تنخواه شعبه (واریزی‌های مدیر به مغازه)
 class PettyCashDeposit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
@@ -165,7 +164,6 @@ class PettyCashDeposit(db.Model):
     shamsi_date_time = db.Column(db.String(40), nullable=False)
     created_by = db.Column(db.String(100), nullable=False)
 
-# مدل هزینه‌های جاری (خرج‌شده از تنخواه)
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
@@ -295,7 +293,7 @@ BASE_TEMPLATE = """
     </div>
 
     <footer class="py-4 text-center text-xs text-gray-400 no-print border-t border-gray-200 mt-8">
-        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۱۰.۰ کامل
+        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۱۲.۰ جامع
     </footer>
 
     <script>
@@ -659,6 +657,72 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
     </div>
 </div>
 
+<!-- بخش انبارداری و هشدار کسری در پنل فروشنده -->
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>📦</span> موجودی انبار و درخواست انتقال بین دو شعبه طهماسبی
+        </h3>
+        <span class="text-xs text-indigo-600 font-bold">مشاهده زنده موجودی دو فروشگاه با چراغ هشدار کسری</span>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-slate-50 p-4 rounded-xl border">
+            <h4 class="text-xs font-bold text-indigo-700 mb-3">🔄 ارسال درخواست کالا از شعبه دیگر</h4>
+            <form method="POST" action="{{ url_for('request_transfer') }}">
+                <div class="mb-2">
+                    <label class="block text-[11px] text-gray-600 mb-1">نام کالای درخواستی:</label>
+                    <input type="text" name="item_name" required placeholder="مثلاً: سینک گرانیتی فونیکس" class="w-full p-2 border rounded-lg text-xs bg-white">
+                </div>
+                <div class="mb-2">
+                    <label class="block text-[11px] text-gray-600 mb-1">از کدام شعبه منتقل شود؟</label>
+                    <select name="from_shop_id" class="w-full p-2 border rounded-lg text-xs bg-white">
+                        {% for s in other_shops %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-[11px] text-gray-600 mb-1">تعداد:</label>
+                    <input type="number" name="quantity" value="1" min="1" class="w-full p-2 border rounded-lg text-xs bg-white font-bold">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded-lg transition">ثبت درخواست انتقال</button>
+            </form>
+        </div>
+
+        <div class="lg:col-span-2 overflow-x-auto">
+            <table class="w-full text-right border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-100 text-slate-700 font-bold">
+                        <th class="p-2 border-b">نام کالا</th>
+                        <th class="p-2 border-b">دسته‌بندی</th>
+                        <th class="p-2 border-b">شعبه</th>
+                        <th class="p-2 border-b">موجودی</th>
+                        <th class="p-2 border-b">وضعیت هشدار</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory_items %}
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-2 font-bold text-slate-800">{{ item.name }}</td>
+                        <td class="p-2 text-gray-500">{{ item.category }}</td>
+                        <td class="p-2"><span class="bg-gray-100 px-2 py-0.5 rounded text-[10px]">{{ item.shop.name }}</span></td>
+                        <td class="p-2 font-bold">{{ item.stock_quantity }} عدد</td>
+                        <td class="p-2">
+                            {% if item.stock_quantity <= item.min_alert_stock %}
+                                <span class="bg-rose-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold blink">⚠️ کسری انبار</span>
+                            {% else %}
+                                <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">موجود کافی</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div id="leaderboard" class="bg-gradient-to-br from-slate-900 to-indigo-950 text-white p-6 rounded-3xl shadow-xl mb-8">
     <div class="text-center mb-6">
         <span class="text-3xl">🏆</span>
@@ -717,7 +781,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
         <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
             <span>👑</span> پنل مدیریت جامع فروشگاه‌های طهماسبی
         </h2>
-        <p class="text-xs text-gray-500 mt-1">گزارش مالی دقیق، تنخواه، چک‌های صیادی و انبارداری در {{ selected_month_name }} {{ current_year }}</p>
+        <p class="text-xs text-gray-500 mt-1">گزارش مالی دقیق، گردش تنخواه، انبارداری و لاگ‌های امنیتی در {{ selected_month_name }} {{ current_year }}</p>
     </div>
     
     <div class="flex flex-wrap items-center gap-2">
@@ -739,6 +803,24 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
+{% if pending_cheques_count > 0 or total_expenses > total_petty_deposits or low_stock_count > 0 %}
+<div class="bg-amber-50 border border-amber-200 p-3 rounded-2xl mb-6 text-xs flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+        <span class="text-base">🔔</span>
+        <span class="font-bold text-amber-900">هشدارهای جاری سیستم:</span>
+        {% if pending_cheques_count > 0 %}
+        <span class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">{{ pending_cheques_count }} فقره چک در انتظار سررسید</span>
+        {% endif %}
+        {% if low_stock_count > 0 %}
+        <span class="bg-rose-500 text-white px-2 py-0.5 rounded font-bold blink">{{ low_stock_count }} قلم کالا دارای کسری انبار</span>
+        {% endif %}
+        {% if total_expenses > total_petty_deposits %}
+        <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">⚠️ کسری موجودی تنخواه شعب</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 border-r-4 border-r-indigo-600">
         <span class="text-xs text-gray-500 font-bold">فروش کل مجموعه طهماسبی</span>
@@ -753,7 +835,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 border-r-4 border-r-rose-600">
         <span class="text-xs text-gray-500 font-bold">وضعیت حساب تنخواه شعب</span>
         <h3 class="text-xl font-black text-rose-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-xs font-normal text-gray-400">تومان خرج‌شده</span></h3>
-        <p class="text-[10px] text-emerald-600 mt-1 font-bold">مانده موجودی تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} تومان</p>
+        <p class="text-[10px] text-emerald-600 mt-1 font-bold">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} تومان</p>
     </div>
     <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 border-r-4 border-r-amber-500">
         <span class="text-xs text-gray-500 font-bold">چک‌های صیادی در انتظار وصول</span>
@@ -773,7 +855,7 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </div>
 </div>
 
-<!-- جدول پورسانت پرسنل -->
+<!-- جدول کامل پورسانت پرسنل -->
 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
     <h3 class="text-md font-bold text-slate-800 mb-4 flex justify-between items-center">
         <span>👥 پورسانت پرسنل و کارنامه رضایت در {{ selected_month_name }}</span>
@@ -828,6 +910,98 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<!-- بخش کامل آمار انبارداری و هشدار کسری کالاها در پنل مدیریت -->
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>📦</span> آمار موجودی انبارها و هشدار کسری کالاها (هر دو شعبه)
+        </h3>
+        <button onclick="document.getElementById('inventoryModal').classList.remove('hidden')" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition">
+            ➕ افزودن کالا جدید
+        </button>
+    </div>
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-2.5 border-b">نام کالا و مدل</th>
+                <th class="p-2.5 border-b">دسته‌بندی</th>
+                <th class="p-2.5 border-b">شعبه</th>
+                <th class="p-2.5 border-b">موجودی فعلی</th>
+                <th class="p-2.5 border-b">نقطه سفارش</th>
+                <th class="p-2.5 border-b">قیمت خرید (تومان)</th>
+                <th class="p-2.5 border-b">قیمت فروش (تومان)</th>
+                <th class="p-2.5 border-b">وضعیت هشدار کسری</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in all_inventory %}
+            <tr class="border-b hover:bg-slate-50">
+                <td class="p-2.5 font-bold text-slate-800">{{ item.name }}</td>
+                <td class="p-2.5 text-gray-500">{{ item.category }}</td>
+                <td class="p-2.5"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">{{ item.shop.name }}</span></td>
+                <td class="p-2.5 font-black text-sm text-slate-900">{{ item.stock_quantity }} عدد</td>
+                <td class="p-2.5 text-gray-500">{{ item.min_alert_stock }} عدد</td>
+                <td class="p-2.5 font-bold text-gray-600">{{ "{:,}".format(item.buy_price) }}</td>
+                <td class="p-2.5 font-bold text-emerald-700">{{ "{:,}".format(item.sell_price) }}</td>
+                <td class="p-2.5">
+                    {% if item.stock_quantity <= item.min_alert_stock %}
+                        <span class="bg-rose-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold blink">⚠️ کسری انبار (سفارش دهید)</span>
+                    {% else %}
+                        <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold">موجودی کافی</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center p-4 text-gray-400">کالایی در انبار تعریف نشده است.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- جدول ریز گردش حساب و هزینه‌های تنخواه شعب -->
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>💵</span> ریز گردش واریزی‌ها و هزینه‌های تنخواه در {{ selected_month_name }}
+        </h3>
+        <span class="text-xs text-gray-500">مجموع واریزی‌ها: {{ "{:,}".format(total_petty_deposits) }} تومان | مجموع هزینه‌ها: {{ "{:,}".format(total_expenses) }} تومان</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div class="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200">
+            <h4 class="font-bold text-emerald-900 mb-2">📥 واریزی‌های شارژ تنخواه به شعب:</h4>
+            <div class="max-h-36 overflow-y-auto space-y-1">
+                {% for dep in petty_deposits %}
+                <div class="flex justify-between items-center bg-white p-2 rounded-lg border text-[11px]">
+                    <div>
+                        <span class="font-bold text-slate-800">{{ dep.title }}</span>
+                        <span class="text-gray-400 block text-[9px]">{{ dep.shop.name }} • توسط: {{ dep.created_by }}</span>
+                    </div>
+                    <span class="font-black text-emerald-700">{{ "{:,}".format(dep.amount) }} تومان</span>
+                </div>
+                {% else %}
+                <p class="text-gray-400 text-center py-2">واریزی تنخواهی در این ماه ثبت نشده است.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-200">
+            <h4 class="font-bold text-rose-900 mb-2">📤 هزینه‌های جاری ثبت‌شده (خرج از تنخواه):</h4>
+            <div class="max-h-36 overflow-y-auto space-y-1">
+                {% for exp in expenses %}
+                <div class="flex justify-between items-center bg-white p-2 rounded-lg border text-[11px]">
+                    <div>
+                        <span class="font-bold text-slate-800">{{ exp.title }} ({{ exp.category }})</span>
+                        <span class="text-gray-400 block text-[9px]">{{ exp.shop.name }} • ثبت: {{ exp.created_by }}</span>
+                    </div>
+                    <span class="font-black text-rose-600">{{ "{:,}".format(exp.amount) }} تومان</span>
+                </div>
+                {% else %}
+                <p class="text-gray-400 text-center py-2">هزینه‌ای در این ماه ثبت نشده است.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- دفترچه چک‌های صیادی -->
@@ -886,14 +1060,13 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
     </table>
 </div>
 
-<!-- جستجوی پیشرفته با فیلتر نام فروشنده -->
+<!-- جستجوی پیشرفته فاکتورها -->
 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-x-auto">
     <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
         <h3 class="text-md font-bold text-slate-800">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
         <form method="GET" class="flex flex-wrap gap-2 w-full md:w-auto items-center">
             <input type="hidden" name="month" value="{{ selected_month }}">
             
-            <!-- فیلتر نام فروشنده -->
             <select name="seller_filter" class="p-2 border border-gray-300 rounded-xl text-xs bg-slate-50 font-bold">
                 <option value="">👤 همه فروشندگان</option>
                 {% for s in all_sellers %}
@@ -975,6 +1148,38 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<!-- جدول گزارش رویدادها و لاگ‌های امنیتی سیستم -->
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 overflow-x-auto mb-6">
+    <div class="flex justify-between items-center mb-3 border-b pb-2">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>🛡️</span> گزارش رویدادها و لاگ امنیتی سیستم
+        </h3>
+        <span class="text-[11px] text-gray-400 font-medium">ثبت خودکار تمامی فعالیت‌های کاربران</span>
+    </div>
+    <div class="max-h-56 overflow-y-auto">
+        <table class="w-full text-right border-collapse text-xs">
+            <thead>
+                <tr class="bg-slate-50 text-gray-600 font-bold">
+                    <th class="p-2.5 border-b">شرح رویداد / عملیات</th>
+                    <th class="p-2.5 border-b">کاربر انجام‌دهنده</th>
+                    <th class="p-2.5 border-b">زمان دقیق (ثانیه‌ای)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr class="border-b hover:bg-slate-50 text-[11px]">
+                    <td class="p-2.5 font-medium text-slate-700">{{ log.action }}</td>
+                    <td class="p-2.5 text-indigo-700 font-bold">{{ log.user_name }}</td>
+                    <td class="p-2.5 text-gray-400 font-medium" dir="ltr">{{ log.shamsi_date_time }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-center p-4 text-gray-400">هنوز رویدادی ثبت نشده است.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- مدال نمایش ریز جزئیات فاکتور -->
@@ -1071,7 +1276,6 @@ ADMIN_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
                     {% endfor %}
                     <option value="__custom__" class="text-indigo-700 font-bold">➕ تعریف دسته‌بندی جدید...</option>
                 </select>
-                <!-- اینپوت دسته جدید -->
                 <div id="customCategoryInputBox" style="display: none;" class="mt-2">
                     <input type="text" name="custom_category_name" placeholder="نام دسته‌بندی جدید (مثلاً: پنل دوش)" class="w-full p-2 border border-indigo-300 rounded-lg text-xs font-bold text-indigo-800 bg-indigo-50">
                 </div>
@@ -1582,7 +1786,25 @@ def settle_deposit(invoice_id):
     flash(f'مانده فاکتور {inv.invoice_number} به طور کامل تسویه شد.', 'success')
     return redirect(url_for('seller_dashboard'))
 
-# ثبت شارژ تنخواه توسط مدیر
+@app.route('/transfer/request', methods=['POST'])
+def request_transfer():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    now_j = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
+    st = StockTransfer(
+        item_name=request.form.get('item_name'),
+        from_shop_id=int(request.form.get('from_shop_id')),
+        to_shop_id=session['shop_id'],
+        quantity=int(request.form.get('quantity', 1)),
+        requested_by=session['full_name'],
+        shamsi_date_time=now_j
+    )
+    db.session.add(st)
+    db.session.commit()
+    log_activity(f"درخواست انتقال {st.quantity} عدد {st.item_name} بین شعب", session.get('full_name'))
+    flash('درخواست انتقال کالا با موفقیت برای شعبه دیگر ارسال شد.', 'success')
+    return redirect(url_for('seller_dashboard'))
+
 @app.route('/admin/petty_deposit/add', methods=['POST'])
 def add_petty_deposit():
     if 'user_id' not in session or session.get('role') != 'admin':
@@ -1699,7 +1921,10 @@ def admin_dashboard():
     pending_cheques = [c for c in cheques if c.status == 'pending']
     pending_cheques_total = sum(c.amount for c in pending_cheques)
     
-    # کوئری جستجو با فیلتر نام فروشنده
+    # دریافت کلیه کالاهای انبار برای نمایش در پنل مدیر
+    all_inventory = InventoryItem.query.all()
+    low_stock_count = len([i for i in all_inventory if i.stock_quantity <= i.min_alert_stock])
+    
     query = Invoice.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
     if seller_filter:
         query = query.filter_by(seller_id=int(seller_filter))
@@ -1741,7 +1966,7 @@ def admin_dashboard():
         })
     
     shops = Shop.query.all()
-    logs = AuditLog.query.order_by(AuditLog.id.desc()).limit(15).all()
+    logs = AuditLog.query.order_by(AuditLog.id.desc()).limit(20).all()
     
     return render_template_string(
         ADMIN_DASHBOARD,
@@ -1753,10 +1978,14 @@ def admin_dashboard():
         total_commissions=total_commissions,
         total_expenses=total_expenses,
         total_petty_deposits=total_petty_deposits,
+        petty_deposits=petty_deposits,
+        expenses=expenses,
         estimated_gross_profit=estimated_gross_profit,
         cheques=cheques,
         pending_cheques_count=len(pending_cheques),
         pending_cheques_total=pending_cheques_total,
+        all_inventory=all_inventory,
+        low_stock_count=low_stock_count,
         months=PERSIAN_MONTHS,
         selected_month=selected_month,
         selected_month_name=PERSIAN_MONTHS[selected_month],
@@ -1897,7 +2126,6 @@ def add_inventory_item():
         category_val = request.form.get('custom_category_name', '').strip()
         if not category_val:
             category_val = 'سایر و متفرقه'
-        # ذخیره در جدول دسته‌بندی‌ها برای دسترسی‌های بعدی
         if not Category.query.filter_by(name=category_val).first():
             db.session.add(Category(name=category_val))
             db.session.commit()
@@ -1972,7 +2200,6 @@ def export_excel():
 with app.app_context():
     db.create_all()
     
-    # ساخت دسته‌بندی‌های پیش‌فرض
     for cat_name in DEFAULT_CATEGORIES:
         if not Category.query.filter_by(name=cat_name).first():
             db.session.add(Category(name=cat_name))

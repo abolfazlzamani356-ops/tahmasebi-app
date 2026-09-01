@@ -10,9 +10,9 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v8-permanent-2026')
+app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v9-permanent-2026')
 
-# تنظیم مسیر دیتابیس برای ذخیره دائمی اطلاعات روی سرور ابری (Volume) یا لوکال
+# مسیر ذخیره‌سازی دائمی دیتابیس
 DATA_DIR = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '/data')
 if not os.path.exists(DATA_DIR):
     DATA_DIR = os.path.join(app.root_path, 'instance')
@@ -115,6 +115,7 @@ class Invoice(db.Model):
     dest_card_number = db.Column(db.String(50), nullable=True)
     payment_tracking_code = db.Column(db.String(50), nullable=True)
     
+    # اطلاعات چک صیادی
     cheque_sayad = db.Column(db.String(50), nullable=True)
     cheque_bank = db.Column(db.String(100), nullable=True)
     cheque_due_date = db.Column(db.String(30), nullable=True)
@@ -278,7 +279,7 @@ BASE_TEMPLATE = """
     </div>
 
     <footer class="py-4 text-center text-xs text-gray-400 no-print border-t border-gray-200 mt-8">
-        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۸.۰ دائمی
+        سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۹.۰ نهایی
     </footer>
 
     <script>
@@ -395,11 +396,13 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                 </div>
             </div>
 
+            <!-- باکس مهلت پیش فاکتور -->
             <div id="proformaDateBox" class="mb-3 hidden bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
                 <label class="block text-[11px] font-bold text-indigo-800 mb-1">📅 مهلت اعتبار پیش‌فاکتور (تاریخ شمسی):</label>
                 <input type="text" name="proforma_valid_until" placeholder="مثلاً: 1405/06/12 - تا ۴۸ ساعت" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
             </div>
 
+            <!-- باکس علت مرجوعی -->
             <div id="returnReasonBox" class="mb-3 hidden bg-rose-50 p-2.5 rounded-xl border border-rose-200">
                 <label class="block text-[11px] font-bold text-rose-800 mb-1">⚠️ علت دقیق مرجوعی کالا:</label>
                 <select name="return_reason" class="w-full p-2 border border-rose-300 rounded-lg text-xs bg-white font-bold text-rose-700">
@@ -426,6 +429,7 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                 </div>
             </div>
 
+            <!-- فیلدهای کارت به کارت -->
             <div id="cardTrackingBox" class="mb-3 hidden bg-blue-50 p-2.5 rounded-xl border border-blue-200 space-y-2">
                 <div>
                     <label class="block text-[11px] font-bold text-blue-900 mb-1">💳 واریز به کدام شماره کارت طهماسبی (کارت مقصد)؟</label>
@@ -437,24 +441,28 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
                 </div>
             </div>
 
-            <div id="chequeDirectBox" class="mb-3 hidden bg-indigo-50 p-2.5 rounded-xl border border-indigo-200 space-y-2">
-                <span class="text-xs font-bold text-indigo-900 block border-b pb-1">✍️ اطلاعات چک صیادی مشتری:</span>
+            <!-- فیلدهای چک صیادی کامل و شیک -->
+            <div id="chequeDirectBox" class="mb-3 hidden bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-2">
+                <span class="text-xs font-bold text-indigo-900 block border-b border-indigo-200 pb-1 flex items-center gap-1">
+                    <span>🗓️</span> مشخصات چک صیادی مشتری:
+                </span>
                 <div>
-                    <label class="block text-[10px] font-bold text-gray-600 mb-1">شناسه ۱۶ رقمی صیادی:</label>
-                    <input type="text" name="cheque_sayad" placeholder="16 رقم صیادی" class="w-full p-2 border rounded-lg text-xs bg-white font-mono text-left font-bold" dir="ltr">
+                    <label class="block text-[10px] font-bold text-gray-700 mb-1">شناسه ۱۶ رقمی صیادی:</label>
+                    <input type="text" name="cheque_sayad" placeholder="16 رقم شناسه صیاد" class="w-full p-2 border rounded-lg text-xs bg-white font-mono text-left font-bold text-indigo-800" dir="ltr">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-600 mb-1">نام بانک:</label>
-                        <input type="text" name="cheque_bank" placeholder="مثلاً: ملت" class="w-full p-2 border rounded-lg text-xs bg-white">
+                        <label class="block text-[10px] font-bold text-gray-700 mb-1">نام بانک و شعبه:</label>
+                        <input type="text" name="cheque_bank" placeholder="مثلاً: صادرات مرکزی" class="w-full p-2 border rounded-lg text-xs bg-white">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-600 mb-1">تاریخ سررسید:</label>
-                        <input type="text" name="cheque_due_date" placeholder="1405/08/20" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
+                        <label class="block text-[10px] font-bold text-gray-700 mb-1">تاریخ سررسید چک:</label>
+                        <input type="text" name="cheque_due_date" placeholder="1405/08/20" class="w-full p-2 border rounded-lg text-xs bg-white text-left font-bold text-amber-700" dir="ltr">
                     </div>
                 </div>
             </div>
 
+            <!-- فیلدهای بیعانه -->
             <div id="depositDetailsBox" class="mb-3 hidden bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                 <div class="grid grid-cols-2 gap-2">
                     <div>
@@ -669,13 +677,28 @@ SELLER_DASHBOARD = BASE_TEMPLATE.replace('{% block content %}{% endblock %}', ""
 
 <script>
     function handleDocTypeChange(type) {
-        document.getElementById('proformaDateBox').style.display = (type === 'proforma') ? 'block' : 'none';
-        document.getElementById('returnReasonBox').style.display = (type === 'return') ? 'block' : 'none';
+        const proformaBox = document.getElementById('proformaDateBox');
+        const returnBox = document.getElementById('returnReasonBox');
+        if (type === 'proforma') {
+            proformaBox.classList.remove('hidden');
+        } else {
+            proformaBox.classList.add('hidden');
+        }
+        if (type === 'return') {
+            returnBox.classList.remove('hidden');
+        } else {
+            returnBox.classList.add('hidden');
+        }
     }
+
     function togglePaymentInputs(val) {
-        document.getElementById('cardTrackingBox').style.display = (val === 'card_to_card') ? 'block' : 'none';
-        document.getElementById('depositDetailsBox').style.display = (val === 'deposit') ? 'block' : 'none';
-        document.getElementById('chequeDirectBox').style.display = (val === 'cheque') ? 'block' : 'none';
+        const cardBox = document.getElementById('cardTrackingBox');
+        const depositBox = document.getElementById('depositDetailsBox');
+        const chequeBox = document.getElementById('chequeDirectBox');
+
+        if (val === 'card_to_card') { cardBox.classList.remove('hidden'); } else { cardBox.classList.add('hidden'); }
+        if (val === 'deposit') { depositBox.classList.remove('hidden'); } else { depositBox.classList.add('hidden'); }
+        if (val === 'cheque') { chequeBox.classList.remove('hidden'); } else { chequeBox.classList.add('hidden'); }
     }
 </script>
 """)
@@ -1450,6 +1473,7 @@ def add_invoice():
     db.session.add(new_inv)
     db.session.commit()
     
+    # ثبت خودکار چک در دفترچه چک‌های صیادی
     if pay_method == 'cheque' and cheque_sayad:
         chk = Cheque(
             invoice_id=new_inv.id,

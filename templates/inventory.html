@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+
+{% block title %}مدیریت انبار و انبارگردانی هوشمند • طهماسبی{% endblock %}
+
+{% block content %}
+<!-- Top Bar -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">📦</span>
+        <div>
+            <h2 class="font-black text-slate-800 text-lg">مدیریت جامع انبار و انبارگردانی شعب طهماسبی</h2>
+            <p class="text-xs text-slate-500 font-medium">موجودی زنده، کنترل کسری، انتقال بین شعب و ارزش‌گذاری ریالی انبار</p>
+        </div>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-2">
+        <button onclick="document.getElementById('stocktakingModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow transition">
+            📋 فرم انبارگردانی دوره‌ای
+        </button>
+        {% if session.get('role') == 'admin' %}
+        <button onclick="document.getElementById('inventoryModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow transition">
+            ➕ تعریف کالای جدید
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- AI Predictive Stock Insights -->
+<div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl mb-6 border border-indigo-800">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+            <span class="text-2xl">🧠</span>
+            <h3 class="font-black text-base">پیش‌بینی هوش مصنوعی و تحلیل ارزش انبار</h3>
+        </div>
+        <span class="text-xs bg-indigo-500/30 text-indigo-300 px-3 py-1 rounded-full font-bold">هوش انبارداری</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+        <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
+            <span class="text-slate-400 block mb-1">ارزش کل خرید انبار:</span>
+            <span class="text-base font-black text-white">{{ "{:,}".format(ai_insights.total_buy_valuation) }} تومان</span>
+        </div>
+        <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
+            <span class="text-slate-400 block mb-1">ارزش فروش نهایی موجودی:</span>
+            <span class="text-base font-black text-emerald-400">{{ "{:,}".format(ai_insights.total_sell_valuation) }} تومان</span>
+        </div>
+        <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
+            <span class="text-slate-400 block mb-1">سود بالقوه موجودی در انبار:</span>
+            <span class="text-base font-black text-indigo-400">{{ "{:,}".format(ai_insights.estimated_stock_profit) }} تومان</span>
+        </div>
+        <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
+            <span class="text-slate-400 block mb-1">کالاهای دارای کسری و هشدار:</span>
+            <span class="text-base font-black text-rose-400">{{ ai_insights.critical_count }} قلم کالا</span>
+        </div>
+    </div>
+
+    {% if ai_insights.critical_items %}
+    <div class="mt-4 pt-4 border-t border-slate-700/60">
+        <span class="text-xs font-bold text-amber-300 block mb-2">⚡ پیشنهاد خرید هوشمند به کارخانجات (داتیس، اخوان، فونیکس):</span>
+        <div class="flex flex-wrap gap-2">
+            {% for item in ai_insights.critical_items %}
+            <span class="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] px-3 py-1.5 rounded-xl font-medium">
+                {{ item.name }} (موجودی: {{ item.stock }}) ➔ سفارش پیشنهادی: <b class="text-white">{{ item.suggested_reorder }} عدد</b>
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Stock Transfer Section -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>🔄</span> انتقال کالا بین دو شعبه طهماسبی
+        </h3>
+        <span class="text-xs text-indigo-600 font-bold">جابجایی بین فروشگاه ۱ و ۲ با کسر و افزایش خودکار</span>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-slate-50 p-4 rounded-2xl border">
+            <h4 class="text-xs font-bold text-indigo-800 mb-3">ثبت حواله انتقال کالا:</h4>
+            <form method="POST" action="{{ url_for('request_transfer') }}">
+                <div class="mb-2">
+                    <label class="block text-[11px] text-slate-600 mb-1">کالا از کدام شعبه منتقل شود؟</label>
+                    <select name="from_shop_id" class="w-full p-2 border rounded-xl text-xs bg-white font-bold">
+                        {% for s in shops %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="block text-[11px] text-slate-600 mb-1">کدام کالا؟</label>
+                    <input type="text" name="item_name" required placeholder="نام کامل کالا یا مدل..." class="w-full p-2 border rounded-xl text-xs bg-white">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-[11px] text-slate-600 mb-1">تعداد انتقال:</label>
+                    <input type="number" name="quantity" value="1" min="1" class="w-full p-2 border rounded-xl text-xs bg-white font-bold">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow">
+                    ثبت درخواست انتقال
+                </button>
+            </form>
+        </div>
+
+        <div class="lg:col-span-2 overflow-x-auto">
+            <h4 class="text-xs font-bold text-slate-700 mb-2">آخرین انتقالات ثبت‌شده:</h4>
+            <table class="w-full text-right border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-100 text-slate-700 font-bold">
+                        <th class="p-2.5 border-b">نام کالا</th>
+                        <th class="p-2.5 border-b">تعداد</th>
+                        <th class="p-2.5 border-b">درخواست‌کننده</th>
+                        <th class="p-2.5 border-b">زمان</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tr in transfers %}
+                    <tr class="border-b hover:bg-slate-50">
+                        <td class="p-2.5 font-bold text-slate-800">{{ tr.item_name }}</td>
+                        <td class="p-2.5 font-bold">{{ tr.quantity }} عدد</td>
+                        <td class="p-2.5">{{ tr.requested_by }}</td>
+                        <td class="p-2.5 text-slate-400 text-[11px]" dir="ltr">{{ tr.shamsi_date_time }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center p-4 text-slate-400">انتقالی ثبت نشده است.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Inventory Items Table -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>📋</span> لیست کلیه کالاهای موجود در انبارها (هر دو شعبه)
+        </h3>
+        <span class="text-xs text-slate-500 font-bold">مجموع اقلام: {{ all_inventory|length }} کالا</span>
+    </div>
+
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-3 border-b">نام کالا و مدل</th>
+                <th class="p-3 border-b">دسته‌بندی</th>
+                <th class="p-3 border-b">شعبه</th>
+                <th class="p-3 border-b">موجودی فعلی</th>
+                <th class="p-3 border-b">نقطه سفارش</th>
+                <th class="p-3 border-b">قیمت خرید (تومان)</th>
+                <th class="p-3 border-b">قیمت فروش (تومان)</th>
+                <th class="p-3 border-b">وضعیت هشدار</th>
+                {% if session.get('role') == 'admin' %}
+                <th class="p-3 border-b text-center">عملیات</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in all_inventory %}
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 font-bold text-slate-900">{{ item.name }}</td>
+                <td class="p-3 text-slate-500">{{ item.category }}</td>
+                <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[10px] font-bold">{{ item.shop.name if item.shop else '-' }}</span></td>
+                <td class="p-3 font-black text-sm text-slate-900">{{ item.stock_quantity }} عدد</td>
+                <td class="p-3 text-slate-500">{{ item.min_alert_stock }} عدد</td>
+                <td class="p-3 font-bold text-slate-600">{{ "{:,}".format(item.buy_price) }}</td>
+                <td class="p-3 font-black text-emerald-700">{{ "{:,}".format(item.sell_price) }}</td>
+                <td class="p-3">
+                    {% if item.stock_quantity <= item.min_alert_stock %}
+                        <span class="bg-rose-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold blink">⚠️ کسری انبار</span>
+                    {% else %}
+                        <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold">موجودی کافی</span>
+                    {% endif %}
+                </td>
+                {% if session.get('role') == 'admin' %}
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick='openEditInventoryModal({{ item.to_dict()|tojson }})' class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 rounded-lg text-[10px] font-bold transition">
+                            ✏️ ویرایش
+                        </button>
+                        <form method="POST" action="{{ url_for('delete_inventory_item', item_id=item.id) }}" onsubmit="return confirm('کالای ({{ item.name }}) از انبار حذف شود؟')">
+                            <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1 rounded-lg text-[10px] font-bold transition">
+                                🗑️ حذف
+                            </button>
+                        </form>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center p-6 text-slate-400">کالایی در انبار ثبت نشده است.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal: Edit Inventory -->
+<div id="editInventoryModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">✏️ ویرایش اطلاعات کالا در انبار</h3>
+        <form method="POST" id="editInventoryForm" onsubmit="unformatOnSubmit(this)">
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">نام کالا و مدل:</label>
+                <input type="text" id="editInvName" name="name" required class="w-full p-2.5 border rounded-xl text-xs font-bold">
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">دسته‌بندی:</label>
+                <select id="editInvCategory" name="category" class="w-full p-2.5 border rounded-xl text-xs font-bold bg-white">
+                    {% for cat in all_categories %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">شعبه:</label>
+                <select id="editInvShop" name="shop_id" class="w-full p-2.5 border rounded-xl text-xs bg-white">
+                    {% for s in shops %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">موجودی فعلی:</label>
+                    <input type="number" id="editInvStock" name="stock_quantity" min="0" class="w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">نقطه هشدار کسری:</label>
+                    <input type="number" id="editInvMinStock" name="min_alert_stock" min="1" class="w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">قیمت خرید (تومان):</label>
+                    <input type="text" id="editInvBuyPrice" name="buy_price" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">قیمت فروش (تومان):</label>
+                    <input type="text" id="editInvSellPrice" name="sell_price" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-2xl text-xs font-bold transition">ذخیره تغییرات</button>
+                <button type="button" onclick="document.getElementById('editInventoryModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Add Inventory -->
+<div id="inventoryModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">📦 افزودن کالا به انبار فروشگاه</h3>
+        <form method="POST" action="{{ url_for('add_inventory_item') }}" onsubmit="unformatOnSubmit(this)">
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">نام کامل کالا و مدل:</label>
+                <input type="text" name="name" required placeholder="مثال: گاز 5 شعله اخوان مدل GI-135" class="w-full p-2.5 border rounded-xl text-xs font-bold">
+            </div>
+            
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">دسته‌بندی کالا:</label>
+                <select name="category" id="invCategorySelect" onchange="toggleCustomCategory(this.value)" class="w-full p-2.5 border rounded-xl text-xs font-bold bg-white">
+                    {% for cat in all_categories %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
+                    {% endfor %}
+                    <option value="__custom__" class="text-indigo-700 font-bold">➕ تعریف دسته‌بندی جدید...</option>
+                </select>
+                <div id="customCategoryInputBox" style="display: none;" class="mt-2">
+                    <input type="text" name="custom_category_name" placeholder="نام دسته‌بندی جدید..." class="w-full p-2 border border-indigo-300 rounded-xl text-xs font-bold text-indigo-800 bg-indigo-50">
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">شعبه:</label>
+                <select name="shop_id" class="w-full p-2.5 border rounded-xl text-xs bg-white">
+                    {% for s in shops %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">موجودی:</label>
+                    <input type="number" name="stock_quantity" value="5" min="0" class="w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">هشدار کسری:</label>
+                    <input type="number" name="min_alert_stock" value="2" min="1" class="w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">قیمت خرید:</label>
+                    <input type="text" name="buy_price" onkeyup="formatNumber(this)" placeholder="تومان" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-slate-600 mb-1">قیمت فروش:</label>
+                    <input type="text" name="sell_price" onkeyup="formatNumber(this)" placeholder="تومان" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-slate-900 text-white py-2.5 rounded-2xl text-xs font-bold transition hover:bg-slate-800">افزودن به انبار</button>
+                <button type="button" onclick="document.getElementById('inventoryModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Stocktaking / انبارگردانی -->
+<div id="stocktakingModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-2">📋 ثبت انبارگردانی و مغایرت‌گیری</h3>
+        <p class="text-xs text-slate-500 mb-4">با وارد کردن شمارش واقعی، موجودی سیستم به‌روزرسانی شده و لاگ تعدیل ثبت می‌گردد.</p>
+        <form method="POST" action="{{ url_for('stocktaking_adjust') }}">
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">انتخاب کالا برای اصلاح انبار:</label>
+                <select name="item_id" required class="w-full p-2.5 border rounded-2xl text-xs font-bold bg-white">
+                    {% for item in all_inventory %}
+                    <option value="{{ item.id }}">{{ item.name }} (موجودی فعلی سیستم: {{ item.stock_quantity }} عدد) - {{ item.shop.name if item.shop else '' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">شمارش واقعی فیزیکی در مغازه:</label>
+                <input type="number" name="actual_stock" required min="0" placeholder="تعداد واقعی شمارش شده..." class="w-full p-2.5 border rounded-2xl text-xs font-bold">
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-600 mb-1">علت مغایرت / توضیحات انبارگردانی:</label>
+                <input type="text" name="reason" placeholder="مثلاً: انبارگردانی پایان فصل، کسری یا شکستگی" class="w-full p-2.5 border rounded-2xl text-xs">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-2xl text-xs font-bold transition">ثبت تعدیل انبار</button>
+                <button type="button" onclick="document.getElementById('stocktakingModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleCustomCategory(val) {
+        var box = document.getElementById('customCategoryInputBox');
+        if (box) {
+            box.style.display = (val === '__custom__') ? 'block' : 'none';
+        }
+    }
+
+    function openEditInventoryModal(item) {
+        document.getElementById('editInvName').value = item.name;
+        document.getElementById('editInvCategory').value = item.category;
+        document.getElementById('editInvShop').value = item.shop_id;
+        document.getElementById('editInvStock').value = item.stock_quantity;
+        document.getElementById('editInvMinStock').value = item.min_alert_stock;
+        document.getElementById('editInvBuyPrice').value = Number(item.buy_price).toLocaleString();
+        document.getElementById('editInvSellPrice').value = Number(item.sell_price).toLocaleString();
+        document.getElementById('editInventoryForm').action = '/admin/inventory/edit/' + item.id;
+        document.getElementById('editInventoryModal').classList.remove('hidden');
+    }
+</script>
+{% endblock %}

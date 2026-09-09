@@ -1,0 +1,428 @@
+{% extends 'base.html' %}
+
+{% block title %}ویرایش فاکتور {{ invoice.invoice_number }} • فروشگاه‌های طهماسبی{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6 gap-3">
+        <div>
+            <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
+                <span>✏️</span> ویرایش فاکتور شماره <span class="text-indigo-600">{{ invoice.invoice_number }}</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">تغییر اقلام، تعداد، مبالغ پرداختی، چک‌ها و وضعیت فاکتور با اصلاح هوشمند انبار و ثبت در لاگ امنیتی</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="javascript:history.back()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-2xl transition">
+                ← انصراف و بازگشت
+            </a>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('edit_invoice', invoice_id=invoice.id) }}" onsubmit="unformatOnSubmit(this)">
+        <!-- وضعیت و نوع سند -->
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">نوع و ماهیت سند:</label>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <label class="flex items-center justify-center p-2.5 rounded-2xl border cursor-pointer font-bold transition {% if invoice.status == 'final' and invoice.invoice_type != 'return' %}bg-slate-900 text-white{% else %}bg-slate-50 text-slate-700{% endif %}" id="lblFinal">
+                    <input type="radio" name="doc_status" value="final" class="hidden" {% if invoice.status == 'final' and invoice.invoice_type != 'return' %}checked{% endif %} onchange="handleDocTypeChange('final')">
+                    <span>🧾 فاکتور قطعی</span>
+                </label>
+                <label class="flex items-center justify-center p-2.5 rounded-2xl border cursor-pointer font-bold transition {% if invoice.status == 'proforma' %}bg-indigo-600 text-white{% else %}bg-slate-50 text-slate-700{% endif %}" id="lblProforma">
+                    <input type="radio" name="doc_status" value="proforma" class="hidden" {% if invoice.status == 'proforma' %}checked{% endif %} onchange="handleDocTypeChange('proforma')">
+                    <span>📄 پیش‌فاکتور</span>
+                </label>
+                <label class="flex items-center justify-center p-2.5 rounded-2xl border cursor-pointer font-bold transition {% if invoice.invoice_type == 'return' %}bg-rose-600 text-white{% else %}bg-slate-50 text-slate-700{% endif %}" id="lblReturn">
+                    <input type="radio" name="doc_status" value="return" class="hidden" {% if invoice.invoice_type == 'return' %}checked{% endif %} onchange="handleDocTypeChange('return')">
+                    <span>🔄 مرجوعی</span>
+                </label>
+            </div>
+            <input type="hidden" name="status" id="realStatus" value="{{ invoice.status }}">
+            <input type="hidden" name="invoice_type" id="realInvType" value="{{ invoice.invoice_type }}">
+        </div>
+
+        <!-- باکس پیش فاکتور -->
+        <div id="proformaDateBox" style="{% if invoice.status != 'proforma' %}display: none;{% endif %}" class="mb-4 bg-indigo-50 p-3.5 rounded-2xl border border-indigo-200">
+            <label class="block text-xs font-bold text-indigo-900 mb-1">📅 مهلت اعتبار پیش‌فاکتور (تاریخ شمسی):</label>
+            <input type="text" name="proforma_valid_until" value="{{ invoice.proforma_valid_until or '' }}" placeholder="مثلاً: 1405/06/20" class="w-full p-2.5 border rounded-xl text-xs bg-white font-bold" dir="ltr">
+        </div>
+
+        <!-- باکس علت مرجوعی -->
+        <div id="returnReasonBox" style="{% if invoice.invoice_type != 'return' %}display: none;{% endif %}" class="mb-4 bg-rose-50 p-3.5 rounded-2xl border border-rose-200">
+            <label class="block text-xs font-bold text-rose-900 mb-1">⚠️ علت دقیق مرجوعی کالا:</label>
+            <select name="return_reason" class="w-full p-2.5 border border-rose-300 rounded-xl text-xs bg-white font-bold text-rose-700">
+                {% for reason in return_reasons %}
+                <option value="{{ reason }}" {% if invoice.return_reason == reason %}selected{% endif %}>{{ reason }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- اطلاعات مشتری -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">نام و نام خانوادگی خریدار:</label>
+                <input type="text" name="customer_name" required value="{{ invoice.customer_name }}" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">شماره همراه خریدار:</label>
+                <input type="text" name="customer_phone" value="{{ invoice.customer_phone or '' }}" placeholder="0912..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-left font-bold" dir="ltr">
+            </div>
+        </div>
+
+        <!-- اقلام فاکتور -->
+        <div class="mb-5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <div class="flex justify-between items-center mb-3">
+                <label class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>📦</span> اقلام فاکتور (تعداد و قیمت واحد):
+                </label>
+                <button type="button" onclick="addInvoiceItemRow()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl transition shadow">
+                    ➕ افزودن ردیف کالا
+                </button>
+            </div>
+
+            <div id="invoiceItemsContainer" class="space-y-3">
+                {% for item in invoice.items %}
+                <div class="invoice-item-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                        <div class="col-span-6">
+                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2 border rounded-xl text-xs bg-slate-50 font-bold">
+                                <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
+                                {% for inv in inventory_items %}
+                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}" {% if item.inventory_item_id == inv.id %}selected{% endif %}>
+                                    {{ inv.name }} (موجودی: {{ inv.stock_quantity }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-span-6">
+                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" placeholder="یا نام دلخواه کالا..." class="item-name w-full p-2 border rounded-xl text-xs">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                        <div class="col-span-4">
+                            <input type="text" name="item_category[]" value="{{ item.category }}" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border rounded-xl text-xs">
+                        </div>
+                        <div class="col-span-3 flex items-center gap-1">
+                            <span class="text-[11px] text-slate-500">تعداد:</span>
+                            <input type="number" name="item_quantity[]" value="{{ item.quantity }}" min="1" onchange="calcTotal()" class="item-qty w-full p-2 border rounded-xl text-xs text-center font-bold">
+                        </div>
+                        <div class="col-span-4">
+                            <input type="text" name="item_price[]" value="{{ '{:,}'.format(item.unit_sell_price) }}" placeholder="قیمت واحد" onkeyup="formatNumber(this); calcTotal()" class="currency-input item-price w-full p-2 border rounded-xl text-xs font-bold text-emerald-700 text-left" dir="ltr">
+                        </div>
+                        <div class="col-span-1 text-center">
+                            <button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="invoice-item-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                        <div class="col-span-6">
+                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2 border rounded-xl text-xs bg-slate-50 font-bold">
+                                <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
+                                {% for inv in inventory_items %}
+                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}">{{ inv.name }} (موجودی: {{ inv.stock_quantity }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-span-6">
+                            <input type="text" name="item_custom_name[]" placeholder="یا نام دلخواه کالا..." class="item-name w-full p-2 border rounded-xl text-xs">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-12 gap-2 items-center">
+                        <div class="col-span-4"><input type="text" name="item_category[]" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border rounded-xl text-xs"></div>
+                        <div class="col-span-3 flex items-center gap-1"><span class="text-[11px] text-slate-500">تعداد:</span><input type="number" name="item_quantity[]" value="1" min="1" onchange="calcTotal()" class="item-qty w-full p-2 border rounded-xl text-xs text-center font-bold"></div>
+                        <div class="col-span-4"><input type="text" name="item_price[]" placeholder="قیمت واحد" onkeyup="formatNumber(this); calcTotal()" class="currency-input item-price w-full p-2 border rounded-xl text-xs font-bold text-emerald-700 text-left" dir="ltr"></div>
+                        <div class="col-span-1 text-center"><button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-3 pt-3 border-t flex justify-between items-center text-xs font-bold">
+                <span class="text-slate-600">جمع کل محاسبه‌شده:</span>
+                <span id="calculatedTotalDisplay" class="text-indigo-700 font-black text-sm">{{ "{:,}".format(invoice.total_amount) }} تومان</span>
+            </div>
+        </div>
+
+        <!-- تسویه ترکیبی و پرداخت -->
+        <div class="mb-5 bg-indigo-50/70 p-4 rounded-2xl border border-indigo-200">
+            <span class="text-xs font-bold text-indigo-950 block mb-3">💳 نحوه تسویه ترکیبی (کارتخوان، کارت/شبا، نقد، چک، مانده):</span>
+
+            <div class="space-y-3 text-xs">
+                <!-- کارتخوان -->
+                <div class="bg-white p-3 rounded-xl border flex items-center gap-2">
+                    <span class="w-32 font-bold text-slate-700">🛒 کارتخوان (POS):</span>
+                    <input type="text" name="paid_pos" id="paidPosInput" value="{{ '{:,}'.format(invoice.paid_pos or 0) if invoice.paid_pos else '' }}" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پوز" class="currency-input flex-1 p-2 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
+                </div>
+
+                <!-- کارت / شبا -->
+                <div class="bg-white p-3 rounded-xl border space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-32 font-bold text-blue-900">💳 کارت / شبا:</span>
+                        <input type="text" name="paid_card" id="paidCardInput" value="{{ '{:,}'.format(invoice.paid_card or 0) if invoice.paid_card else '' }}" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی" class="currency-input flex-1 p-2 border rounded-lg text-xs font-bold text-blue-700 text-left" dir="ltr">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">انتخاب سریع کارت مقصد:</label>
+                            <select onchange="document.getElementById('destCardInput').value = this.value" class="w-full p-1.5 border rounded-lg text-xs bg-slate-50">
+                                <option value="">-- انتخاب کارت مقصد --</option>
+                                {% for acc in bank_accounts %}
+                                    {% if acc.card_number %}
+                                    <option value="{{ acc.card_number }}" {% if invoice.dest_card_number == acc.card_number %}selected{% endif %}>{{ acc.title }} ({{ acc.bank_name }} - {{ acc.card_number }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">انتخاب سریع شبا مقصد:</label>
+                            <select onchange="document.getElementById('destShebaInput').value = this.value" class="w-full p-1.5 border rounded-lg text-xs bg-slate-50">
+                                <option value="">-- انتخاب شبا مقصد --</option>
+                                {% for acc in bank_accounts %}
+                                    {% if acc.sheba_number %}
+                                    <option value="{{ acc.sheba_number }}" {% if invoice.dest_sheba_number == acc.sheba_number %}selected{% endif %}>{{ acc.title }} ({{ acc.bank_name }} - {{ acc.sheba_number }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <input type="text" name="dest_card_number" id="destCardInput" value="{{ invoice.dest_card_number or '' }}" placeholder="شماره کارت مقصد..." class="p-2 border rounded-lg text-xs font-mono" dir="ltr">
+                        <input type="text" name="dest_sheba_number" id="destShebaInput" value="{{ invoice.dest_sheba_number or '' }}" placeholder="شماره شبا مقصد..." class="p-2 border rounded-lg text-xs font-mono" dir="ltr">
+                        <input type="text" name="payment_tracking_code" value="{{ invoice.payment_tracking_code or '' }}" placeholder="شماره پیگیری فیش..." class="p-2 border rounded-lg text-xs" dir="ltr">
+                    </div>
+                </div>
+
+                <!-- نقدی -->
+                <div class="bg-white p-3 rounded-xl border flex items-center gap-2">
+                    <span class="w-32 font-bold text-amber-900">💵 دریافت نقد:</span>
+                    <input type="text" name="paid_cash" id="paidCashInput" value="{{ '{:,}'.format(invoice.paid_cash or 0) if invoice.paid_cash else '' }}" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ نقد" class="currency-input flex-1 p-2 border rounded-lg text-xs font-bold text-amber-700 text-left" dir="ltr">
+                </div>
+
+                <!-- چک‌های صیادی -->
+                <div class="bg-white p-3.5 rounded-xl border space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-purple-900 flex items-center gap-1"><span>📑</span> چک‌های صیادی:</span>
+                        <button type="button" onclick="addChequeRow()" class="bg-purple-100 hover:bg-purple-200 text-purple-800 text-[11px] font-bold px-2.5 py-1 rounded-lg transition">
+                            ➕ افزودن فقره چک
+                        </button>
+                    </div>
+
+                    <div id="chequesContainer" class="space-y-2">
+                        {% for chk in invoice.cheques %}
+                        <div class="cheque-row bg-purple-50/50 p-2.5 rounded-xl border border-purple-200 grid grid-cols-1 md:grid-cols-12 gap-2 items-center text-xs">
+                            <div class="md:col-span-4">
+                                <input type="text" name="cheque_sayad[]" value="{{ chk.sayad_number }}" placeholder="شناسه ۱۶ رقمی صیاد" maxlength="16" class="w-full p-2 border rounded-lg font-mono text-left" dir="ltr">
+                            </div>
+                            <div class="md:col-span-2">
+                                <input type="text" name="cheque_bank[]" value="{{ chk.bank_name }}" placeholder="نام بانک" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div class="md:col-span-3">
+                                <input type="text" name="cheque_amount[]" value="{{ '{:,}'.format(chk.amount) }}" placeholder="مبلغ چک" onkeyup="formatNumber(this); calcPaymentBalances()" class="currency-input cheque-amt w-full p-2 border rounded-lg font-bold text-purple-800 text-left" dir="ltr">
+                            </div>
+                            <div class="md:col-span-2">
+                                <input type="text" name="cheque_due_date[]" value="{{ chk.due_shamsi_date }}" placeholder="سررسید" class="w-full p-2 border rounded-lg text-left" dir="ltr">
+                            </div>
+                            <div class="md:col-span-1 text-center">
+                                <button type="button" onclick="removeChequeRow(this)" class="text-rose-500 hover:text-rose-700 font-bold">✕</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- خلاصه وضعیت تسویه و مانده بدهی -->
+                <div class="bg-slate-900 text-white p-4 rounded-xl flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                        <span class="text-[11px] text-slate-400 block">مبلغ کل فاکتور:</span>
+                        <input type="text" name="total_amount" id="totalAmountInput" value="{{ '{:,}'.format(invoice.total_amount) }}" onkeyup="formatNumber(this); calcPaymentBalances()" class="currency-input bg-transparent border-b border-slate-700 text-base font-black text-emerald-400 outline-none w-36 text-left" dir="ltr">
+                        <span class="text-xs text-slate-400 mr-1">تومان</span>
+                    </div>
+
+                    <div>
+                        <span class="text-[11px] text-slate-400 block">پوشش داده شده:</span>
+                        <span id="coveredTotalDisplay" class="text-sm font-bold text-blue-300">۰ تومان</span>
+                    </div>
+
+                    <div>
+                        <span class="text-[11px] text-slate-400 block">مانده حساب / نسیه:</span>
+                        <span id="remainingBalanceDisplay" class="text-sm font-black text-rose-400">۰ تومان</span>
+                    </div>
+                </div>
+
+                <div id="dueSettlementBox" class="bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex items-center gap-2">
+                    <span class="text-xs font-bold text-amber-900 w-36">📅 موعد تسویه مانده:</span>
+                    <input type="text" name="due_settlement_date" value="{{ invoice.due_settlement_date or '' }}" placeholder="مثلاً: 1405/07/01" class="flex-1 p-2 border rounded-lg text-xs bg-white" dir="ltr">
+                </div>
+            </div>
+        </div>
+
+        <!-- همکار و رضایت مشتری -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 text-xs">
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">فروش مشترک با همکار (اختیاری):</label>
+                <select name="second_seller_id" class="w-full p-2.5 border rounded-xl bg-white">
+                    <option value="none">-- فروش تکی (بدون همکار) --</option>
+                    {% for c in colleagues %}
+                    <option value="{{ c.id }}" {% if invoice.second_seller_id == c.id %}selected{% endif %}>{{ c.full_name }} ({{ c.shop.name if c.shop else '' }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">سهم شما در صورت شراکت (%):</label>
+                <input type="number" name="split_ratio" value="{{ invoice.split_ratio }}" min="10" max="90" class="w-full p-2.5 border rounded-xl text-center font-bold">
+            </div>
+        </div>
+
+        <div class="mb-5">
+            <label class="block text-xs font-bold text-slate-700 mb-1">توضیحات و اقلام متفرقه سفارش:</label>
+            <textarea name="items_desc" rows="2" placeholder="توضیحات تکمیلی..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs">{{ invoice.items_desc or '' }}</textarea>
+        </div>
+
+        <input type="hidden" name="customer_rating" value="{{ invoice.customer_rating }}">
+
+        <div class="flex gap-3 pt-3 border-t">
+            <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition duration-200 text-sm flex items-center justify-center gap-2">
+                <span>💾 ثبت و ذخیره نهایی ویرایش فاکتور</span>
+            </button>
+            <a href="javascript:history.back()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm transition">
+                انصراف
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function handleDocTypeChange(type) {
+        document.getElementById('lblFinal').className = 'flex items-center justify-center p-2.5 rounded-2xl border cursor-pointer font-bold transition ' + (type === 'final' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-700');
+        document.getElementById('lblProforma').className = 'flex items-center justify-center p-2.5 rounded-2xl border cursor-pointer font-bold transition ' + (type === 'proforma' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-700');
+        document.getElementById('lblReturn').className = 'flex items-center justify-center p-2.5 rounded-2xl border cursor-pointer font-bold transition ' + (type === 'return' ? 'bg-rose-600 text-white' : 'bg-slate-50 text-slate-700');
+
+        if (type === 'proforma') {
+            document.getElementById('realStatus').value = 'proforma';
+            document.getElementById('realInvType').value = 'sale';
+            document.getElementById('proformaDateBox').style.display = 'block';
+            document.getElementById('returnReasonBox').style.display = 'none';
+        } else if (type === 'return') {
+            document.getElementById('realStatus').value = 'final';
+            document.getElementById('realInvType').value = 'return';
+            document.getElementById('proformaDateBox').style.display = 'none';
+            document.getElementById('returnReasonBox').style.display = 'block';
+        } else {
+            document.getElementById('realStatus').value = 'final';
+            document.getElementById('realInvType').value = 'sale';
+            document.getElementById('proformaDateBox').style.display = 'none';
+            document.getElementById('returnReasonBox').style.display = 'none';
+        }
+    }
+
+    function onInventorySelect(selectElem) {
+        const row = selectElem.closest('.invoice-item-row');
+        const opt = selectElem.selectedOptions[0];
+        if (opt && opt.value) {
+            const price = opt.getAttribute('data-price') || 0;
+            const cat = opt.getAttribute('data-cat') || '';
+            const name = opt.text.split(' (موجودی:')[0].trim();
+            
+            row.querySelector('.item-name').value = name;
+            row.querySelector('.item-cat').value = cat;
+            const priceInput = row.querySelector('.item-price');
+            priceInput.value = Number(price).toLocaleString('en-US');
+            calcTotal();
+        }
+    }
+
+    function addInvoiceItemRow() {
+        const container = document.getElementById('invoiceItemsContainer');
+        const firstRow = container.querySelector('.invoice-item-row');
+        const clone = firstRow.cloneNode(true);
+        
+        clone.querySelectorAll('input').forEach(input => {
+            if (input.classList.contains('item-qty')) input.value = 1;
+            else input.value = '';
+        });
+        clone.querySelector('select').selectedIndex = 0;
+        container.appendChild(clone);
+    }
+
+    function removeInvoiceItemRow(btn) {
+        const container = document.getElementById('invoiceItemsContainer');
+        if (container.querySelectorAll('.invoice-item-row').length > 1) {
+            btn.closest('.invoice-item-row').remove();
+            calcTotal();
+        } else {
+            alert('حداقل یک قلم کالا در فاکتور الزامی است.');
+        }
+    }
+
+    function calcTotal() {
+        let total = 0;
+        document.querySelectorAll('.invoice-item-row').forEach(row => {
+            const qty = parseInt(row.querySelector('.item-qty').value) || 0;
+            const priceRaw = (row.querySelector('.item-price').value || '').replace(/,/g, '');
+            const price = parseInt(priceRaw) || 0;
+            total += (qty * price);
+        });
+        
+        document.getElementById('totalAmountInput').value = total > 0 ? total.toLocaleString('en-US') : '';
+        document.getElementById('calculatedTotalDisplay').innerText = total.toLocaleString('en-US') + ' تومان';
+        calcPaymentBalances();
+    }
+
+    function addChequeRow() {
+        const container = document.getElementById('chequesContainer');
+        const row = document.createElement('div');
+        row.className = 'cheque-row bg-purple-50/50 p-2.5 rounded-xl border border-purple-200 grid grid-cols-1 md:grid-cols-12 gap-2 items-center text-xs';
+        row.innerHTML = `
+            <div class="md:col-span-4"><input type="text" name="cheque_sayad[]" placeholder="شناسه ۱۶ رقمی صیاد" maxlength="16" class="w-full p-2 border rounded-lg font-mono text-left" dir="ltr"></div>
+            <div class="md:col-span-2"><input type="text" name="cheque_bank[]" placeholder="نام بانک" class="w-full p-2 border rounded-lg"></div>
+            <div class="md:col-span-3"><input type="text" name="cheque_amount[]" placeholder="مبلغ چک" onkeyup="formatNumber(this); calcPaymentBalances()" class="currency-input cheque-amt w-full p-2 border rounded-lg font-bold text-purple-800 text-left" dir="ltr"></div>
+            <div class="md:col-span-2"><input type="text" name="cheque_due_date[]" placeholder="سررسید" class="w-full p-2 border rounded-lg text-left" dir="ltr"></div>
+            <div class="md:col-span-1 text-center"><button type="button" onclick="removeChequeRow(this)" class="text-rose-500 hover:text-rose-700 font-bold">✕</button></div>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeChequeRow(btn) {
+        btn.closest('.cheque-row').remove();
+        calcPaymentBalances();
+    }
+
+    function calcPaymentBalances() {
+        const totalRaw = (document.getElementById('totalAmountInput').value || '').replace(/,/g, '');
+        const total = parseInt(totalRaw) || 0;
+
+        const pos = parseInt((document.getElementById('paidPosInput').value || '').replace(/,/g, '')) || 0;
+        const card = parseInt((document.getElementById('paidCardInput').value || '').replace(/,/g, '')) || 0;
+        const cash = parseInt((document.getElementById('paidCashInput').value || '').replace(/,/g, '')) || 0;
+
+        let chequesTotal = 0;
+        document.querySelectorAll('.cheque-amt').forEach(input => {
+            chequesTotal += parseInt((input.value || '').replace(/,/g, '')) || 0;
+        });
+
+        const covered = pos + card + cash + chequesTotal;
+        const remaining = Math.max(0, total - covered);
+
+        document.getElementById('coveredTotalDisplay').innerText = covered.toLocaleString('en-US') + ' تومان';
+        document.getElementById('remainingBalanceDisplay').innerText = remaining.toLocaleString('en-US') + ' تومان';
+    }
+
+    function formatNumber(input) {
+        let value = input.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+        if (value) input.value = Number(value).toLocaleString('en-US');
+        else input.value = '';
+    }
+
+    function unformatOnSubmit(form) {
+        form.querySelectorAll('.currency-input').forEach(input => {
+            input.value = input.value.replace(/,/g, '');
+        });
+    }
+
+    // مقداردهی اولیه در لود صفحه
+    calcPaymentBalances();
+</script>
+{% endblock %}

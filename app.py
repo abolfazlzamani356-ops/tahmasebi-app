@@ -20,7 +20,13 @@ from helpers import (
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
-app = Flask(__name__)
+# مسیر هوشمند قالب‌ها: هم پشتیبانی از پوشه templates و هم فایل‌های کنار app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates_dir = os.path.join(BASE_DIR, 'templates')
+if not os.path.exists(templates_dir) or not os.path.exists(os.path.join(templates_dir, 'login.html')):
+    templates_dir = BASE_DIR
+
+app = Flask(__name__, template_folder=templates_dir)
 app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v14-permanent-secure-2026')
 
 # رمز نجات مدیریت

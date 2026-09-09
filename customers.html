@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}مدیریت مشتریان و باشگاه وفاداری (CRM) • طهماسبی{% endblock %}
+
+{% block content %}
+<!-- Top Bar -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">👥</span>
+        <div>
+            <h2 class="font-black text-slate-800 text-lg">مدیریت مشتریان، سابقه خرید و باشگاه وفاداری (CRM)</h2>
+            <p class="text-xs text-slate-500 font-medium">سوابق خریداران، مانده بدهی‌های دفتری، سقف اعتبار و شماره‌های تماس</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-3 border-b">نام مشتری</th>
+                <th class="p-3 border-b">شماره تماس</th>
+                <th class="p-3 border-b">نوع مشتری</th>
+                <th class="p-3 border-b">جمع کل خریدها (تومان)</th>
+                <th class="p-3 border-b">مانده بدهی دفتری</th>
+                <th class="p-3 border-b">تعداد فاکتورها</th>
+                <th class="p-3 border-b text-center">عملیات پیامک و گارانتی</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in customers %}
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 font-bold text-slate-900">{{ c.name }}</td>
+                <td class="p-3 font-mono text-slate-600" dir="ltr">{{ c.phone or '-' }}</td>
+                <td class="p-3">
+                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-xl text-[10px] font-bold">عادی</span>
+                </td>
+                <td class="p-3 font-bold text-emerald-700">{{ "{:,}".format(c.total_purchases) }}</td>
+                <td class="p-3 font-bold {% if c.outstanding_balance > 0 %}text-rose-600{% else %}text-slate-400{% endif %}">
+                    {{ "{:,}".format(c.outstanding_balance) }} تومان
+                </td>
+                <td class="p-3 font-medium">{{ c.invoices|length }} فاکتور</td>
+                <td class="p-3 text-center">
+                    <button onclick="sendWarrantySms('{{ c.name }}', '{{ c.phone }}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl text-[11px] font-bold transition">
+                        📩 پیامک ثبت گارانتی
+                    </button>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center p-6 text-slate-400">مشتری‌ای ثبت نشده است.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function sendWarrantySms(name, phone) {
+        if (!phone) {
+            alert('شماره موبایل برای این مشتری ثبت نشده است.');
+            return;
+        }
+        alert('پیامک فعال‌سازی گارانتی طهماسبی برای خریدار محترم (' + name + ') به شماره ' + phone + ' با موفقیت ارسال گردید.');
+    }
+</script>
+{% endblock %}

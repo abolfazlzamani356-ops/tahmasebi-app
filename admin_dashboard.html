@@ -1,0 +1,705 @@
+{% extends 'base.html' %}
+
+{% block title %}پنل مدیریت جامع • فروشگاه‌های طهماسبی{% endblock %}
+
+{% block content %}
+<!-- Top Bar -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+    <div>
+        <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
+            <span>👑</span> پنل مدیریت جامع فروشگاه‌های طهماسبی
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">گزارش مالی دقیق، سود ناخالص واقعی، گردش تنخواه و لاگ‌های سیستم در {{ selected_month_name }} {{ current_year }}</p>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-2">
+        <form method="GET" class="flex items-center gap-1.5">
+            <select name="month" onchange="this.form.submit()" class="p-2.5 border rounded-2xl text-xs font-bold bg-slate-50 outline-none text-slate-800">
+                {% for m_num, m_name in months.items() %}
+                    <option value="{{ m_num }}" {% if m_num == selected_month %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">📥 اکسل جامع</a>
+        <a href="{{ url_for('download_backup') }}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">🛡️ بکاپ دیتابیس</a>
+        <button onclick="document.getElementById('adminChangePasswordModal').classList.remove('hidden')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">🔐 تغییر رمز</button>
+        <button onclick="document.getElementById('pettyDepositModal').classList.remove('hidden')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">💵 شارژ تنخواه</button>
+        <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">⚙️ تنظیم تارگت‌ها</button>
+        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">➕ پرسنل جدید</button>
+    </div>
+</div>
+
+<!-- Alert Banner -->
+{% if pending_cheques_count > 0 or total_expenses > total_petty_deposits or low_stock_count > 0 %}
+<div class="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 text-xs flex flex-wrap items-center justify-between gap-2 shadow-sm">
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="text-base">🔔</span>
+        <span class="font-bold text-amber-900">هشدارهای جاری سیستم طهماسبی:</span>
+        {% if pending_cheques_count > 0 %}
+        <span class="bg-amber-200 text-amber-950 px-2.5 py-1 rounded-xl font-bold">{{ pending_cheques_count }} فقره چک در انتظار سررسید</span>
+        {% endif %}
+        {% if low_stock_count > 0 %}
+        <span class="bg-rose-500 text-white px-2.5 py-1 rounded-xl font-bold blink">{{ low_stock_count }} قلم کالا دارای کسری انبار</span>
+        {% endif %}
+        {% if total_expenses > total_petty_deposits %}
+        <span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-xl font-bold">⚠️ کسری موجودی تنخواه شعب</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Key Metrics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
+        <span class="text-xs text-slate-500 font-bold">فروش کل مجموعه طهماسبی</span>
+        <h3 class="text-xl font-black text-indigo-700 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-slate-400 mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
+    </div>
+
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-600">
+        <span class="text-xs text-slate-500 font-bold">💰 سود ناخالص واقعی فروشگاه</span>
+        <h3 class="text-xl font-black text-emerald-600 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-emerald-600 mt-1 font-bold">بر اساس بهای تمام شده فاکتورها</p>
+    </div>
+
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-rose-600">
+        <span class="text-xs text-slate-500 font-bold">وضعیت حساب تنخواه شعب</span>
+        <h3 class="text-xl font-black text-rose-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-xs font-normal text-slate-400">تومان خرج‌شده</span></h3>
+        <p class="text-[10px] text-emerald-600 mt-1 font-bold">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} تومان</p>
+    </div>
+
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
+        <span class="text-xs text-slate-500 font-bold">چک‌های صیادی در انتظار وصول</span>
+        <h3 class="text-xl font-black text-amber-600 mt-2">{{ "{:,}".format(pending_cheques_total) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-amber-600 mt-1">{{ pending_cheques_count }} فقره چک در گردش</p>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+        <h3 class="text-sm font-bold text-slate-800 mb-3">📊 مقایسه فروش پرسنل فروشگاه‌های طهماسبی</h3>
+        <div class="h-64"><canvas id="sellerSalesChart"></canvas></div>
+    </div>
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+        <h3 class="text-sm font-bold text-slate-800 mb-3">🥧 سهم دسته‌بندی کالاها (هود، گاز، سینک، روشویی...)</h3>
+        <div class="h-64"><canvas id="categoryChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Sellers Commission Table -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <h3 class="text-md font-bold text-slate-800 mb-4 flex justify-between items-center">
+        <span>👥 پورسانت پرسنل و کارنامه فروش در {{ selected_month_name }}</span>
+        <span class="text-xs text-indigo-600 font-bold">پله ۱ تارگت: {{ "{:,}".format(settings.tier1_min) }} (+{{ settings.tier1_bonus }}%) | پله ۲: {{ "{:,}".format(settings.tier2_min) }} (+{{ settings.tier2_bonus }}%)</span>
+    </h3>
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-3 border-b">نام پرسنل</th>
+                <th class="p-3 border-b">شعبه</th>
+                <th class="p-3 border-b">تعداد فاکتور</th>
+                <th class="p-3 border-b">فروش خالص (تومان)</th>
+                <th class="p-3 border-b">درصد پایه</th>
+                <th class="p-3 border-b">درصد با پله تارگت</th>
+                <th class="p-3 border-b">پورسانت قطعی (تومان)</th>
+                <th class="p-3 border-b">رضایت مشتری</th>
+                <th class="p-3 border-b text-center">عملیات حساب</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in sellers_data %}
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 font-bold text-slate-900">{{ item.user.full_name }}</td>
+                <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ item.user.shop.name if item.user.shop else '-' }}</span></td>
+                <td class="p-3 font-medium">{{ item.stats.sales_count }} فاکتور</td>
+                <td class="p-3 font-bold text-blue-700 text-sm">{{ "{:,}".format(item.stats.net_sales) }}</td>
+                <td class="p-3">
+                    <form method="POST" action="{{ url_for('update_commission', user_id=item.user.id) }}" class="flex items-center gap-1">
+                        <input type="hidden" name="month" value="{{ selected_month }}">
+                        <input type="number" step="0.01" min="0.01" max="5.0" name="commission_rate" value="{{ item.user.commission_rate }}" class="w-16 p-1 border rounded-lg text-center font-bold text-xs">
+                        <span>%</span>
+                        <button type="submit" class="bg-slate-800 text-white px-2 py-1 rounded-lg text-[11px] hover:bg-slate-900">ثبت</button>
+                    </form>
+                </td>
+                <td class="p-3 font-bold text-indigo-700 text-sm">
+                    {{ item.stats.effective_rate }}%
+                    {% if item.stats.effective_rate > item.user.commission_rate %}
+                        <span class="text-[10px] text-emerald-600 block">⭐ پاداش پله‌ای</span>
+                    {% endif %}
+                </td>
+                <td class="p-3 font-black text-emerald-600 text-sm">{{ "{:,}".format(item.stats.settled_commission) }}</td>
+                <td class="p-3 text-amber-500 font-bold">★ {{ item.stats.avg_rating }}</td>
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick="openPasswordModal({{ item.user.id }}, '{{ item.user.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
+                        <form method="POST" action="{{ url_for('delete_user', user_id=item.user.id) }}" onsubmit="return confirm('پرسنل ({{ item.user.full_name }}) حذف شود؟ سوابق فاکتورهای گذشته محفوظ می‌ماند.')">
+                            <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Petty Cash Log Table -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>💵</span> ریز گردش واریزی‌ها و هزینه‌های تنخواه در {{ selected_month_name }}
+        </h3>
+        <span class="text-xs text-slate-500">واریزی‌ها: {{ "{:,}".format(total_petty_deposits) }} تومان | هزینه‌ها: {{ "{:,}".format(total_expenses) }} تومان</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-200">
+            <h4 class="font-bold text-emerald-900 mb-2">📥 واریزی‌های شارژ تنخواه به شعب:</h4>
+            <div class="max-h-40 overflow-y-auto space-y-1 custom-scrollbar">
+                {% for dep in petty_deposits %}
+                <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border text-[11px]">
+                    <div>
+                        <span class="font-bold text-slate-800">{{ dep.title }}</span>
+                        <span class="text-slate-400 block text-[9px]">{{ dep.shop.name if dep.shop else '' }} • توسط: {{ dep.created_by }}</span>
+                    </div>
+                    <span class="font-black text-emerald-700">{{ "{:,}".format(dep.amount) }} تومان</span>
+                </div>
+                {% else %}
+                <p class="text-slate-400 text-center py-2">واریزی تنخواهی در این ماه ثبت نشده است.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-rose-50/50 p-4 rounded-2xl border border-rose-200">
+            <h4 class="font-bold text-rose-900 mb-2">📤 هزینه‌های جاری ثبت‌شده (خرج از تنخواه):</h4>
+            <div class="max-h-40 overflow-y-auto space-y-1 custom-scrollbar">
+                {% for exp in expenses %}
+                <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border text-[11px]">
+                    <div>
+                        <span class="font-bold text-slate-800">{{ exp.title }} ({{ exp.category }})</span>
+                        <span class="text-slate-400 block text-[9px]">{{ exp.shop.name if exp.shop else '' }} • ثبت: {{ exp.created_by }}</span>
+                    </div>
+                    <span class="font-black text-rose-600">{{ "{:,}".format(exp.amount) }} تومان</span>
+                </div>
+                {% else %}
+                <p class="text-slate-400 text-center py-2">هزینه‌ای در این ماه ثبت نشده است.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cheques Table -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>🗓️</span> دفترچه چک‌های صیادی مشتریان (با آلارم سررسید)
+        </h3>
+        <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-xl font-bold">هشدار چک‌های سررسید نزدیک</span>
+    </div>
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-3 border-b">شماره صیادی</th>
+                <th class="p-3 border-b">نام بانک</th>
+                <th class="p-3 border-b">خریدار صادرکننده</th>
+                <th class="p-3 border-b">تلفن خریدار</th>
+                <th class="p-3 border-b">مبلغ چک (تومان)</th>
+                <th class="p-3 border-b">تاریخ سررسید</th>
+                <th class="p-3 border-b">وضعیت چک</th>
+                <th class="p-3 border-b text-center">عملیات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for chk in cheques %}
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 font-mono font-bold">{{ chk.sayad_number }}</td>
+                <td class="p-3">{{ chk.bank_name }}</td>
+                <td class="p-3 font-bold text-slate-800">{{ chk.customer_name }}</td>
+                <td class="p-3 text-slate-500" dir="ltr">{{ chk.customer_phone or '-' }}</td>
+                <td class="p-3 font-bold text-indigo-700">{{ "{:,}".format(chk.amount) }}</td>
+                <td class="p-3 font-bold text-amber-700" dir="ltr">{{ chk.due_shamsi_date }}</td>
+                <td class="p-3">
+                    {% if chk.status == 'passed' %}
+                        <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-xl font-bold text-[10px]">وصول شده</span>
+                    {% elif chk.status == 'bounced' %}
+                        <span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-xl font-bold text-[10px]">برگشت خورده</span>
+                    {% else %}
+                        <span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-xl font-bold text-[10px]">در انتظار وصول</span>
+                    {% endif %}
+                </td>
+                <td class="p-3 text-center">
+                    <form method="POST" action="{{ url_for('update_cheque_status', cheque_id=chk.id) }}">
+                        <select name="status" onchange="this.form.submit()" class="p-1.5 border rounded-xl text-[10px] bg-white font-bold">
+                            <option value="pending" {% if chk.status == 'pending' %}selected{% endif %}>در انتظار</option>
+                            <option value="passed" {% if chk.status == 'passed' %}selected{% endif %}>وصول شد</option>
+                            <option value="bounced" {% if chk.status == 'bounced' %}selected{% endif %}>برگشت</option>
+                        </select>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center p-6 text-slate-400">چک صیادی ثبت نشده است.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- مدیریت حساب‌ها، کارت‌های بانکی و شماره شبا -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3 border-b pb-4">
+        <div>
+            <h3 class="text-md font-bold text-slate-900 flex items-center gap-2">
+                <span>💳</span> حساب‌های بانکی، کارت‌ها و شماره‌های شبا فروشگاه
+            </h3>
+            <p class="text-xs text-slate-500 mt-1">شماره کارت‌ها و شماره‌های شبای فعال در اینجا، در فرم صدور فاکتور فروشندگان به صورت خودکار بالا می‌آیند.</p>
+        </div>
+        <button type="button" onclick="document.getElementById('addBankModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl transition shadow">
+            ➕ افزودن شماره کارت / شبا جدید
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for acc in bank_accounts %}
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow border border-slate-700 relative">
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-lg">{{ acc.bank_name }}</span>
+                <form method="POST" action="{{ url_for('delete_bank_account', account_id=acc.id) }}" onsubmit="return confirm('آیا از حذف این حساب اطمینان دارید؟')">
+                    <button type="submit" class="text-rose-400 hover:text-rose-300 text-xs font-bold p-1">🗑️ حذف</button>
+                </form>
+            </div>
+            <h4 class="font-bold text-sm text-white mb-1">{{ acc.title }}</h4>
+            <p class="text-[11px] text-slate-300 mb-2">بنام: {{ acc.account_owner }}</p>
+            
+            {% if acc.card_number %}
+            <div class="bg-slate-950/60 p-2 rounded-xl text-xs font-mono font-bold tracking-wider text-emerald-400 text-left mb-1.5" dir="ltr">
+                💳 {{ acc.card_number }}
+            </div>
+            {% endif %}
+
+            {% if acc.sheba_number %}
+            <div class="bg-slate-950/60 p-2 rounded-xl text-[11px] font-mono font-bold text-sky-400 text-left" dir="ltr">
+                🌐 {{ acc.sheba_number }}
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="col-span-3 text-center py-6 text-slate-400 text-xs">هنوز شماره کارت یا شبایی ثبت نشده است.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal افزودن حساب بانکی -->
+<div id="addBankModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border">
+        <div class="flex justify-between items-center mb-4 border-b pb-3">
+            <h4 class="font-bold text-sm text-slate-900">➕ ثبت شماره کارت / شماره شبا جدید</h4>
+            <button type="button" onclick="document.getElementById('addBankModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('add_bank_account') }}" class="space-y-3 text-xs">
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">عنوان حساب / کارت:</label>
+                <input type="text" name="title" required placeholder="مثال: کارت اصلی طهماسبی (شعبه ۱)" class="w-full p-2.5 border rounded-xl font-medium">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">نام بانک:</label>
+                    <input type="text" name="bank_name" required placeholder="ملی / ملت / صادرات..." class="w-full p-2.5 border rounded-xl">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">نام صاحب حساب:</label>
+                    <input type="text" name="account_owner" required placeholder="ابوالفضل طهماسبی" class="w-full p-2.5 border rounded-xl">
+                </div>
+            </div>
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">شماره ۱۶ رقمی کارت (اختیاری):</label>
+                <input type="text" name="card_number" placeholder="603799..." class="w-full p-2.5 border rounded-xl text-left font-mono font-bold" dir="ltr">
+            </div>
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">شماره شبا (اختیاری):</label>
+                <input type="text" name="sheba_number" placeholder="IR..." class="w-full p-2.5 border rounded-xl text-left font-mono font-bold" dir="ltr">
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onclick="document.getElementById('addBankModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold">انصراف</button>
+                <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow">ذخیره حساب</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Advanced Invoices Filter -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
+        <h3 class="text-md font-bold text-slate-800">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
+        <form method="GET" class="flex flex-wrap gap-2 w-full md:w-auto items-center">
+            <input type="hidden" name="month" value="{{ selected_month }}">
+            
+            <select name="seller_filter" class="p-2.5 border border-slate-300 rounded-2xl text-xs bg-slate-50 font-bold">
+                <option value="">👤 همه فروشندگان</option>
+                {% for s in all_sellers %}
+                <option value="{{ s.id }}" {% if seller_filter == s.id|string %}selected{% endif %}>{{ s.full_name }} ({{ s.shop.name if s.shop else '' }})</option>
+                {% endfor %}
+            </select>
+
+            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="شماره فاکتور، تلفن یا خریدار..." class="p-2.5 border border-slate-300 rounded-2xl text-xs w-full md:w-60">
+            <button type="submit" class="bg-slate-900 text-white text-xs px-4 py-2.5 rounded-2xl font-bold transition hover:bg-slate-800">جستجو</button>
+            {% if search_query or seller_filter %}
+            <a href="{{ url_for('admin_dashboard', month=selected_month) }}" class="text-xs text-rose-600 hover:underline">حذف فیلترها</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-600 font-bold">
+                <th class="p-3 border-b">شماره</th>
+                <th class="p-3 border-b">نوع سند</th>
+                <th class="p-3 border-b">شعبه</th>
+                <th class="p-3 border-b">فروشنده</th>
+                <th class="p-3 border-b">خریدار</th>
+                <th class="p-3 border-b">مبلغ (تومان)</th>
+                <th class="p-3 border-b">نحوه تسویه / مانده</th>
+                <th class="p-3 border-b">تاریخ و ساعت</th>
+                <th class="p-3 border-b text-center">مشاهده ریز اقلام</th>
+                <th class="p-3 border-b">چاپ</th>
+                <th class="p-3 border-b">حذف</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in all_invoices %}
+            <tr class="hover:bg-slate-50 border-b transition">
+                <td class="p-3 font-bold text-slate-800">{{ inv.invoice_number }}</td>
+                <td class="p-3">
+                    {% if inv.status == 'proforma' %}
+                        <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">پیش‌فاکتور</span>
+                    {% elif inv.invoice_type == 'return' %}
+                        <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">مرجوعی</span>
+                    {% else %}
+                        <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">قطعی</span>
+                    {% endif %}
+                </td>
+                <td class="p-3 text-slate-600">{{ inv.shop_name }}</td>
+                <td class="p-3 font-bold text-indigo-900">{{ inv.seller_name }}</td>
+                <td class="p-3">{{ inv.customer_name }} <span class="text-slate-400 block text-[10px]">{{ inv.customer_phone or '' }}</span></td>
+                <td class="p-3 font-black {% if inv.invoice_type == 'return' %}text-rose-600{% else %}text-emerald-700{% endif %}">
+                    {% if inv.invoice_type == 'return' %}-{% endif %}{{ "{:,}".format(inv.total_amount) }}
+                </td>
+                <td class="p-3">
+                    {% if inv.payment_method == 'card_to_card' %}
+                        <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg text-[10px] font-bold">کارت به کارت</span>
+                    {% elif inv.payment_method == 'deposit' and inv.total_amount > (inv.paid_amount or 0) %}
+                        <span class="text-rose-600 font-bold text-[10px]">مانده: {{ "{:,}".format(inv.total_amount - (inv.paid_amount or 0)) }}</span>
+                    {% elif inv.payment_method == 'cheque' %}
+                        <span class="text-indigo-600 font-bold">چک صیادی</span>
+                    {% else %}
+                        <span class="text-slate-600">تسویه کامل</span>
+                    {% endif %}
+                </td>
+                <td class="p-3 text-slate-400 text-[11px]" dir="ltr">{{ inv.shamsi_date_time }}</td>
+                <td class="p-3 text-center">
+                    <button onclick='openInvoiceDetailModal({{ inv|tojson }})' class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-xl text-[10px] transition">
+                        👁️ جزئیات کامل
+                    </button>
+                </td>
+                <td class="p-3">
+                    <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-600 font-bold">🖨️ چاپ</a>
+                </td>
+                <td class="p-3">
+                    <form method="POST" action="{{ url_for('delete_invoice', invoice_id=inv.id) }}" onsubmit="return confirm('این فاکتور حذف شود؟')">
+                        <button type="submit" class="text-rose-600 hover:text-rose-800 font-bold">حذف</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-center p-6 text-slate-400">فاکتوری یافت نشد.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Audit Log Table -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto mb-6">
+    <div class="flex justify-between items-center mb-3 border-b pb-2">
+        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <span>🛡️</span> گزارش رویدادها و لاگ امنیتی سیستم
+        </h3>
+        <span class="text-[11px] text-slate-400 font-medium">ثبت خودکار تمامی فعالیت‌های کاربران</span>
+    </div>
+    <div class="max-h-56 overflow-y-auto custom-scrollbar">
+        <table class="w-full text-right border-collapse text-xs">
+            <thead>
+                <tr class="bg-slate-50 text-slate-600 font-bold">
+                    <th class="p-2.5 border-b">شرح رویداد / عملیات</th>
+                    <th class="p-2.5 border-b">کاربر انجام‌دهنده</th>
+                    <th class="p-2.5 border-b">زمان دقیق</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr class="border-b hover:bg-slate-50 text-[11px]">
+                    <td class="p-2.5 font-medium text-slate-700">{{ log.action }}</td>
+                    <td class="p-2.5 text-indigo-700 font-bold">{{ log.user_name }}</td>
+                    <td class="p-2.5 text-slate-400 font-medium" dir="ltr">{{ log.shamsi_date_time }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-center p-4 text-slate-400">هنوز رویدادی ثبت نشده است.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Admin Password -->
+<div id="adminChangePasswordModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">🔐 تغییر رمز عبور پنل مدیریت</h3>
+        <form method="POST" action="{{ url_for('admin_change_own_password') }}">
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-600 mb-1">رمز عبور جدید مدیریت:</label>
+                <input type="text" name="new_admin_password" required placeholder="رمز جدید..." class="w-full p-3 border rounded-2xl text-xs font-bold text-left" dir="ltr">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-2xl text-xs font-bold transition">ثبت رمز جدید</button>
+                <button type="button" onclick="document.getElementById('adminChangePasswordModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Detail View -->
+<div id="invoiceDetailModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                <span>📑</span> جزئیات دقیق سند شماره <span id="dtInvNum" class="text-indigo-600"></span>
+            </h3>
+            <button onclick="document.getElementById('invoiceDetailModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">فروشنده ثبت‌کننده:</span><span id="dtSeller" class="font-bold text-slate-800"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">فروش مشترک:</span><span id="dtSplit" class="font-bold text-indigo-700"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">نام خریدار:</span><span id="dtCustomer" class="font-bold text-slate-800"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">تلفن خریدار:</span><span id="dtPhone" class="font-bold text-slate-800" dir="ltr"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">مبلغ کل فاکتور:</span><span id="dtAmount" class="font-black text-emerald-600 text-sm"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">نحوه تسویه:</span><span id="dtPayment" class="font-bold text-slate-800"></span></div>
+        </div>
+
+        <div id="dtCardBox" class="hidden bg-blue-50 p-3 rounded-2xl border border-blue-200 text-xs space-y-1">
+            <p><span class="font-bold text-blue-900">کارت مقصد طهماسبی:</span> <span id="dtDestCard" class="font-mono font-bold"></span></p>
+            <p><span class="font-bold text-blue-900">کد پیگیری فیش:</span> <span id="dtTracking" class="font-mono font-bold"></span></p>
+        </div>
+
+        <div id="dtChequeBox" class="hidden bg-indigo-50 p-3 rounded-2xl border border-indigo-200 text-xs space-y-1">
+            <p><span class="font-bold text-indigo-900">شناسه ۱۶ رقمی صیادی:</span> <span id="dtSayad" class="font-mono font-bold"></span></p>
+            <p><span class="font-bold text-indigo-900">بانک صادرکننده:</span> <span id="dtBank"></span></p>
+            <p><span class="font-bold text-indigo-900">تاریخ سررسید:</span> <span id="dtDueDate" class="font-bold text-amber-700"></span></p>
+        </div>
+
+        <div id="dtDepositBox" class="hidden bg-amber-50 p-3 rounded-2xl border border-amber-200 text-xs space-y-1">
+            <p><span class="font-bold text-amber-900">مبلغ بیعانه نقدی:</span> <span id="dtPaid"></span></p>
+            <p><span class="font-bold text-amber-900">مانده بدهی مشتری:</span> <span id="dtRemaining" class="text-rose-600 font-black"></span></p>
+            <p><span class="font-bold text-amber-900">موعد تسویه مانده:</span> <span id="dtDepositDate" class="font-bold"></span></p>
+        </div>
+
+        <div class="bg-slate-50 p-3 rounded-2xl border text-xs">
+            <span class="text-slate-500 block mb-1 font-bold">دسته‌بندی و شرح کالاهای سفارش:</span>
+            <p id="dtDesc" class="text-slate-800 whitespace-pre-line leading-relaxed font-medium"></p>
+        </div>
+
+        <div class="flex justify-end">
+            <button onclick="document.getElementById('invoiceDetailModal').classList.add('hidden')" class="bg-slate-900 text-white px-6 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Petty Cash Deposit -->
+<div id="pettyDepositModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">💵 واریز و شارژ تنخواه به مغازه</h3>
+        <form method="POST" action="{{ url_for('add_petty_deposit') }}" onsubmit="unformatOnSubmit(this)">
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">کدام شعبه؟</label>
+                <select name="shop_id" class="w-full p-2.5 border rounded-2xl text-xs font-bold bg-white">
+                    {% for s in shops %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">عنوان واریزی:</label>
+                <input type="text" name="title" required placeholder="مثال: شارژ تنخواه اول ماه" class="w-full p-2.5 border rounded-2xl text-xs">
+            </div>
+            <div class="mb-3">
+                <label class="block text-[11px] text-slate-600 mb-1">مبلغ واریزی (تومان):</label>
+                <input type="text" name="amount" required onkeyup="formatNumber(this)" placeholder="مثال: 5,000,000" class="currency-input w-full p-2.5 border rounded-2xl text-xs font-bold text-emerald-700">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-2xl text-xs font-bold transition">ثبت شارژ</button>
+                <button type="button" onclick="document.getElementById('pettyDepositModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Add User -->
+<div id="addUserModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-4">➕ تعریف پرسنل جدید</h3>
+        <form method="POST" action="{{ url_for('add_user') }}">
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">نام و نام خانوادگی:</label>
+                <input type="text" name="full_name" required placeholder="مثال: خانم کاظمی" class="w-full p-2.5 border rounded-2xl text-xs">
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">نام کاربری انگلیسی:</label>
+                <input type="text" name="username" required placeholder="kazemi" class="w-full p-2.5 border rounded-2xl text-xs text-left" dir="ltr">
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">رمز عبور اولیه:</label>
+                <input type="password" name="password" required class="w-full p-2.5 border rounded-2xl text-xs text-left" dir="ltr">
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">شعبه طهماسبی:</label>
+                <select name="shop_id" class="w-full p-2.5 border rounded-2xl text-xs bg-white">
+                    {% for s in shops %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-600 mb-1">درصد پورسانت پایه (0.01 تا 5):</label>
+                <input type="number" step="0.01" min="0.01" max="5.0" name="commission_rate" value="1.0" class="w-full p-2.5 border rounded-2xl text-xs text-center font-bold">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-slate-900 text-white py-2.5 rounded-2xl text-xs font-bold">ثبت پرسنل</button>
+                <button type="button" onclick="document.getElementById('addUserModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Settings -->
+<div id="settingsModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-3">⚙️ تنظیم پله‌های پورسانت طهماسبی</h3>
+        <form method="POST" action="{{ url_for('update_settings') }}" onsubmit="unformatOnSubmit(this)">
+            <div class="bg-slate-50 p-3 rounded-2xl mb-3 border">
+                <h4 class="text-xs font-bold text-indigo-700 mb-2">🥇 پله اول تارگت</h4>
+                <label class="block text-[11px] text-slate-600 mb-1">کف فروش (تومان):</label>
+                <input type="text" name="tier1_min" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(settings.tier1_min) }}" class="currency-input w-full p-2.5 border rounded-xl text-xs font-bold mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">درصد پاداش پله اول (%):</label>
+                <input type="number" step="0.01" name="tier1_bonus" value="{{ settings.tier1_bonus }}" class="w-full p-2.5 border rounded-xl text-xs font-bold">
+            </div>
+            <div class="bg-slate-50 p-3 rounded-2xl mb-4 border">
+                <h4 class="text-xs font-bold text-emerald-700 mb-2">🏆 پله دوم تارگت</h4>
+                <label class="block text-[11px] text-slate-600 mb-1">کف فروش (تومان):</label>
+                <input type="text" name="tier2_min" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(settings.tier2_min) }}" class="currency-input w-full p-2.5 border rounded-xl text-xs font-bold mb-2">
+                <label class="block text-[11px] text-slate-600 mb-1">درصد پاداش پله دوم (%):</label>
+                <input type="number" step="0.01" name="tier2_bonus" value="{{ settings.tier2_bonus }}" class="w-full p-2.5 border rounded-xl text-xs font-bold">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-slate-900 text-white py-2.5 rounded-2xl text-xs font-bold">ذخیره</button>
+                <button type="button" onclick="document.getElementById('settingsModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: User Custom Password -->
+<div id="customPasswordModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-2">🔑 تغییر رمز پرسنل</h3>
+        <p id="pwModalUser" class="text-xs text-slate-500 mb-4"></p>
+        <form method="POST" id="passwordForm">
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-600 mb-1">رمز عبور دلخواه جدید:</label>
+                <input type="text" name="new_password" required class="w-full p-3 border rounded-2xl text-xs font-bold text-left" dir="ltr">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-2xl text-xs font-bold">ثبت رمز جدید</button>
+                <button type="button" onclick="document.getElementById('customPasswordModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openPasswordModal(userId, userName) {
+        document.getElementById('pwModalUser').innerText = 'کاربر: ' + userName;
+        document.getElementById('passwordForm').action = '/admin/user/set_password/' + userId;
+        document.getElementById('customPasswordModal').classList.remove('hidden');
+    }
+
+    function openInvoiceDetailModal(inv) {
+        document.getElementById('dtInvNum').innerText = inv.invoice_number;
+        document.getElementById('dtSeller').innerText = inv.seller_name || inv.seller_id;
+        document.getElementById('dtSplit').innerText = inv.second_seller_id ? ('شراکتی (سهم اصلی: ' + inv.split_ratio + '%)') : 'تکی (بدون همکار)';
+        document.getElementById('dtCustomer').innerText = inv.customer_name;
+        document.getElementById('dtPhone').innerText = inv.customer_phone || '-';
+        document.getElementById('dtAmount').innerText = Number(inv.total_amount).toLocaleString() + ' تومان';
+        document.getElementById('dtPayment').innerText = inv.payment_method;
+
+        if (inv.payment_method === 'card_to_card') {
+            document.getElementById('dtCardBox').classList.remove('hidden');
+            document.getElementById('dtDestCard').innerText = inv.dest_card_number || '-';
+            document.getElementById('dtTracking').innerText = inv.payment_tracking_code || '-';
+        } else {
+            document.getElementById('dtCardBox').classList.add('hidden');
+        }
+
+        if (inv.payment_method === 'cheque') {
+            document.getElementById('dtChequeBox').classList.remove('hidden');
+            document.getElementById('dtSayad').innerText = inv.cheque_sayad || '-';
+            document.getElementById('dtBank').innerText = inv.cheque_bank || '-';
+            document.getElementById('dtDueDate').innerText = inv.cheque_due_date || '-';
+        } else {
+            document.getElementById('dtChequeBox').classList.add('hidden');
+        }
+
+        if (inv.payment_method === 'deposit') {
+            document.getElementById('dtDepositBox').classList.remove('hidden');
+            document.getElementById('dtPaid').innerText = Number(inv.paid_amount || 0).toLocaleString() + ' تومان';
+            document.getElementById('dtRemaining').innerText = Number(inv.total_amount - (inv.paid_amount || 0)).toLocaleString() + ' تومان';
+            document.getElementById('dtDepositDate').innerText = inv.due_settlement_date || '-';
+        } else {
+            document.getElementById('dtDepositBox').classList.add('hidden');
+        }
+
+        let descText = (inv.categories_json ? inv.categories_json.replace(/["\[\]]/g, '') : '') + '\n' + (inv.items_desc || 'بدون توضیحات');
+        document.getElementById('dtDesc').innerText = descText;
+        document.getElementById('invoiceDetailModal').classList.remove('hidden');
+    }
+
+    const sellerCtx = document.getElementById('sellerSalesChart').getContext('2d');
+    new Chart(sellerCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ chart_sellers_labels|tojson }},
+            datasets: [{
+                label: 'فروش خالص (تومان)',
+                data: {{ chart_sellers_data|tojson }},
+                backgroundColor: ['#4f46e5', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
+                borderRadius: 8
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    const catCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(catCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ chart_category_labels|tojson }},
+            datasets: [{
+                data: {{ chart_category_data|tojson }},
+                backgroundColor: ['#3b82f6', '#ec4899', '#f97316', '#14b8a6', '#8b5cf6', '#eab308', '#64748b', '#06b6d4', '#84cc16', '#a855f7', '#d97706']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+</script>
+{% endblock %}

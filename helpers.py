@@ -69,6 +69,7 @@ def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, u
 def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, settings=None):
     """
     محاسبه دقیق آمار فروش، پورسانت نقدی، پورسانت معلق، تعداد فاکتورها، مرجوعی‌ها و رضایت مشتری
+    *** اصلاح شده: فروش خالص فقط بر اساس مبلغ واقعی تسویه‌شده محاسبه می‌شود ***
     """
     if not settings:
         settings = Settings.query.first()
@@ -80,15 +81,14 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         Invoice.status == 'final'
     ).all()
 
-    gross_sales = 0
-    net_sales = 0
+    gross_sales = 0      # مبلغ کل فاکتورها (برای نمایش اطلاعاتی)
+    net_sales = 0        # فروش خالص = فقط مبلغ تسویه‌شده واقعی
     total_cost = 0
     real_profit_share = 0
     sales_count = 0
     returns_count = 0
     ratings = []
-    
-    pending_commission_sales = 0 # فروش‌هایی که چک پاس‌نشده یا مانده بیعانه دارند
+    pending_commission_sales = 0  # مبالغ معلق: مانده + چک‌های در انتظار
 
     for inv in invoices:
         # محاسبه درصد تسهیم فروشنده
@@ -99,39 +99,53 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             else:
                 ratio = (100 - (inv.split_ratio if inv.split_ratio is not None else 100)) / 100.0
 
-        item_amount = int(inv.total_amount * ratio)
+        item_total_amount = int(inv.total_amount * ratio)
         item_cost = int((inv.actual_buy_cost or 0) * ratio)
         item_profit = int((inv.real_profit or 0) * ratio)
 
         if inv.invoice_type == 'sale':
-            gross_sales += item_amount
-            net_sales += item_amount
+            gross_sales += item_total_amount  # کل مبلغ فاکتور (اطلاعاتی)
+
+            # === محاسبه مبلغ واقعی تسویه‌شده ===
+            # چک‌های وصول‌شده
+            passed_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
+            # چک‌های در انتظار (معلق)
+            pending_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'pending')
+            # مانده تسویه‌نشده
+            remaining = inv.remaining_balance or 0
+            # پرداخت فوری: نقد + کارتخوان + کارت‌به‌کارت
+            immediate_paid = inv.paid_amount or 0
+
+            # مبلغ تسویه‌شده = پرداخت فوری + چک‌های وصول‌شده
+            settled_amount = immediate_paid + passed_cheque
+            item_settled = int(settled_amount * ratio)
+
+            # فقط مبلغ تسویه‌شده به فروش خالص اضافه می‌شود
+            net_sales += item_settled
             total_cost += item_cost
             real_profit_share += item_profit
             sales_count += 1
             if inv.customer_rating:
                 ratings.append(inv.customer_rating)
-                
-            # بررسی اینکه آیا فاکتور دارای مانده پرداخت‌نشده یا چک پاس‌نشده است
-            has_bounced_cheque = False
-            for chk in inv.cheques:
-                if chk.status == 'bounced':
-                    has_bounced_cheque = True
-                elif chk.status == 'pending':
-                    pending_commission_sales += int(chk.amount * ratio)
 
-            if inv.payment_method == 'deposit' and inv.total_amount > (inv.paid_amount or 0):
-                remaining = (inv.total_amount - (inv.paid_amount or 0))
-                pending_commission_sales += int(remaining * ratio)
+            # مبالغ معلق: مانده‌ی تسویه‌نشده + چک‌های در انتظار
+            pending_this = int((pending_cheque + remaining) * ratio)
+            pending_commission_sales += pending_this
 
         elif inv.invoice_type == 'return':
-            net_sales -= item_amount
+            # برای مرجوعی هم مبلغ واقعی برگشتی ملاک است
+            passed_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
+            immediate_paid = inv.paid_amount or 0
+            settled_amount = immediate_paid + passed_cheque
+            item_settled = int(settled_amount * ratio)
+
+            net_sales -= item_settled
             total_cost -= item_cost
             real_profit_share -= item_profit
             returns_count += 1
 
     net_sales = max(net_sales, 0)
-    
+
     # محاسبه پاداش تارگت پله‌ای
     bonus = 0.0
     tier_achieved = 0
@@ -144,15 +158,14 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             tier_achieved = 1
 
     effective_rate = round(min(base_commission_rate + bonus, 5.0), 2)
-    
-    # پورسانت کل
+
+    # پورسانت قطعی (فقط روی مبلغ واقعی تسویه‌شده)
     total_commission_calculated = int((net_sales * effective_rate) / 100)
-    
-    # پورسانت معلق (ناشی از چک‌های در انتظار یا مانده بیعانه)
+    settled_commission_amount = total_commission_calculated
+
+    # پورسانت معلق (روی مانده‌های تسویه‌نشده + چک‌های در انتظار)
     pending_commission_amount = int((pending_commission_sales * effective_rate) / 100)
-    # پورسانت قطعی و وصول شده
-    settled_commission_amount = max(total_commission_calculated - pending_commission_amount, 0)
-    
+
     tier_bonus_amount = int((net_sales * bonus) / 100)
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 5.0
 

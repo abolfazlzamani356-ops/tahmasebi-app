@@ -264,11 +264,20 @@ def seller_dashboard():
         leaderboard.append({'user': s, 'net_sales': s_stats['net_sales'], 'avg_rating': s_stats['avg_rating']})
     leaderboard.sort(key=lambda x: x['net_sales'], reverse=True)
 
+    # فاکتورهای دارای مانده تسویه‌نشده برای این فروشنده
+    pending_invoices = Invoice.query.filter(
+        (Invoice.seller_id == user.id) | (Invoice.second_seller_id == user.id),
+        Invoice.status == 'final',
+        Invoice.remaining_balance > 0,
+        Invoice.is_settled == False
+    ).order_by(Invoice.created_at.desc()).all()
+
     return render_template(
         'seller_dashboard.html',
         user=user,
         stats=stats,
         invoices=invoices,
+        pending_invoices=pending_invoices,
         months=PERSIAN_MONTHS,
         selected_month=selected_month,
         current_month_name=PERSIAN_MONTHS.get(selected_month, ''),
@@ -496,17 +505,61 @@ def convert_proforma(invoice_id):
 
 @app.route('/invoice/settle_deposit/<int:invoice_id>', methods=['POST'])
 def settle_deposit(invoice_id):
+    """تسویه مانده فاکتور - جزئی یا کامل - با ثبت روش پرداخت"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     inv = Invoice.query.get_or_404(invoice_id)
-    inv.paid_amount = inv.total_amount
-    inv.is_settled = True
-    inv.payment_method = 'pos'
-    if inv.customer and inv.customer.outstanding_balance > 0:
-        inv.customer.outstanding_balance = max(inv.customer.outstanding_balance - (inv.total_amount - inv.paid_amount), 0)
+    user = User.query.get(session['user_id'])
+
+    # بررسی دسترسی: ادمین یا فروشنده ثبت‌کننده
+    if user.role != 'admin' and inv.seller_id != user.id and inv.second_seller_id != user.id:
+        flash('شما دسترسی تسویه این فاکتور را ندارید.', 'error')
+        return redirect(url_for('seller_dashboard'))
+
+    # دریافت مبلغ تسویه از فرم (پیش‌فرض: کل مانده)
+    raw_settle = request.form.get('settle_amount', '').replace(',', '').strip()
+    settle_amount = int(raw_settle) if raw_settle else (inv.remaining_balance or 0)
+    settle_method = request.form.get('settle_method', 'pos')  # روش پرداخت تسویه
+
+    if settle_amount <= 0:
+        flash('مبلغ تسویه باید بیشتر از صفر باشد.', 'error')
+        return redirect(url_for('seller_dashboard'))
+
+    old_remaining = inv.remaining_balance or 0
+    actual_settle = min(settle_amount, old_remaining)  # نمی‌توان بیشتر از مانده تسویه کرد
+
+    # آپدیت فیلدهای پرداخت بر اساس روش
+    if settle_method == 'pos':
+        inv.paid_pos = (inv.paid_pos or 0) + actual_settle
+    elif settle_method == 'card':
+        inv.paid_card = (inv.paid_card or 0) + actual_settle
+    elif settle_method == 'cash':
+        inv.paid_cash = (inv.paid_cash or 0) + actual_settle
+
+    inv.paid_amount = (inv.paid_amount or 0) + actual_settle
+    inv.remaining_balance = max(old_remaining - actual_settle, 0)
+    inv.is_settled = (inv.remaining_balance <= 0)
+
+    # آپدیت روش پرداخت در متن فاکتور
+    method_names = {'pos': 'کارتخوان', 'card': 'کارت‌به‌کارت', 'cash': 'نقد'}
+    settle_note = f" | تسویه {actual_settle:,} ({method_names.get(settle_method, 'نامشخص')})"
+    inv.payment_method = (inv.payment_method or '') + settle_note
+
+    # آپدیت حساب مشتری در CRM
+    if inv.customer_id:
+        from models import Customer
+        cust = Customer.query.get(inv.customer_id)
+        if cust and cust.outstanding_balance > 0:
+            cust.outstanding_balance = max(cust.outstanding_balance - actual_settle, 0)
+
     db.session.commit()
-    log_activity(f"تسویه کامل مانده فاکتور {inv.invoice_number}", session.get('full_name'), "مالی")
-    flash(f'مانده فاکتور {inv.invoice_number} به طور کامل تسویه شد.', 'success')
+
+    status_msg = 'کامل' if inv.is_settled else f'جزئی ({inv.remaining_balance:,} تومان مانده)'
+    log_activity(
+        f"تسویه {status_msg} مانده فاکتور {inv.invoice_number} به مبلغ {actual_settle:,} تومان ({method_names.get(settle_method,'')})",
+        session.get('full_name'), "فروش"
+    )
+    flash(f'مبلغ {actual_settle:,} تومان از مانده فاکتور {inv.invoice_number} تسویه شد. {"✅ کاملاً تسویه شد." if inv.is_settled else f"⏳ مانده باقی: {inv.remaining_balance:,} تومان"}', 'success')
     return redirect(url_for('seller_dashboard'))
 
 # ==================== ویرایش فاکتور توسط فروشنده و ادمین ====================

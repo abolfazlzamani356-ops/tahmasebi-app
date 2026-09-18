@@ -454,10 +454,139 @@
     </div>
 </div>
 
+<!-- ===== بخش فاکتورهای دارای مانده تسویه‌نشده ===== -->
+{% if pending_invoices %}
+<div class="bg-gradient-to-br from-rose-50 to-amber-50 border-2 border-rose-200 rounded-3xl shadow-md mb-8 overflow-hidden">
+    <div class="p-5 border-b border-rose-200 flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">⏳</span>
+            <div>
+                <h3 class="text-base font-black text-rose-700">فاکتورهای دارای مانده تسویه‌نشده</h3>
+                <p class="text-xs text-rose-500 mt-0.5">این فاکتورها مانده دارند — تا تسویه نشوند، مبلغ آن‌ها به فروش و پورسانت شما اضافه <b>نمی‌شود</b></p>
+            </div>
+        </div>
+        <span class="bg-rose-600 text-white text-xs font-black px-3 py-1 rounded-full">{{ pending_invoices|length }} فاکتور</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-right text-xs">
+            <thead>
+                <tr class="bg-rose-100 text-rose-800 font-bold">
+                    <th class="p-3 border-b border-rose-200">شماره فاکتور</th>
+                    <th class="p-3 border-b border-rose-200">خریدار</th>
+                    <th class="p-3 border-b border-rose-200">تاریخ</th>
+                    <th class="p-3 border-b border-rose-200">مبلغ کل</th>
+                    <th class="p-3 border-b border-rose-200">پرداخت شده</th>
+                    <th class="p-3 border-b border-rose-200 text-rose-600">مانده</th>
+                    <th class="p-3 border-b border-rose-200">موعد تسویه</th>
+                    <th class="p-3 border-b border-rose-200">عملیات تسویه</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pinv in pending_invoices %}
+                <tr class="border-b border-rose-100 hover:bg-rose-50 transition">
+                    <td class="p-3 font-bold text-slate-700">{{ pinv.invoice_number }}</td>
+                    <td class="p-3 text-slate-700">{{ pinv.customer_name }}</td>
+                    <td class="p-3 text-slate-500">{{ pinv.shamsi_date_time[:10] if pinv.shamsi_date_time else '-' }}</td>
+                    <td class="p-3 font-bold text-slate-700">{{ "{:,}".format(pinv.total_amount) }}</td>
+                    <td class="p-3 text-emerald-600 font-bold">{{ "{:,}".format(pinv.paid_amount or 0) }}</td>
+                    <td class="p-3 font-black text-rose-600 text-sm">{{ "{:,}".format(pinv.remaining_balance or 0) }}</td>
+                    <td class="p-3 text-amber-700">{{ pinv.due_settlement_date or '—' }}</td>
+                    <td class="p-3">
+                        <!-- دکمه باز کردن مودال تسویه -->
+                        <button type="button"
+                            onclick="openSettleModal({{ pinv.id }}, '{{ pinv.invoice_number }}', {{ pinv.remaining_balance or 0 }}, '{{ pinv.customer_name }}')"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                            💰 تسویه
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="bg-rose-100 font-black text-rose-700">
+                    <td colspan="5" class="p-3 text-right">جمع کل مانده‌های تسویه‌نشده:</td>
+                    <td class="p-3 text-rose-700 text-base">{{ "{:,}".format(pending_invoices | sum(attribute='remaining_balance')) }}</td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- مودال تسویه مانده فاکتور -->
+<div id="settleModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="bg-gradient-to-l from-emerald-600 to-teal-600 p-5 text-white">
+            <h3 class="text-lg font-black">💰 تسویه مانده فاکتور</h3>
+            <p id="settleModalSubtitle" class="text-sm opacity-80 mt-1"></p>
+        </div>
+        <form id="settleForm" method="POST" action="">
+            <div class="p-6 space-y-4">
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center">
+                    <p class="text-xs text-rose-600 mb-1">مانده قابل تسویه</p>
+                    <p id="settleModalRemaining" class="text-2xl font-black text-rose-600"></p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">مبلغ تسویه (تومان)</label>
+                    <input type="number" name="settle_amount" id="settleAmountInput"
+                        class="w-full border-2 border-slate-200 rounded-xl p-3 text-right font-bold focus:border-emerald-500 outline-none text-lg"
+                        placeholder="مبلغ را وارد کنید" min="1">
+                    <p class="text-[10px] text-slate-400 mt-1">پیش‌فرض: تسویه کامل کل مانده</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-2">روش پرداخت تسویه</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex flex-col items-center gap-1 cursor-pointer">
+                            <input type="radio" name="settle_method" value="pos" checked class="hidden peer">
+                            <span class="peer-checked:bg-emerald-600 peer-checked:text-white bg-slate-100 text-slate-600 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-emerald-600 border-transparent">
+                                💳 کارتخوان
+                            </span>
+                        </label>
+                        <label class="flex flex-col items-center gap-1 cursor-pointer">
+                            <input type="radio" name="settle_method" value="card" class="hidden peer">
+                            <span class="peer-checked:bg-blue-600 peer-checked:text-white bg-slate-100 text-slate-600 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-blue-600 border-transparent">
+                                📱 کارت‌به‌کارت
+                            </span>
+                        </label>
+                        <label class="flex flex-col items-center gap-1 cursor-pointer">
+                            <input type="radio" name="settle_method" value="cash" class="hidden peer">
+                            <span class="peer-checked:bg-amber-600 peer-checked:text-white bg-slate-100 text-slate-600 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-amber-600 border-transparent">
+                                💵 نقد
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t border-slate-100 flex gap-3">
+                <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl transition text-sm">
+                    ✅ ثبت تسویه
+                </button>
+                <button type="button" onclick="document.getElementById('settleModal').classList.add('hidden')"
+                    class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition text-sm">
+                    انصراف
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
+    document.getElementById('settleForm').action = '/invoice/settle_deposit/' + invoiceId;
+    document.getElementById('settleModalSubtitle').textContent = 'فاکتور ' + invoiceNumber + ' - ' + customerName;
+    document.getElementById('settleModalRemaining').textContent = Number(remaining).toLocaleString() + ' تومان';
+    document.getElementById('settleAmountInput').value = remaining;
+    document.getElementById('settleAmountInput').max = remaining;
+    document.getElementById('settleModal').classList.remove('hidden');
+}
+</script>
+{% endif %}
+
 <!-- سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی -->
 <div id="leaderboard" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-8 rounded-3xl shadow-xl mb-8 border border-slate-800">
     <div class="text-center mb-6">
         <span class="text-3xl">🏆</span>
+
         <h3 class="text-xl font-black mt-1">سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی</h3>
         <p class="text-xs text-slate-400">بر اساس بیشترین فروش خالص و بالاترین رضایت مشتریان در {{ current_month_name }}</p>
     </div>

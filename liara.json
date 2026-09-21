@@ -1,0 +1,11 @@
+{
+  "platform": "flask",
+  "app": "tahmasebi-store",
+  "port": 80,
+  "disks": [
+    {
+      "name": "data",
+      "mountTo": "/data"
+    }
+  ]
+}

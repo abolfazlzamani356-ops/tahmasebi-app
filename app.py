@@ -33,20 +33,28 @@ app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v14-permanent-
 # رمز نجات مدیریت
 MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
 
-# ==================== مسیر دیتابیس سازگار با Railway Volume و محلی ====================
+# ==================== مسیر دیتابیس سازگار با دیسک دائمی لیارا، Railway و محلی ====================
+LIARA_VOLUME = os.environ.get('LIARA_VOLUME_PATH', '')
 RAILWAY_VOLUME = os.environ.get('RAILWAY_VOLUME_MOUNT_PATH', '')
+CUSTOM_DATA_DIR = os.environ.get('DATA_DIR', '')
+
 DATA_DIR = os.path.join(app.root_path, 'instance')
 
-if RAILWAY_VOLUME:
+# بررسی دیسک در مسیرهای ابری (لیارا یا ریلوی)
+target_volume = LIARA_VOLUME or RAILWAY_VOLUME or CUSTOM_DATA_DIR
+if not target_volume and os.path.exists('/data'): # مسیر استاندارد دیسک لیارا
+    target_volume = '/data'
+
+if target_volume:
     try:
-        os.makedirs(RAILWAY_VOLUME, exist_ok=True)
-        test_file = os.path.join(RAILWAY_VOLUME, '.write_test')
+        os.makedirs(target_volume, exist_ok=True)
+        test_file = os.path.join(target_volume, '.write_test')
         with open(test_file, 'w') as f:
             f.write('ok')
         os.remove(test_file)
-        DATA_DIR = RAILWAY_VOLUME
+        DATA_DIR = target_volume
     except Exception as e:
-        app.logger.warning(f"Could not use RAILWAY_VOLUME_MOUNT_PATH ({RAILWAY_VOLUME}): {e}. Using fallback instance directory.")
+        app.logger.warning(f"Could not use volume ({target_volume}): {e}. Using fallback instance directory.")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 

@@ -315,6 +315,34 @@ def initialize_database():
         db.session.rollback()
         app.logger.warning(f"Steel Alborz catalog auto-seed warning: {e}")
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی اخوان (Akhavan) - کلیه ۱۰ صفحه با ۱۸٪ تخفیف
+    try:
+        from akhavan_catalog_data import generate_all_akhavan_items
+        akhavan_items = generate_all_akhavan_items(18.0)
+        existing_akhavan = ProductCatalog.query.filter_by(brand='اخوان (Akhavan)').count()
+        if existing_akhavan < len(akhavan_items):
+            for itm in akhavan_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Akhavan catalog auto-seed warning: {e}")
+
 
 # اجرا در startup زمان import توسط gunicorn
 with app.app_context():

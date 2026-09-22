@@ -1322,6 +1322,183 @@ def api_catalog_search():
     items = query.limit(20).all()
     return jsonify([i.to_dict() for i in items])
 
+# ==================== ماژول جادویی ثبت سریع شیرآلات (محاسبه خودکار ۲۸٪ تخفیف) ====================
+@app.route('/admin/catalog/faucet_wizard', methods=['POST'])
+def faucet_wizard():
+    """ثبت خودکار ۴ تکه شیرآلات به همراه ست کامل با کسر درصد تخفیف همکاری از قیمت فروش"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    model_name = request.form.get('model_name', '').strip()
+    brand = request.form.get('brand', 'آس (ABS)').strip()
+    color = request.form.get('color', '').strip()
+    discount_pct = float(request.form.get('discount_percent', '28').replace('%', '').strip() or '28')
+    discount_multiplier = (100.0 - discount_pct) / 100.0
+
+    if not model_name:
+        flash('نام مدل شیرآلات الزامی است.', 'error')
+        return redirect(request.referrer or url_for('inventory_view'))
+
+    parts = [
+        ('دوش', request.form.get('price_shower', '').replace(',', '').strip()),
+        ('آفتابه (توالت)', request.form.get('price_toilet', '').replace(',', '').strip()),
+        ('روشویی', request.form.get('price_basin', '').replace(',', '').strip()),
+        ('ظرفشویی', request.form.get('price_kitchen', '').replace(',', '').strip()),
+    ]
+    tall_basin = request.form.get('price_tall_basin', '').replace(',', '').strip()
+    if tall_basin and int(tall_basin) > 0:
+        parts.append(('روشویی پایه بلند', tall_basin))
+
+    full_set_price_raw = request.form.get('price_full_set', '').replace(',', '').strip()
+    
+    created_count = 0
+    calculated_full_set_sell = 0
+
+    for part_title, p_raw in parts:
+        if p_raw and int(p_raw) > 0:
+            sell_p = int(p_raw)
+            buy_p = int(sell_p * discount_multiplier)
+            calculated_full_set_sell += sell_p
+            
+            full_item_name = f"شیر {part_title} مدل {model_name} {color} {brand}".strip()
+            
+            existing = ProductCatalog.query.filter_by(name=full_item_name).first()
+            if existing:
+                existing.buy_price = buy_p
+                existing.sell_price = sell_p
+                existing.category = 'شیرآلات'
+                existing.brand = brand
+            else:
+                db.session.add(ProductCatalog(
+                    name=full_item_name,
+                    category='شیرآلات',
+                    brand=brand,
+                    buy_price=buy_p,
+                    sell_price=sell_p,
+                    description=f"شیر {part_title} - تخفیف خرید {discount_pct}%"
+                ))
+            created_count += 1
+
+    # ایجاد یا بروزرسانی ست کامل
+    final_full_set_sell = int(full_set_price_raw) if full_set_price_raw and int(full_set_price_raw) > 0 else calculated_full_set_sell
+    if final_full_set_sell > 0:
+        full_set_buy = int(final_full_set_sell * discount_multiplier)
+        full_set_name = f"ست کامل ۴ تکه شیرآلات {model_name} {color} {brand}".strip()
+        existing_set = ProductCatalog.query.filter_by(name=full_set_name).first()
+        if existing_set:
+            existing_set.buy_price = full_set_buy
+            existing_set.sell_price = final_full_set_sell
+            existing_set.category = 'شیرآلات'
+            existing_set.brand = brand
+        else:
+            db.session.add(ProductCatalog(
+                name=full_set_name,
+                category='شیرآلات',
+                brand=brand,
+                buy_price=full_set_buy,
+                sell_price=final_full_set_sell,
+                description=f"ست ۴ تکه (دوش، توالت، روشویی، سینک) - تخفیف خرید {discount_pct}%"
+            ))
+        created_count += 1
+
+    db.session.commit()
+    log_activity(f"ثبت گروهی شیرآلات مدل {model_name} {color} ({created_count} قلم کالا با تخفیف {discount_pct}%)", session.get('full_name'), "کاتالوگ")
+    flash(f'تعداد {created_count} قلم از ست شیرآلات «{model_name} {color}» با کسر {discount_pct}% تخفیف خرید در سیستم ثبت گردید.', 'success')
+    return redirect(request.referrer or url_for('inventory_view'))
+
+
+@app.route('/admin/catalog/seed_abs_faucets', methods=['POST'])
+def seed_abs_faucets():
+    """بارگذاری مستقیم کلیه مدل‌های شیرآلات آس (ABS) طبق لیست قیمت رسمی کارخانه با تخفیف ۲۸٪"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+
+    discount_multiplier = 0.72  # ۱۰۰ منهای ۲۸ درصد
+
+    abs_catalog_data = [
+        # (مدل, رنگ, دوش, آفتابه, روشویی, ظرفشویی, ست کامل, روشویی بلند)
+        ('مینیمال', 'کروم', 5640000, 5320000, 5740000, 6430000, 23130000, 0),
+        ('اسپانیا', 'کروم', 7690000, 5500000, 5380000, 6040000, 24610000, 0),
+        ('اسپانیا', 'سفید کروم', 7820000, 5570000, 5580000, 6360000, 25330000, 0),
+        ('اسپانیا', 'سفید طلایی/مشکی طلایی', 8150000, 5730000, 5610000, 6410000, 25900000, 0),
+        ('مینی تنسو', 'کروم', 7310000, 5880000, 5760000, 9960000, 28910000, 0),
+        ('مینی تنسو', 'مشکی', 7830000, 6220000, 5990000, 10230000, 30270000, 0),
+        ('مینی تنسو', 'زیبرا', 7830000, 6220000, 5800000, 10230000, 30080000, 0),
+        ('مینی تنسو', 'کروم مات', 8680000, 6990000, 6580000, 11320000, 33570000, 0),
+        ('آرچر', 'کروم', 7960000, 6260000, 6410000, 8400000, 29030000, 0),
+        ('آرچر', 'مشکی کروم', 8090000, 6400000, 6790000, 8720000, 30000000, 0),
+        ('آرچر', 'سفید طلایی', 8350000, 6460000, 6610000, 8770000, 30190000, 0),
+        ('آرچر', 'طلا براق', 8580000, 6790000, 6780000, 9120000, 31270000, 0),
+        ('آرچر', 'کروم مات', 9330000, 7380000, 7220000, 9750000, 33680000, 0),
+        ('سزار', 'کروم', 8060000, 5870000, 6680000, 8680000, 29290000, 0),
+        ('سزار', 'سفید کروم / مشکی کروم', 8180000, 5900000, 6820000, 8980000, 29880000, 0),
+        ('سزار', 'سفید طلایی', 8500000, 6070000, 6870000, 9030000, 30470000, 0),
+        ('سزار', 'کروم مات', 9420000, 6960000, 7500000, 10010000, 33890000, 0),
+        ('سورنا', 'کروم', 7800000, 5790000, 7290000, 8770000, 29650000, 0),
+        ('سورنا', 'مشکی کروم / سفید کروم', 8040000, 5960000, 7670000, 9010000, 30680000, 0),
+        ('سورنا', 'طلا براق', 8430000, 6300000, 7650000, 9480000, 31860000, 0),
+        ('برگ', 'کروم', 7610000, 5570000, 7280000, 9830000, 30290000, 10330000),
+        ('برگ', 'سفید طلایی / مشکی طلایی', 8940000, 6440000, 8510000, 11730000, 35620000, 10460000),
+        ('برگ', 'کروم طلا', 9390000, 7050000, 9180000, 11810000, 37430000, 11030000),
+        ('برگ', 'کروم مات', 10360000, 7650000, 9280000, 12970000, 40260000, 11130000),
+        ('ونتو', 'کروم', 8270000, 5960000, 6700000, 11540000, 32470000, 9800000),
+        ('ونتو', 'مشکی', 8730000, 6220000, 6840000, 11780000, 33570000, 9900000),
+        ('ونتو', 'زیبرا', 8920000, 6430000, 6850000, 11870000, 34070000, 9900000),
+        ('ونتو', 'کروم مات', 9540000, 7000000, 7440000, 12760000, 36740000, 10500000),
+    ]
+
+    total_added = 0
+    for model, col, p_d, p_a, p_r, p_z, p_set, p_tall in abs_catalog_data:
+        sub_items = [
+            ('دوش', p_d),
+            ('آفتابه (توالت)', p_a),
+            ('روشویی', p_r),
+            ('ظرفشویی', p_z),
+        ]
+        if p_tall > 0:
+            sub_items.append(('روشویی پایه بلند', p_tall))
+
+        for part_name, sell_p in sub_items:
+            buy_p = int(sell_p * discount_multiplier)
+            name = f"شیر {part_name} آس مدل {model} {col}"
+            item = ProductCatalog.query.filter_by(name=name).first()
+            if item:
+                item.buy_price = buy_p
+                item.sell_price = sell_p
+            else:
+                db.session.add(ProductCatalog(
+                    name=name,
+                    category='شیرآلات',
+                    brand='آس (ABS)',
+                    buy_price=buy_p,
+                    sell_price=sell_p,
+                    description='لیست رسمی کارخانه آس - تخفیف ۲۸٪'
+                ))
+            total_added += 1
+
+        # ست کامل
+        set_buy = int(p_set * discount_multiplier)
+        set_name = f"ست کامل ۴ تکه شیرآلات آس مدل {model} {col}"
+        item_set = ProductCatalog.query.filter_by(name=set_name).first()
+        if item_set:
+            item_set.buy_price = set_buy
+            item_set.sell_price = p_set
+        else:
+            db.session.add(ProductCatalog(
+                name=set_name,
+                category='شیرآلات',
+                brand='آس (ABS)',
+                buy_price=set_buy,
+                sell_price=p_set,
+                description='ست کامل ۴ تکه کارخانه آس - تخفیف ۲۸٪'
+            ))
+        total_added += 1
+
+    db.session.commit()
+    log_activity(f"بارگذاری خودکار کاتالوگ رسمی شیرآلات آس ({total_added} قلم کالا با تخفیف ۲۸٪)", session.get('full_name'), "کاتالوگ")
+    flash(f'🎉 معجزه شد! تعداد {total_added} قلم کالا و ست کامل شیرآلات آس با تخفیف ۲۸٪ خرید ثبت گردید.', 'success')
+    return redirect(request.referrer or url_for('inventory_view'))
+
 @app.route('/transfer/request', methods=['POST'])
 def request_transfer():
     if 'user_id' not in session:

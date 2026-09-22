@@ -201,22 +201,34 @@ def initialize_database():
     except Exception:
         db.session.rollback()
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی شیرآلات آس (ABS) - کلیه ۶ صفحه با ۲۸٪ تخفیف
     try:
-        if not ProductCatalog.query.first():
-            catalog_seed = [
-                ProductCatalog(name='هود داتیس مدل 522 مخفی', category='هود', brand='داتیس', code='DT-522', buy_price=6500000, sell_price=8900000),
-                ProductCatalog(name='گاز 5 شعله اخوان مدل GI-135', category='گاز صفحه‌ای', brand='اخوان', code='AK-135', buy_price=7200000, sell_price=9800000),
-                ProductCatalog(name='سینک گرانیتی فونیکس دو لگن', category='سینک', brand='فونیکس', code='PH-200', buy_price=5400000, sell_price=7500000),
-                ProductCatalog(name='روشویی کابینتی ضدآب فول‌ست', category='روشویی کابینتی', brand='الگانس', code='EL-60', buy_price=4200000, sell_price=6800000),
-                ProductCatalog(name='شیرآلات اهرمی ست ۴ تکه کروم', category='شیرآلات', brand='قهرمان', code='GH-4P', buy_price=5800000, sell_price=7900000),
-                ProductCatalog(name='توالت فرنگی دو زمانه بیده دار', category='توالت فرنگی', brand='مروارید', code='MR-TOP', buy_price=4800000, sell_price=6500000),
-                ProductCatalog(name='فلاش تانک توکار اولترااسلیم', category='فلاش تانک', brand='ایران نوید', code='IN-SLIM', buy_price=2900000, sell_price=3950000),
-                ProductCatalog(name='علم دوش دوکاره یونیورست طلایی', category='علم دوش', brand='کسری', code='KS-GLD', buy_price=3400000, sell_price=4600000)
-            ]
-            db.session.add_all(catalog_seed)
+        from abs_catalog_data import generate_all_abs_items
+        abs_items = generate_all_abs_items(28.0)
+        existing_abs = ProductCatalog.query.filter_by(brand='آس (ABS)').count()
+        if existing_abs < len(abs_items):
+            for itm in abs_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
             db.session.commit()
-    except Exception:
+    except Exception as e:
         db.session.rollback()
+        app.logger.warning(f"ABS catalog auto-seed warning: {e}")
+
 
 # اجرا در startup زمان import توسط gunicorn
 with app.app_context():
@@ -1566,90 +1578,31 @@ def seed_abs_faucets():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
 
-    discount_multiplier = 0.72  # ۱۰۰ منهای ۲۸ درصد
-
-    abs_catalog_data = [
-        # (مدل, رنگ, دوش, آفتابه, روشویی, ظرفشویی, ست کامل, روشویی بلند)
-        ('مینیمال', 'کروم', 5640000, 5320000, 5740000, 6430000, 23130000, 0),
-        ('اسپانیا', 'کروم', 7690000, 5500000, 5380000, 6040000, 24610000, 0),
-        ('اسپانیا', 'سفید کروم', 7820000, 5570000, 5580000, 6360000, 25330000, 0),
-        ('اسپانیا', 'سفید طلایی/مشکی طلایی', 8150000, 5730000, 5610000, 6410000, 25900000, 0),
-        ('مینی تنسو', 'کروم', 7310000, 5880000, 5760000, 9960000, 28910000, 0),
-        ('مینی تنسو', 'مشکی', 7830000, 6220000, 5990000, 10230000, 30270000, 0),
-        ('مینی تنسو', 'زیبرا', 7830000, 6220000, 5800000, 10230000, 30080000, 0),
-        ('مینی تنسو', 'کروم مات', 8680000, 6990000, 6580000, 11320000, 33570000, 0),
-        ('آرچر', 'کروم', 7960000, 6260000, 6410000, 8400000, 29030000, 0),
-        ('آرچر', 'مشکی کروم', 8090000, 6400000, 6790000, 8720000, 30000000, 0),
-        ('آرچر', 'سفید طلایی', 8350000, 6460000, 6610000, 8770000, 30190000, 0),
-        ('آرچر', 'طلا براق', 8580000, 6790000, 6780000, 9120000, 31270000, 0),
-        ('آرچر', 'کروم مات', 9330000, 7380000, 7220000, 9750000, 33680000, 0),
-        ('سزار', 'کروم', 8060000, 5870000, 6680000, 8680000, 29290000, 0),
-        ('سزار', 'سفید کروم / مشکی کروم', 8180000, 5900000, 6820000, 8980000, 29880000, 0),
-        ('سزار', 'سفید طلایی', 8500000, 6070000, 6870000, 9030000, 30470000, 0),
-        ('سزار', 'کروم مات', 9420000, 6960000, 7500000, 10010000, 33890000, 0),
-        ('سورنا', 'کروم', 7800000, 5790000, 7290000, 8770000, 29650000, 0),
-        ('سورنا', 'مشکی کروم / سفید کروم', 8040000, 5960000, 7670000, 9010000, 30680000, 0),
-        ('سورنا', 'طلا براق', 8430000, 6300000, 7650000, 9480000, 31860000, 0),
-        ('برگ', 'کروم', 7610000, 5570000, 7280000, 9830000, 30290000, 10330000),
-        ('برگ', 'سفید طلایی / مشکی طلایی', 8940000, 6440000, 8510000, 11730000, 35620000, 10460000),
-        ('برگ', 'کروم طلا', 9390000, 7050000, 9180000, 11810000, 37430000, 11030000),
-        ('برگ', 'کروم مات', 10360000, 7650000, 9280000, 12970000, 40260000, 11130000),
-        ('ونتو', 'کروم', 8270000, 5960000, 6700000, 11540000, 32470000, 9800000),
-        ('ونتو', 'مشکی', 8730000, 6220000, 6840000, 11780000, 33570000, 9900000),
-        ('ونتو', 'زیبرا', 8920000, 6430000, 6850000, 11870000, 34070000, 9900000),
-        ('ونتو', 'کروم مات', 9540000, 7000000, 7440000, 12760000, 36740000, 10500000),
-    ]
-
+    from abs_catalog_data import generate_all_abs_items
+    abs_items = generate_all_abs_items(28.0)
     total_added = 0
-    for model, col, p_d, p_a, p_r, p_z, p_set, p_tall in abs_catalog_data:
-        sub_items = [
-            ('دوش', p_d),
-            ('آفتابه (توالت)', p_a),
-            ('روشویی', p_r),
-            ('ظرفشویی', p_z),
-        ]
-        if p_tall > 0:
-            sub_items.append(('روشویی پایه بلند', p_tall))
-
-        for part_name, sell_p in sub_items:
-            buy_p = int(sell_p * discount_multiplier)
-            name = f"شیر {part_name} آس مدل {model} {col}"
-            item = ProductCatalog.query.filter_by(name=name).first()
-            if item:
-                item.buy_price = buy_p
-                item.sell_price = sell_p
-            else:
-                db.session.add(ProductCatalog(
-                    name=name,
-                    category='شیرآلات',
-                    brand='آس (ABS)',
-                    buy_price=buy_p,
-                    sell_price=sell_p,
-                    description='لیست رسمی کارخانه آس - تخفیف ۲۸٪'
-                ))
-            total_added += 1
-
-        # ست کامل
-        set_buy = int(p_set * discount_multiplier)
-        set_name = f"ست کامل ۴ تکه شیرآلات آس مدل {model} {col}"
-        item_set = ProductCatalog.query.filter_by(name=set_name).first()
-        if item_set:
-            item_set.buy_price = set_buy
-            item_set.sell_price = p_set
+    for itm in abs_items:
+        item = ProductCatalog.query.filter_by(name=itm['name']).first()
+        if item:
+            item.buy_price = itm['buy_price']
+            item.sell_price = itm['sell_price']
+            item.category = itm['category']
+            item.brand = itm['brand']
+            item.description = itm['description']
         else:
             db.session.add(ProductCatalog(
-                name=set_name,
-                category='شیرآلات',
-                brand='آس (ABS)',
-                buy_price=set_buy,
-                sell_price=p_set,
-                description='ست کامل ۴ تکه کارخانه آس - تخفیف ۲۸٪'
+                name=itm['name'],
+                category=itm['category'],
+                brand=itm['brand'],
+                buy_price=itm['buy_price'],
+                sell_price=itm['sell_price'],
+                description=itm['description']
             ))
         total_added += 1
 
     db.session.commit()
-    log_activity(f"بارگذاری خودکار کاتالوگ رسمی شیرآلات آس ({total_added} قلم کالا با تخفیف ۲۸٪)", session.get('full_name'), "کاتالوگ")
-    flash(f'🎉 معجزه شد! تعداد {total_added} قلم کالا و ست کامل شیرآلات آس با تخفیف ۲۸٪ خرید ثبت گردید.', 'success')
+    log_activity(f"بارگذاری کاتالوگ کامل شیرآلات آس ({total_added} قلم کالا با تخفیف ۲۸٪)", session.get('full_name'), "کاتالوگ")
+    flash(f'🎉 تعداد {total_added} قلم کالا و ست شیرآلات آس با تخفیف ۲۸٪ خرید در سیستم ثبت گردید.', 'success')
     return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/transfer/request', methods=['POST'])

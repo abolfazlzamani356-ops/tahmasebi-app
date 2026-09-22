@@ -74,14 +74,24 @@
                 </div>
             </div>
 
-            <div class="bg-gradient-to-l from-indigo-900 to-slate-900 text-white p-5 rounded-3xl shadow-sm flex items-center justify-between">
+            <div class="bg-gradient-to-l from-indigo-900 to-slate-900 text-white p-5 rounded-3xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
                 <div>
-                    <span class="text-xs text-indigo-300 font-bold">تعریف سریع محصول جدید</span>
-                    <p class="text-xs text-slate-300 mt-1">قیمت خرید و فروش را یک‌بار ثبت کنید</p>
+                    <span class="text-xs text-indigo-300 font-bold">مدیریت و ورود سریع کالاها</span>
+                    <p class="text-xs text-slate-300 mt-1">ثبت تکی کالا یا ورود خودکار شیرآلات با کسر ۲۸٪ تخفیف کارخانه</p>
                 </div>
-                <button onclick="openAddModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-4 py-2.5 rounded-2xl text-xs transition shadow-lg flex items-center gap-1">
-                    ➕ افزودن محصول
-                </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="openFaucetWizardModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                        🚿 سازنده سریع ست شیرآلات
+                    </button>
+                    <form method="POST" action="{{ url_for('seed_abs_faucets') }}" onsubmit="return confirm('آیا می‌خواهید کلیه ۲۸ مدل شیرآلات رسمی آس با کسر ۲۸٪ تخفیف خرید به صورت خودکار در سیستم ثبت شوند؟');" class="inline">
+                        <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                            ⚡ بارگذاری کاتالوگ رسمی آس (تخفیف ۲۸٪)
+                        </button>
+                    </form>
+                    <button onclick="openAddModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-3.5 py-2.5 rounded-2xl text-xs transition shadow flex items-center gap-1">
+                        ➕ افزودن تکی
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -297,6 +307,141 @@
         </div>
     </div>
 
+    <!-- Modal: Faucet Set Wizard (سازنده سریع ست شیرآلات با محاسبه خودکار تخفیف) -->
+    <div id="faucetWizardModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🚿</span>
+                    <div>
+                        <h3 class="text-base font-black text-slate-800">سازنده سریع ست شیرآلات</h3>
+                        <p class="text-[11px] text-slate-500">تولید همزمان ۴ قطعه + ست کامل با محاسبه اتوماتیک قیمت خرید بر مبنای تخفیف کارخانه</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeFaucetWizardModal()" class="text-slate-400 hover:text-slate-600 font-black text-lg">✕</button>
+            </div>
+
+            <form method="POST" action="{{ url_for('faucet_wizard') }}" onsubmit="unformatOnSubmit(this)" class="space-y-4">
+                <!-- مشخصات کلی -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">نام مدل *</label>
+                        <input type="text" name="model_name" required placeholder="مثال: مینیمال، ونتو، آرچر"
+                            class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">رنگ / پوشش</label>
+                        <input type="text" name="color" placeholder="مثال: کروم، طلا، مشکی، زیبرا"
+                            class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">برند / شرکت</label>
+                        <input type="text" name="brand" value="آس (ABS)" placeholder="آس (ABS)"
+                            class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <!-- درصد تخفیف کارخانه -->
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-black text-amber-900 block">درصد تخفیف کارخانه از لیست قیمت:</span>
+                        <span class="text-[11px] text-amber-700">قیمت خرید برای ما برابر با (<span id="fwDiscDisplay">28%</span> کسر از فروش) محاسبه می‌شود.</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <input type="number" id="fwDiscount" name="discount_percent" value="28" min="0" max="100" step="0.5"
+                            oninput="calcFaucetBuyPrices()"
+                            class="w-20 bg-white border border-amber-300 rounded-xl p-2 text-center text-xs font-black text-amber-900 outline-none focus:border-amber-600">
+                        <span class="text-xs font-black text-amber-800">درصد</span>
+                    </div>
+                </div>
+
+                <!-- قیمت فروش قطعات اصلی (مصرف کننده) -->
+                <div class="space-y-3">
+                    <span class="text-xs font-black text-slate-700 block border-b pb-1">قیمت فروش مصرف‌کننده (قیمت خرید خودکار با کسر درصد تخفیف محاسبه می‌شود):</span>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- دوش -->
+                        <div class="p-3 bg-slate-50 border rounded-2xl">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-700">🚿 ۱. شیر دوش حمام:</label>
+                                <span id="fw_buy_shower" class="text-[11px] font-black text-blue-700"></span>
+                            </div>
+                            <input type="text" name="price_shower" id="fw_p_shower" placeholder="مثال: 5,640,000"
+                                onkeyup="formatNumber(this); calcFaucetBuyPrices()"
+                                class="currency-input w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-black text-slate-800 outline-none focus:border-amber-500">
+                        </div>
+
+                        <!-- توالت / آفتابه -->
+                        <div class="p-3 bg-slate-50 border rounded-2xl">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-700">🚽 ۲. شیر توالت (آفتابه):</label>
+                                <span id="fw_buy_toilet" class="text-[11px] font-black text-blue-700"></span>
+                            </div>
+                            <input type="text" name="price_toilet" id="fw_p_toilet" placeholder="مثال: 5,320,000"
+                                onkeyup="formatNumber(this); calcFaucetBuyPrices()"
+                                class="currency-input w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-black text-slate-800 outline-none focus:border-amber-500">
+                        </div>
+
+                        <!-- روشویی -->
+                        <div class="p-3 bg-slate-50 border rounded-2xl">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-700">🚰 ۳. شیر روشویی:</label>
+                                <span id="fw_buy_basin" class="text-[11px] font-black text-blue-700"></span>
+                            </div>
+                            <input type="text" name="price_basin" id="fw_p_basin" placeholder="مثال: 5,740,000"
+                                onkeyup="formatNumber(this); calcFaucetBuyPrices()"
+                                class="currency-input w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-black text-slate-800 outline-none focus:border-amber-500">
+                        </div>
+
+                        <!-- ظرفشویی / سینک -->
+                        <div class="p-3 bg-slate-50 border rounded-2xl">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold text-slate-700">🍽️ ۴. شیر ظرفشویی (سینک):</label>
+                                <span id="fw_buy_kitchen" class="text-[11px] font-black text-blue-700"></span>
+                            </div>
+                            <input type="text" name="price_kitchen" id="fw_p_kitchen" placeholder="مثال: 6,430,000"
+                                onkeyup="formatNumber(this); calcFaucetBuyPrices()"
+                                class="currency-input w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-black text-slate-800 outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+
+                    <!-- روشویی پایه بلند (اختیاری) -->
+                    <div class="p-3 bg-slate-50 border rounded-2xl">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-bold text-slate-700">🚰 ۵. روشویی پایه بلند (اختیاری):</label>
+                            <span id="fw_buy_tall_basin" class="text-[11px] font-black text-blue-700"></span>
+                        </div>
+                        <input type="text" name="price_tall_basin" id="fw_p_tall_basin" placeholder="اختیاری - در صورت وجود وارد کنید"
+                            onkeyup="formatNumber(this); calcFaucetBuyPrices()"
+                            class="currency-input w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-black text-slate-800 outline-none focus:border-amber-500">
+                    </div>
+
+                    <!-- قیمت ست کامل ۴ تکه -->
+                    <div class="p-3.5 bg-gradient-to-l from-purple-50 to-indigo-50 border border-indigo-200 rounded-2xl">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-black text-indigo-900">📦 ست کامل ۴ تکه (دوش + توالت + روشویی + سینک):</label>
+                            <span id="fw_buy_full_set" class="text-xs font-black text-purple-700"></span>
+                        </div>
+                        <input type="text" name="price_full_set" id="fw_p_full_set" placeholder="محاسبه خودکار از مجموع قطعات، یا قیمت اختصاصی وارد کنید"
+                            onkeyup="this.setAttribute('data-manual', 'true'); formatNumber(this); calcFaucetBuyPrices()"
+                            class="currency-input w-full bg-white border border-indigo-300 rounded-xl p-2 text-xs font-black text-indigo-950 outline-none focus:border-purple-600">
+                        <p class="text-[10px] text-slate-500 mt-1">💡 سیستم به طور خودکار مجموع قیمت ۴ قطعه را در این فیلد قرار می‌دهد. اگر قیمت ست در لیست کارخانه اندکی متفاوت است، می‌توانید دستی آن را تغییر دهید.</p>
+                    </div>
+                </div>
+
+                <!-- دکمه‌های اقدام -->
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-black py-3 rounded-2xl text-xs transition shadow-lg flex items-center justify-center gap-1.5">
+                        ⚡ ایجاد خودکار قطعات و ست کامل در لیست قیمت
+                    </button>
+                    <button type="button" onclick="closeFaucetWizardModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-3 rounded-2xl text-xs font-bold transition">
+                        انصراف
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function openAddModal() {
             document.getElementById('addModal').classList.remove('hidden');
@@ -318,6 +463,69 @@
         }
         function closeEditModal() {
             document.getElementById('editModal').classList.add('hidden');
+        }
+
+        function openFaucetWizardModal() {
+            document.getElementById('faucetWizardModal').classList.remove('hidden');
+            calcFaucetBuyPrices();
+        }
+        function closeFaucetWizardModal() {
+            document.getElementById('faucetWizardModal').classList.add('hidden');
+        }
+
+        function calcFaucetBuyPrices() {
+            const disc = parseFloat(document.getElementById('fwDiscount').value) || 28;
+            const mult = (100 - disc) / 100;
+            document.getElementById('fwDiscDisplay').innerText = disc + '%';
+
+            const fields = [
+                { id: 'fw_p_shower', buyId: 'fw_buy_shower' },
+                { id: 'fw_p_toilet', buyId: 'fw_buy_toilet' },
+                { id: 'fw_p_basin', buyId: 'fw_buy_basin' },
+                { id: 'fw_p_kitchen', buyId: 'fw_buy_kitchen' },
+                { id: 'fw_p_tall_basin', buyId: 'fw_buy_tall_basin' }
+            ];
+
+            let sumSell = 0;
+            fields.forEach(f => {
+                const el = document.getElementById(f.id);
+                const buyEl = document.getElementById(f.buyId);
+                const val = parseInt((el.value || '').replace(/\D/g, '')) || 0;
+                if (f.id !== 'fw_p_tall_basin') {
+                    sumSell += val;
+                }
+                if (val > 0) {
+                    const buy = Math.round(val * mult);
+                    buyEl.innerText = 'خرید: ' + buy.toLocaleString() + ' ت';
+                } else {
+                    buyEl.innerText = '';
+                }
+            });
+
+            // ست کامل
+            const fullSetEl = document.getElementById('fw_p_full_set');
+            if (!fullSetEl.getAttribute('data-manual')) {
+                if (sumSell > 0) fullSetEl.value = sumSell.toLocaleString();
+            }
+            const fullVal = parseInt((fullSetEl.value || '').replace(/\D/g, '')) || 0;
+            const buyFullEl = document.getElementById('fw_buy_full_set');
+            if (fullVal > 0) {
+                buyFullEl.innerText = 'خرید ست: ' + Math.round(fullVal * mult).toLocaleString() + ' ت';
+            } else {
+                buyFullEl.innerText = '';
+            }
+        }
+
+        function formatNumber(input) {
+            let value = input.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+            if (value) input.value = Number(value).toLocaleString();
+            else input.value = '';
+        }
+
+        function unformatOnSubmit(form) {
+            form.querySelectorAll('.currency-input').forEach(input => {
+                input.value = input.value.replace(/,/g, '');
+            });
         }
     </script>
 </body>

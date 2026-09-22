@@ -257,6 +257,36 @@ def initialize_database():
         db.session.rollback()
         app.logger.warning(f"Zarsham catalog auto-seed warning: {e}")
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی شیرآلات کسرا (Kasra) و ایزی‌پایپ - کلیه ۱۱ صفحه با ۲۸٪ تخفیف
+    try:
+        from kasra_catalog_data import generate_all_kasra_items
+        kasra_items = generate_all_kasra_items(28.0)
+        existing_kasra = ProductCatalog.query.filter(
+            (ProductCatalog.brand == 'کسرا (Kasra)') | (ProductCatalog.brand == 'ایزی‌پایپ (Easy Pipe)')
+        ).count()
+        if existing_kasra < len(kasra_items):
+            for itm in kasra_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Kasra catalog auto-seed warning: {e}")
+
 
 # اجرا در startup زمان import توسط gunicorn
 with app.app_context():

@@ -16,16 +16,22 @@
         
         <div class="flex flex-wrap items-center gap-2">
             {% if session.get('role') == 'admin' %}
-            <button onclick="openFaucetWizardModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
-                🚿 سازنده سریع ست شیرآلات (محاسبه خودکار تخفیف)
+            <button onclick="openFaucetWizardModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                🚿 سازنده سریع ست شیرآلات
             </button>
             <form method="POST" action="{{ url_for('seed_abs_faucets') }}" onsubmit="return confirm('آیا می‌خواهید کلیه ۲۸ مدل شیرآلات رسمی آس با کسر ۲۸٪ تخفیف خرید به صورت خودکار در سیستم ثبت شوند؟');" class="inline">
-                <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                     ⚡ بارگذاری کاتالوگ رسمی آس (تخفیف ۲۸٪)
                 </button>
             </form>
-            <button onclick="openCatalogAddModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+            <button onclick="openExcelModal()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                📥 ورود دسته‌جمعی از اکسل
+            </button>
+            <button onclick="openCatalogAddModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                 ➕ تعریف تکی کالا
+            </button>
+            <button onclick="openClearAllModal()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                🗑️ پاکسازی لیست کاتالوگ
             </button>
             {% endif %}
             <button onclick="document.getElementById('stocktakingModal').classList.remove('hidden')" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow transition">
@@ -764,9 +770,115 @@
             </div>
         </form>
     </div>
+<!-- Modal: Clear All Catalog Items (پاکسازی کل لیست یا دسته‌بندی خاص) -->
+<div id="clearAllModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-2 text-rose-600">
+                <span class="text-2xl">⚠️</span>
+                <h3 class="text-base font-black text-slate-800">پاکسازی لیست قیمت کاتالوگ</h3>
+            </div>
+            <button type="button" onclick="closeClearAllModal()" class="text-slate-400 hover:text-slate-600 font-black">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('delete_all_catalog') }}" onsubmit="return confirm('آیا از انجام این عملیات پاکسازی کاملاً اطمینان دارید؟ کلیه اقلام انتخابی حذف خواهند شد.');" class="space-y-4">
+            <p class="text-xs text-slate-600 leading-relaxed font-medium">
+                شما می‌توانید کل اقلام کاتالوگ را حذف کنید، یا فقط اقلام یک دسته‌بندی خاص (مثلاً فقط شیرآلات) را پاک نمایید:
+            </p>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">محدوده پاکسازی:</label>
+                <select name="category" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-rose-500">
+                    <option value="all">🔥 حذف تمام محصولات (کل کاتالوگ قیمت)</option>
+                    {% for cat in all_categories %}
+                    <option value="{{ cat.name }}">فقط حذف محصولات دسته‌بندی «{{ cat.name }}»</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 rounded-xl text-xs transition shadow-lg">
+                    تأیید و اجرای پاکسازی
+                </button>
+                <button type="button" onclick="closeClearAllModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition">
+                    انصراف
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Import from Excel (ورود دسته‌جمعی از فایل اکسل با محاسبه درصد تخفیف) -->
+<div id="excelImportModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">📥</span>
+                <div>
+                    <h3 class="text-base font-black text-slate-800">ورود دسته‌جمعی محصولات از اکسل</h3>
+                    <p class="text-[11px] text-slate-500">بارگذاری سریع صدها کالا با محاسبه خودکار درصد تخفیف کارخانه</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeExcelModal()" class="text-slate-400 hover:text-slate-600 font-black">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('import_catalog_excel') }}" enctype="multipart/form-data" class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">انتخاب فایل اکسل (.xlsx) *</label>
+                <input type="file" name="excel_file" accept=".xlsx,.xls" required
+                    class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-bold outline-none focus:border-teal-500 file:bg-teal-50 file:border-0 file:text-teal-700 file:text-xs file:font-bold file:px-3 file:py-1 file:rounded-lg file:mr-2">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">دسته‌بندی پیش‌فرض</label>
+                    <input list="catList" name="default_category" placeholder="مثال: گاز، هود..."
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-teal-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">برند / شرکت پیش‌فرض</label>
+                    <input type="text" name="default_brand" placeholder="مثال: اخوان، داتیس..."
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-teal-500">
+                </div>
+            </div>
+
+            <div class="bg-teal-50 border border-teal-200 rounded-xl p-3">
+                <label class="block text-xs font-black text-teal-900 mb-1">درصد کسر تخفیف کارخانه برای قیمت خرید:</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="discount_percent" value="0" min="0" max="100" step="0.5" placeholder="مثلاً: 28 یا 25"
+                        class="w-24 bg-white border border-teal-300 rounded-xl p-2 text-center text-xs font-black text-teal-900 outline-none">
+                    <span class="text-xs text-teal-800">درصد (اگر ستون قیمت خرید خالی باشد، اتوماتیک کسر می‌شود)</span>
+                </div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between border-t text-xs">
+                <a href="{{ url_for('download_sample_excel') }}" class="text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1">
+                    📄 دریافت فایل اکسل نمونه
+                </a>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-black py-2.5 rounded-xl text-xs transition shadow-lg">
+                    شروع بارگذاری و ثبت کالاها
+                </button>
+                <button type="button" onclick="closeExcelModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition">
+                    انصراف
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
+    function openClearAllModal() {
+        document.getElementById('clearAllModal').classList.remove('hidden');
+    }
+    function closeClearAllModal() {
+        document.getElementById('clearAllModal').classList.add('hidden');
+    }
+
+    function openExcelModal() {
+        document.getElementById('excelImportModal').classList.remove('hidden');
+    }
+    function closeExcelModal() {
+        document.getElementById('excelImportModal').classList.add('hidden');
+    }
     // سوئیچر تب‌ها
     function switchInventoryTab(tab) {
         const catTab = document.getElementById('tabContentCatalog');

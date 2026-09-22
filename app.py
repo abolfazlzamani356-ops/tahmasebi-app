@@ -1312,6 +1312,159 @@ def delete_catalog_item(item_id):
     flash(f'کالای «{name}» از لیست قیمت حذف گردید.', 'warning')
     return redirect(request.referrer or url_for('inventory_view'))
 
+@app.route('/admin/catalog/delete_all', methods=['POST'])
+def delete_all_catalog():
+    """حذف کلیه کالاهای کاتالوگ یا یک دسته‌بندی خاص"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    cat_filter = request.form.get('category', 'all').strip()
+    if cat_filter and cat_filter != 'all':
+        deleted_count = ProductCatalog.query.filter_by(category=cat_filter).delete()
+        msg = f'تمامی محصولات دسته‌بندی «{cat_filter}» ({deleted_count} قلم) از لیست قیمت حذف شدند.'
+    else:
+        deleted_count = ProductCatalog.query.delete()
+        msg = f'تمامی محصولات کاتالوگ و لیست قیمت ({deleted_count} قلم کالا) با موفقیت پاکسازی شدند.'
+
+    db.session.commit()
+    log_activity(f"پاکسازی لیست کاتالوگ ({deleted_count} قلم - دسته: {cat_filter})", session.get('full_name'), "کاتالوگ")
+    flash(msg, 'warning')
+    return redirect(request.referrer or url_for('inventory_view'))
+
+@app.route('/admin/catalog/import_excel', methods=['POST'])
+def import_catalog_excel():
+    """بارگذاری دسته‌جمعی محصولات از فایل اکسل با محاسبه خودکار تخفیف خرید"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    file = request.files.get('excel_file')
+    if not file or not file.filename:
+        flash('لطفاً یک فایل اکسل (.xlsx) معتبر انتخاب کنید.', 'error')
+        return redirect(request.referrer or url_for('inventory_view'))
+
+    default_cat = request.form.get('default_category', '').strip() or 'متفرقه'
+    default_brand = request.form.get('default_brand', '').strip()
+    discount_pct = float(request.form.get('discount_percent', '0').replace('%', '').strip() or '0')
+    mult = (100.0 - discount_pct) / 100.0
+
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+        sheet = wb.active
+        
+        headers = []
+        for cell in sheet[1]:
+            headers.append(str(cell.value or '').strip())
+
+        name_idx = None
+        sell_idx = None
+        buy_idx = None
+        cat_idx = None
+        brand_idx = None
+        code_idx = None
+
+        for idx, h in enumerate(headers):
+            h_clean = h.lower()
+            if any(k in h_clean for k in ['نام', 'مدل', 'عنوان', 'کالا', 'name', 'title']):
+                if name_idx is None: name_idx = idx
+            elif any(k in h_clean for k in ['فروش', 'مصرف', 'قیمت مصوب', 'sell', 'price']):
+                if sell_idx is None: sell_idx = idx
+            elif any(k in h_clean for k in ['خرید', 'پایه', 'همکار', 'buy']):
+                if buy_idx is None: buy_idx = idx
+            elif any(k in h_clean for k in ['دسته', 'گروه', 'category']):
+                if cat_idx is None: cat_idx = idx
+            elif any(k in h_clean for k in ['برند', 'مارک', 'شرکت', 'brand']):
+                if brand_idx is None: brand_idx = idx
+            elif any(k in h_clean for k in ['کد', 'بارکد', 'code']):
+                if code_idx is None: code_idx = idx
+
+        if name_idx is None:
+            name_idx = 0
+        if sell_idx is None:
+            sell_idx = 1 if len(headers) > 1 else 0
+
+        imported_count = 0
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if not row or not any(row):
+                continue
+            name_val = str(row[name_idx] or '').strip() if name_idx < len(row) and row[name_idx] is not None else ''
+            if not name_val:
+                continue
+
+            def parse_num(v):
+                if v is None: return 0
+                s = str(v).replace(',', '').replace('تومان', '').replace('ریال', '').strip()
+                try:
+                    return int(float(s))
+                except:
+                    return 0
+
+            sell_val = parse_num(row[sell_idx]) if sell_idx is not None and sell_idx < len(row) else 0
+            buy_val = parse_num(row[buy_idx]) if buy_idx is not None and buy_idx < len(row) else 0
+
+            if buy_val == 0 and sell_val > 0 and discount_pct > 0:
+                buy_val = int(sell_val * mult)
+
+            cat_val = str(row[cat_idx] or '').strip() if cat_idx is not None and cat_idx < len(row) and row[cat_idx] else default_cat
+            brand_val = str(row[brand_idx] or '').strip() if brand_idx is not None and brand_idx < len(row) and row[brand_idx] else default_brand
+            code_val = str(row[code_idx] or '').strip() if code_idx is not None and code_idx < len(row) and row[code_idx] else None
+
+            item = ProductCatalog.query.filter_by(name=name_val).first()
+            if item:
+                item.sell_price = sell_val
+                item.buy_price = buy_val
+                if cat_val: item.category = cat_val
+                if brand_val: item.brand = brand_val
+                if code_val: item.code = code_val
+            else:
+                db.session.add(ProductCatalog(
+                    name=name_val,
+                    category=cat_val,
+                    brand=brand_val,
+                    code=code_val,
+                    buy_price=buy_val,
+                    sell_price=sell_val,
+                    description=f"ورود از اکسل (تخفیف: {discount_pct}%)"
+                ))
+            imported_count += 1
+
+        db.session.commit()
+        log_activity(f"ورود اکسل کاتالوگ ({imported_count} قلم)", session.get('full_name'), "کاتالوگ")
+        flash(f'تعداد {imported_count} قلم کالا با موفقیت از فایل اکسل در سیستم بارگذاری و ذخیره شد.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'خطا در پردازش فایل اکسل: {e}', 'error')
+
+    return redirect(request.referrer or url_for('inventory_view'))
+
+@app.route('/admin/catalog/sample_excel')
+def download_sample_excel():
+    """دانلود قالب فایل اکسل نمونه جهت ورود کاتالوگ کالاها"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "محصولات"
+    ws.sheet_view.rightToLeft = True
+
+    headers = ["نام و مدل کامل کالا", "دسته‌بندی", "برند", "قیمت فروش (تومان)", "قیمت خرید (اختیاری)", "کد محصول"]
+    ws.append(headers)
+
+    samples = [
+        ["گاز 5 شعله اخوان مدل GI-135", "گاز صفحه‌ای", "اخوان", 9800000, 7200000, "AK-135"],
+        ["هود مخفی داتیس مدل 522", "هود", "داتیس", 8900000, 6500000, "DT-522"],
+        ["سینک گرانیتی فونیکس دو لگن", "سینک", "فونیکس", 7500000, 5400000, "PH-200"],
+        ["توالت فرنگی مروارید مدل کاتیا", "توالت فرنگی", "مروارید", 6200000, 4500000, "MR-KAT"],
+    ]
+    for row in samples:
+        ws.append(row)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return send_file(out, download_name="tahmasebi_catalog_sample.xlsx", as_attachment=True, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 @app.route('/api/catalog/search')
 def api_catalog_search():
     """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن"""

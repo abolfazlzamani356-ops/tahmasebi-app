@@ -40,26 +40,37 @@ CUSTOM_DATA_DIR = os.environ.get('DATA_DIR', '')
 
 DATA_DIR = os.path.join(app.root_path, 'instance')
 
-# بررسی دیسک در مسیرهای ابری (لیارا یا ریلوی)
+# بررسی دیسک در مسیرهای ابری (لیارا یا ریلوی) با تست دقیق دسترسی نوشتن
 target_volume = LIARA_VOLUME or RAILWAY_VOLUME or CUSTOM_DATA_DIR
-if not target_volume and os.path.exists('/data'): # مسیر استاندارد دیسک لیارا
+if not target_volume and os.path.isdir('/data'):
     target_volume = '/data'
+
+DATA_DIR = os.path.join(app.root_path, 'instance')
 
 if target_volume:
     try:
         os.makedirs(target_volume, exist_ok=True)
-        test_file = os.path.join(target_volume, '.write_test')
+        # تست واقعی ایجاد فایل دیتابیس آزمایشی
+        test_file = os.path.join(target_volume, '.sqlite_write_test')
         with open(test_file, 'w') as f:
             f.write('ok')
-        os.remove(test_file)
-        DATA_DIR = target_volume
+        if os.path.exists(test_file):
+            os.remove(test_file)
+            DATA_DIR = target_volume
     except Exception as e:
-        app.logger.warning(f"Could not use volume ({target_volume}): {e}. Using fallback instance directory.")
+        app.logger.warning(f"Could not write to volume ({target_volume}): {e}. Using fallback instance directory.")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
-db_path = os.path.join(DATA_DIR, 'tahmasebi_store_persistent.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+# نرمال‌سازی مسیر برای SQLite در لینوکس و ویندوز
+db_file_abs = os.path.abspath(os.path.join(DATA_DIR, 'tahmasebi_store_persistent.db'))
+db_path = db_file_abs
+# در لینوکس اگر مسیر با / شروع شود، ۳ اسلش دیگر لازم است تا بشود sqlite:////path
+if db_file_abs.startswith('/'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_file_abs}'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_file_abs.replace(os.sep, "/")}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'timeout': 30, 'check_same_thread': False}
@@ -67,19 +78,22 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db.init_app(app)
 
-# ==================== مقداردهی اولیه دیتابیس با Flask before_first_request ====================
+# ==================== مقداردهی اولیه دیتابیس با Flask ====================
 def initialize_database():
     """مقداردهی اولیه و مایگریشن دیتابیس - فقط یکبار اجرا می‌شود"""
     import sqlite3
-    
-    db.create_all()
-    
+
+    try:
+        db.create_all()
+    except Exception as e:
+        app.logger.warning(f"db.create_all warning: {e}")
+
     # مایگریشن ایمن ستون‌های جدید
     conn = None
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path, timeout=20)
         cursor = conn.cursor()
-        
+
         migrations = [
             ("settings", "store_name", "TEXT DEFAULT 'مجموعه فروشگاه‌های تخصصی طهماسبی'"),
             ("settings", "store_phone", "TEXT DEFAULT '021-12345678'"),
@@ -105,7 +119,7 @@ def initialize_database():
             ("invoices", "remaining_balance", "BIGINT DEFAULT 0"),
             ("invoices", "dest_sheba_number", "TEXT"),
         ]
-        
+
         for table, col, col_def in migrations:
             try:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")

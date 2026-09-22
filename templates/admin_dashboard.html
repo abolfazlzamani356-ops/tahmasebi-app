@@ -21,6 +21,9 @@
             </select>
         </form>
 
+        <a href="{{ url_for('catalog_view') }}" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+            📋 لیست قیمت و کاتالوگ ({{ total_catalog_products }})
+        </a>
         <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">📥 اکسل جامع</a>
         <a href="{{ url_for('download_backup') }}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">🛡️ بکاپ دیتابیس</a>
         <button onclick="document.getElementById('adminChangePasswordModal').classList.remove('hidden')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">🔐 تغییر رمز</button>
@@ -48,6 +51,43 @@
     </div>
 </div>
 {% endif %}
+
+<!-- بنر اختصاصی سود خالص ماهانه مدیریت طهماسبی -->
+<div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl mb-6 border border-slate-800 relative overflow-hidden">
+    <div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
+        <div class="space-y-1">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">💎</span>
+                <h2 class="text-base font-black text-amber-300">سود خالص نهایی ماه طهماسبی ({{ selected_month_name }})</h2>
+                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    حاشیه سود: {{ profit_margin_percent }}%
+                </span>
+            </div>
+            <p class="text-xs text-slate-300">
+                محاسبه شده دقیق: اختلاف قیمت فروش و بهای تمام‌شده خرید مرجع، پس از کسر پورسانت پرسنل و هزینه‌ها
+            </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-6">
+            <div class="text-left">
+                <span class="text-[11px] text-slate-400 block font-medium">سود ناخالص فروشگاه:</span>
+                <span class="text-sm font-bold text-slate-200">{{ "{:,}".format(estimated_gross_profit) }} ت</span>
+            </div>
+            <div class="text-left">
+                <span class="text-[11px] text-rose-400 block font-medium">کسر پورسانت پرسنل:</span>
+                <span class="text-sm font-bold text-rose-300">- {{ "{:,}".format(total_commissions) }} ت</span>
+            </div>
+            <div class="text-left">
+                <span class="text-[11px] text-amber-400 block font-medium">کسر هزینه‌ها:</span>
+                <span class="text-sm font-bold text-amber-300">- {{ "{:,}".format(total_expenses) }} ت</span>
+            </div>
+            <div class="bg-emerald-500/10 border-2 border-emerald-500/40 px-4 py-2 rounded-2xl text-left">
+                <span class="text-[11px] text-emerald-400 block font-black">خالص دریافتی مدیریت طهماسبی:</span>
+                <span class="text-xl md:text-2xl font-black text-emerald-400">{{ "{:,}".format(store_net_profit) }} تومان</span>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Key Metrics Cards -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

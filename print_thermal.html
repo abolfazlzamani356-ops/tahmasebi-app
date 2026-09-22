@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>فیش صندوق • {{ invoice.invoice_number }}</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background: #fff;
+            color: #000;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .receipt {
+            width: 78mm;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .header {
+            border-bottom: 1px dashed #000;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .title {
+            font-size: 14px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            font-size: 10px;
+        }
+        .info-table, .items-table {
+            width: 100%;
+            text-align: right;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+        .items-table th {
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            padding: 4px 0;
+        }
+        .items-table td {
+            padding: 4px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .total-box {
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            padding: 6px 0;
+            margin-top: 6px;
+            font-weight: 900;
+            font-size: 13px;
+        }
+        .footer {
+            margin-top: 10px;
+            font-size: 10px;
+            text-align: center;
+        }
+        @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="receipt">
+        <div class="header">
+            <div class="title">فروشگاه‌های تخصصی طهماسبی</div>
+            <div class="subtitle">{{ invoice.shop.name if invoice.shop else 'شعبه طهماسبی' }}</div>
+            <div class="subtitle">فیش تحویل و رسید مشتری</div>
+        </div>
+
+        <table class="info-table">
+            <tr>
+                <td>شماره فاکتور:</td>
+                <td style="text-align: left; font-weight: bold;">{{ invoice.invoice_number }}</td>
+            </tr>
+            <tr>
+                <td>خریدار:</td>
+                <td style="text-align: left; font-weight: bold;">{{ invoice.customer_name }}</td>
+            </tr>
+            <tr>
+                <td>تلفن:</td>
+                <td style="text-align: left;" dir="ltr">{{ invoice.customer_phone or '-' }}</td>
+            </tr>
+            <tr>
+                <td>زمان ثبت:</td>
+                <td style="text-align: left;" dir="ltr">{{ invoice.shamsi_date_time }}</td>
+            </tr>
+            <tr>
+                <td>فروشنده:</td>
+                <td style="text-align: left;">{{ invoice.seller.full_name }}</td>
+            </tr>
+        </table>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>شرح کالا</th>
+                    <th style="text-align: center;">تعداد</th>
+                    <th style="text-align: left;">مبلغ کل</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoice.items %}
+                    {% for item in invoice.items %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td style="text-align: center;">{{ item.quantity }}</td>
+                        <td style="text-align: left;">{{ "{:,}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td>{{ invoice.items_desc or 'تجهیزات ساختمانی' }}</td>
+                        <td style="text-align: center;">۱</td>
+                        <td style="text-align: left;">{{ "{:,}".format(invoice.total_amount) }}</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="total-box">
+            <span>مبلغ نهایی:</span>
+            <span>{{ "{:,}".format(invoice.total_amount) }} تومان</span>
+        </div>
+
+        <table class="info-table" style="margin-top: 6px;">
+            <tr>
+                <td>نحوه تسویه:</td>
+                <td style="text-align: left; font-weight: bold; font-size: 10px;">
+                    {{ invoice.payment_method }}
+                </td>
+            </tr>
+            {% if invoice.dest_card_number or invoice.dest_sheba_number %}
+            <tr>
+                <td>واریز به:</td>
+                <td style="text-align: left; font-size: 9px;" dir="ltr">
+                    {{ invoice.dest_card_number or invoice.dest_sheba_number }}
+                </td>
+            </tr>
+            {% endif %}
+            {% if invoice.payment_tracking_code %}
+            <tr>
+                <td>کد پیگیری:</td>
+                <td style="text-align: left; font-size: 9px;" dir="ltr">
+                    {{ invoice.payment_tracking_code }}
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+
+        <div class="footer">
+            <p>از خرید شما سپاسگزاریم.</p>
+            <p>گارانتی اصالت و خدمات پس از فروش طهماسبی</p>
+        </div>
+
+        <div class="no-print" style="margin-top: 15px;">
+            <button onclick="window.print()" style="padding: 6px 12px; font-family: inherit; font-size: 11px; cursor: pointer;">چاپ مجدد فیش</button>
+        </div>
+    </div>
+</body>
+</html>

@@ -94,7 +94,7 @@
                             </select>
                         </div>
                         <div class="col-span-6">
-                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" placeholder="یا نام دلخواه کالا..." class="item-name w-full p-2 border rounded-xl text-xs">
+                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ..." class="item-name w-full p-2 border rounded-xl text-xs font-bold">
                         </div>
                     </div>
 
@@ -126,7 +126,7 @@
                             </select>
                         </div>
                         <div class="col-span-6">
-                            <input type="text" name="item_custom_name[]" placeholder="یا نام دلخواه کالا..." class="item-name w-full p-2 border rounded-xl text-xs">
+                            <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ..." class="item-name w-full p-2 border rounded-xl text-xs font-bold">
                         </div>
                     </div>
                     <div class="grid grid-cols-12 gap-2 items-center">
@@ -138,6 +138,12 @@
                 </div>
                 {% endfor %}
             </div>
+
+            <datalist id="catalogDatalist">
+                {% for p in catalog_products %}
+                <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                {% endfor %}
+            </datalist>
 
             <div class="mt-3 pt-3 border-t flex justify-between items-center text-xs font-bold">
                 <span class="text-slate-600">جمع کل محاسبه‌شده:</span>
@@ -331,6 +337,28 @@
             const priceInput = row.querySelector('.item-price');
             priceInput.value = Number(price).toLocaleString('en-US');
             calcTotal();
+        }
+    }
+
+    function onSelectCatalogItem(inputElem) {
+        const val = inputElem.value.trim();
+        const datalist = document.getElementById('catalogDatalist');
+        if (!datalist) return;
+        const options = datalist.querySelectorAll('option');
+        for (let opt of options) {
+            if (opt.value === val) {
+                const row = inputElem.closest('.invoice-item-row');
+                const price = opt.getAttribute('data-price');
+                const cat = opt.getAttribute('data-category');
+                if (price && Number(price) > 0) {
+                    row.querySelector('.item-price').value = Number(price).toLocaleString('en-US');
+                }
+                if (cat) {
+                    row.querySelector('.item-cat').value = cat;
+                }
+                calcTotal();
+                break;
+            }
         }
     }
 

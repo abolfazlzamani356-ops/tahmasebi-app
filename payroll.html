@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}مدیریت حقوق و دستمزد پرسنل • طهماسبی{% endblock %}
+
+{% block content %}
+<!-- Top Bar -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">💼</span>
+        <div>
+            <h2 class="font-black text-slate-800 text-lg">سامانه حقوق، دستمزد و فیش پرسنل در {{ current_month_name }} {{ current_year }}</h2>
+            <p class="text-xs text-slate-500 font-medium">محاسبه خودکار حقوق پایه + پورسانت وصولی + پاداش تارگت - مساعده‌ها</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+        <form method="GET" class="flex items-center gap-1.5">
+            <select name="month" onchange="this.form.submit()" class="p-2.5 border rounded-2xl text-xs font-bold bg-slate-50 outline-none text-slate-800">
+                {% for m_num, m_name in months.items() %}
+                    <option value="{{ m_num }}" {% if m_num == selected_month %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<!-- Payroll Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
+        <span class="text-xs text-slate-500 font-bold">مجموع کل حقوق و پورسانت پرسنل:</span>
+        <h3 class="text-xl font-black text-indigo-700 mt-2">{{ "{:,}".format(total_payroll_payable) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+    </div>
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-600">
+        <span class="text-xs text-slate-500 font-bold">مجموع پورسانت‌های نقدی و وصول‌شده:</span>
+        <h3 class="text-xl font-black text-emerald-600 mt-2">{{ "{:,}".format(total_commissions_settled) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+    </div>
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
+        <span class="text-xs text-slate-500 font-bold">مجموع پاداش‌های تارگت پله‌ای ماه:</span>
+        <h3 class="text-xl font-black text-amber-600 mt-2">{{ "{:,}".format(total_tier_bonuses) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+    </div>
+</div>
+
+<!-- Payroll Table -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-3 border-b">نام پرسنل</th>
+                <th class="p-3 border-b">شعبه</th>
+                <th class="p-3 border-b">فروش خالص (تومان)</th>
+                <th class="p-3 border-b">پورسانت فروش (تومان)</th>
+                <th class="p-3 border-b">پاداش پله‌ای تارگت</th>
+                <th class="p-3 border-b">حقوق پایه ثابت</th>
+                <th class="p-3 border-b">کسورات / مساعده</th>
+                <th class="p-3 border-b font-black text-emerald-700">خالص پرداختی نهایی</th>
+                <th class="p-3 border-b text-center">ثبت مساعده / فیش</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payroll_items %}
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 font-bold text-slate-900">{{ p.user.full_name }}</td>
+                <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ p.user.shop.name if p.user.shop else '-' }}</span></td>
+                <td class="p-3 font-bold text-blue-700">{{ "{:,}".format(p.stats.net_sales) }}</td>
+                <td class="p-3 font-bold text-slate-800">{{ "{:,}".format(p.stats.settled_commission) }}</td>
+                <td class="p-3 font-bold text-amber-600">+{{ "{:,}".format(p.stats.tier_bonus_amount) }}</td>
+                <td class="p-3">
+                    <form method="POST" action="{{ url_for('update_user_base_salary', user_id=p.user.id) }}" class="flex items-center gap-1">
+                        <input type="hidden" name="month" value="{{ selected_month }}">
+                        <input type="text" name="base_salary" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(p.user.base_salary or 0) }}" class="currency-input w-24 p-1 border rounded-lg text-center font-bold text-xs">
+                        <button type="submit" class="bg-slate-800 text-white px-2 py-1 rounded-lg text-[10px]">ثبت</button>
+                    </form>
+                </td>
+                <td class="p-3 text-rose-600 font-bold">-{{ "{:,}".format(p.advances) }}</td>
+                <td class="p-3 font-black text-emerald-700 text-sm bg-emerald-50/60 rounded-xl">
+                    {{ "{:,}".format(p.final_payable) }} تومان
+                </td>
+                <td class="p-3 text-center">
+                    <button onclick="openAdvanceModal({{ p.user.id }}, '{{ p.user.full_name }}')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">
+                        💸 ثبت مساعده
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal: Advance (مساعده) -->
+<div id="advanceModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 class="text-md font-bold text-slate-800 mb-2">💸 ثبت مساعده / کسورات پرسنل</h3>
+        <p id="advModalUser" class="text-xs text-slate-500 mb-4"></p>
+        <form method="POST" id="advanceForm" onsubmit="unformatOnSubmit(this)">
+            <input type="hidden" name="month" value="{{ selected_month }}">
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">مبلغ مساعده دریافتی (تومان):</label>
+                <input type="text" name="advance_amount" required onkeyup="formatNumber(this)" placeholder="مثلاً: 2,000,000" class="currency-input w-full p-2.5 border rounded-2xl text-xs font-bold text-rose-600">
+            </div>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-600 mb-1">شرح یا تاریخ دریافت مساعده:</label>
+                <input type="text" name="notes" placeholder="مساعده اواسط ماه..." class="w-full p-2.5 border rounded-2xl text-xs">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-2xl text-xs font-bold transition">ثبت مساعده</button>
+                <button type="button" onclick="document.getElementById('advanceModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openAdvanceModal(userId, userName) {
+        document.getElementById('advModalUser').innerText = 'پرسنل: ' + userName;
+        document.getElementById('advanceForm').action = '/admin/payroll/advance/' + userId;
+        document.getElementById('advanceModal').classList.remove('hidden');
+    }
+</script>
+{% endblock %}

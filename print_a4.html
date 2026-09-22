@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>فاکتور رسمی • مجموعه فروشگاه‌های طهماسبی</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body class="bg-slate-100 p-4 md:p-8 text-slate-800">
+    <div class="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-3xl border border-slate-300 shadow-sm print:border-none print:shadow-none print:p-0">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b-2 border-slate-900 pb-6 mb-6">
+            <div>
+                <h1 class="text-2xl font-black text-slate-900">مجموعه فروشگاه‌های تخصصی طهماسبی</h1>
+                <p class="text-xs text-slate-600 mt-1 font-bold">{{ invoice.shop.name if invoice.shop else 'فروشگاه طهماسبی' }}</p>
+                <p class="text-[11px] text-slate-500">مرکز تخصصی هود، گاز صفحه‌ای، سینک، شیرآلات، روشویی کابینتی، فرنگی و آینه</p>
+            </div>
+            <div class="text-left text-xs space-y-1 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <p><span class="font-bold">شماره سند:</span> <span class="font-mono font-black text-indigo-700 text-sm">{{ invoice.invoice_number }}</span></p>
+                <p><span class="font-bold">نوع سند:</span> {{ 'پیش‌فاکتور' if invoice.status == 'proforma' else ('مرجوعی' if invoice.invoice_type == 'return' else 'فاکتور قطعی رسمی') }}</p>
+                {% if invoice.invoice_type == 'return' and invoice.return_reason %}
+                <p><span class="font-bold text-rose-600">علت مرجوعی:</span> {{ invoice.return_reason }}</p>
+                {% endif %}
+                <p><span class="font-bold">زمان ثبت:</span> {{ invoice.shamsi_date_time }}</p>
+                <p><span class="font-bold">فروشنده:</span> {{ invoice.seller.full_name }}</p>
+            </div>
+        </div>
+
+        <!-- Customer & Store Info -->
+        <div class="bg-slate-50 p-4 rounded-2xl mb-6 text-xs grid grid-cols-2 gap-4 border border-slate-200">
+            <div>
+                <span class="font-bold text-slate-500 block mb-1">مشخصات خریدار:</span>
+                <p><span class="font-black text-sm text-slate-900">{{ invoice.customer_name }}</span></p>
+                <p><span class="font-bold text-slate-600">شماره همراه:</span> <span dir="ltr">{{ invoice.customer_phone or '-' }}</span></p>
+            </div>
+            <div>
+                <span class="font-bold text-slate-500 block mb-1">اطلاعات فروشگاه:</span>
+                <p><span class="font-bold text-slate-800">تلفن پشتیبانی:</span> 021-12345678</p>
+                <p><span class="font-bold text-slate-800">خدمات پس از فروش:</span> شامل گارانتی اصالت کالا و ۱۰ روز مهلت تست</p>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <table class="w-full text-right border-collapse text-xs mb-6 border border-slate-300">
+            <thead>
+                <tr class="bg-slate-900 text-white font-bold">
+                    <th class="p-3 border border-slate-700 text-center w-12">ردیف</th>
+                    <th class="p-3 border border-slate-700">شرح کالاهای خریداری شده</th>
+                    <th class="p-3 border border-slate-700 text-center w-20">تعداد</th>
+                    <th class="p-3 border border-slate-700 text-left w-36">قیمت واحد (تومان)</th>
+                    <th class="p-3 border border-slate-700 text-left w-36">مبلغ کل (تومان)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoice.items %}
+                    {% for item in invoice.items %}
+                    <tr class="border-b border-slate-200">
+                        <td class="p-3 border text-center font-bold">{{ loop.index }}</td>
+                        <td class="p-3 border">
+                            <span class="font-black text-slate-800">{{ item.item_name }}</span>
+                            {% if item.category %}<span class="text-[10px] text-slate-400 block">دسته‌بندی: {{ item.category }}</span>{% endif %}
+                        </td>
+                        <td class="p-3 border text-center font-bold">{{ item.quantity }}</td>
+                        <td class="p-3 border text-left font-mono">{{ "{:,}".format(item.unit_sell_price) }}</td>
+                        <td class="p-3 border text-left font-black text-slate-900 font-mono">{{ "{:,}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td class="p-3 border text-center font-bold">۱</td>
+                        <td class="p-3 border">
+                            <div class="font-bold mb-1">{{ invoice.categories_json|replace('"', '')|replace('[', '')|replace(']', '') }}</div>
+                            <div class="text-slate-600 whitespace-pre-line">{{ invoice.items_desc or 'تجهیزات بهداشتی و ساختمانی طهماسبی' }}</div>
+                        </td>
+                        <td class="p-3 border text-center font-bold">۱</td>
+                        <td class="p-3 border text-left font-mono">{{ "{:,}".format(invoice.total_amount) }}</td>
+                        <td class="p-3 border text-left font-black font-mono">{{ "{:,}".format(invoice.total_amount) }}</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <!-- Totals & Payment Summary -->
+        <div class="flex flex-col md:flex-row justify-between items-center bg-slate-900 text-white p-5 rounded-3xl mb-6 gap-4">
+            <div class="space-y-1">
+                <div class="text-xs text-slate-300">
+                    <span class="font-bold text-amber-400">نحوه تسویه:</span> {{ invoice.payment_method }}
+                </div>
+                {% if invoice.dest_card_number or invoice.dest_sheba_number %}
+                <div class="text-[11px] text-slate-400 flex flex-wrap gap-2">
+                    {% if invoice.dest_card_number %}<span>💳 کارت مقصد: {{ invoice.dest_card_number }}</span>{% endif %}
+                    {% if invoice.dest_sheba_number %}<span>🌐 شبا مقصد: {{ invoice.dest_sheba_number }}</span>{% endif %}
+                    {% if invoice.payment_tracking_code %}<span>🔖 پیگیری: {{ invoice.payment_tracking_code }}</span>{% endif %}
+                </div>
+                {% endif %}
+                <div class="text-xs font-bold {% if invoice.is_settled %}text-emerald-400{% else %}text-amber-400{% endif %}">
+                    وضعیت مالی: {{ '✅ تسویه کامل انجام شد' if invoice.is_settled else '⏳ دارای مانده بیعانه / چک در گردش' }}
+                </div>
+            </div>
+            <div class="text-left">
+                <span class="text-xs text-slate-400 block">مبلغ نهایی قابل پرداخت:</span>
+                <span class="text-2xl font-black text-emerald-400">{{ "{:,}".format(invoice.total_amount) }} تومان</span>
+            </div>
+        </div>
+
+        <!-- Warranty Box -->
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-8 text-xs text-blue-900 leading-relaxed">
+            <span class="font-bold block mb-1">🛡️ شرایط گارانتی و اصالت کالا طهماسبی:</span>
+            <p>کلیه اجناس فروخته شده دارای ضمانت نامه اصالت و سلامت فیزیکی می‌باشند. در صورت هرگونه نقص فنی کارخانه تا ۴۸ ساعت امکان تعویض کالا فراهم می‌باشد.</p>
+        </div>
+
+        <!-- Signatures -->
+        <div class="grid grid-cols-2 gap-8 text-center text-xs font-bold text-slate-700 pt-6 border-t border-slate-300">
+            <div>امضا و تایید خریدار محترم</div>
+            <div>مهر و امضای مدیریت فروشگاه طهماسبی</div>
+        </div>
+
+        <div class="text-center mt-8 no-print">
+            <button onclick="window.print()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold px-8 py-3 rounded-2xl text-xs shadow-lg transition">
+                🖨️ چاپ فاکتور رسمی A4
+            </button>
+        </div>
+    </div>
+</body>
+</html>

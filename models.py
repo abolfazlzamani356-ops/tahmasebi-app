@@ -27,6 +27,31 @@ class Category(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     icon = db.Column(db.String(50), default='📦')
 
+class ProductCatalog(db.Model):
+    """کاتالوگ مرجع و لیست قیمت پایه کالاها (بدون وابستگی به انبار و تعداد)"""
+    __tablename__ = 'product_catalog'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), nullable=True, unique=True) # کد محصول یا بارکد
+    name = db.Column(db.String(150), nullable=False) # نام کامل کالا
+    category = db.Column(db.String(100), nullable=False) # دسته (هود، گاز، سینک و...)
+    brand = db.Column(db.String(100), nullable=True) # برند
+    buy_price = db.Column(db.BigInteger, default=0, nullable=False) # قیمت خرید مرجع (تومان)
+    sell_price = db.Column(db.BigInteger, default=0, nullable=False) # قیمت فروش مصوب (تومان)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'code': self.code or '',
+            'name': self.name,
+            'category': self.category,
+            'brand': self.brand or '',
+            'buy_price': self.buy_price,
+            'sell_price': self.sell_price,
+            'profit_margin': self.sell_price - self.buy_price
+        }
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)

@@ -10,7 +10,7 @@ from models import (
     db, Shop, Category, User, Settings, Customer, BankAccount,
     InventoryItem, StockLog, StockTransfer,
     Invoice, InvoiceItem, Cheque, SalarySlip,
-    PettyCashDeposit, Expense, AuditLog
+    PettyCashDeposit, Expense, AuditLog, ProductCatalog
 )
 from helpers import (
     PERSIAN_MONTHS, DEFAULT_CATEGORIES, RETURN_REASONS,
@@ -201,6 +201,23 @@ def initialize_database():
     except Exception:
         db.session.rollback()
 
+    try:
+        if not ProductCatalog.query.first():
+            catalog_seed = [
+                ProductCatalog(name='هود داتیس مدل 522 مخفی', category='هود', brand='داتیس', code='DT-522', buy_price=6500000, sell_price=8900000),
+                ProductCatalog(name='گاز 5 شعله اخوان مدل GI-135', category='گاز صفحه‌ای', brand='اخوان', code='AK-135', buy_price=7200000, sell_price=9800000),
+                ProductCatalog(name='سینک گرانیتی فونیکس دو لگن', category='سینک', brand='فونیکس', code='PH-200', buy_price=5400000, sell_price=7500000),
+                ProductCatalog(name='روشویی کابینتی ضدآب فول‌ست', category='روشویی کابینتی', brand='الگانس', code='EL-60', buy_price=4200000, sell_price=6800000),
+                ProductCatalog(name='شیرآلات اهرمی ست ۴ تکه کروم', category='شیرآلات', brand='قهرمان', code='GH-4P', buy_price=5800000, sell_price=7900000),
+                ProductCatalog(name='توالت فرنگی دو زمانه بیده دار', category='توالت فرنگی', brand='مروارید', code='MR-TOP', buy_price=4800000, sell_price=6500000),
+                ProductCatalog(name='فلاش تانک توکار اولترااسلیم', category='فلاش تانک', brand='ایران نوید', code='IN-SLIM', buy_price=2900000, sell_price=3950000),
+                ProductCatalog(name='علم دوش دوکاره یونیورست طلایی', category='علم دوش', brand='کسری', code='KS-GLD', buy_price=3400000, sell_price=4600000)
+            ]
+            db.session.add_all(catalog_seed)
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 # اجرا در startup زمان import توسط gunicorn
 with app.app_context():
     try:
@@ -294,6 +311,8 @@ def seller_dashboard():
         Invoice.is_settled == False
     ).order_by(Invoice.created_at.desc()).all()
 
+    catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).all()
+
     return render_template(
         'seller_dashboard.html',
         user=user,
@@ -309,6 +328,7 @@ def seller_dashboard():
         colleagues=colleagues,
         other_shops=other_shops,
         inventory_items=inventory_items,
+        catalog_products=catalog_products,
         bank_accounts=bank_accounts,
         leaderboard=leaderboard
     )
@@ -449,8 +469,18 @@ def add_invoice():
             db.session.add(Category(name=cat_val))
             db.session.commit()
             
-        categories_used.add(cat_val)
-        buy_p = inv_item.buy_price if inv_item else int(price * 0.75)
+        # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
+        buy_p = 0
+        if inv_item and inv_item.buy_price > 0:
+            buy_p = inv_item.buy_price
+        else:
+            cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
+            if not cat_match:
+                cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
+            if cat_match and cat_match.buy_price > 0:
+                buy_p = cat_match.buy_price
+            else:
+                buy_p = int(price * 0.75)
         
         row_total = price * qty
         row_profit = row_total - (buy_p * qty)
@@ -601,6 +631,7 @@ def edit_invoice(invoice_id):
     if request.method == 'GET':
         colleagues = User.query.filter(User.id != user.id, User.is_active == True).all()
         inventory_items = InventoryItem.query.filter_by(shop_id=inv.shop_id).all()
+        catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).all()
         all_categories = Category.query.all()
         bank_accounts = BankAccount.query.filter_by(is_active=True).all()
         return render_template(
@@ -608,6 +639,7 @@ def edit_invoice(invoice_id):
             invoice=inv,
             colleagues=colleagues,
             inventory_items=inventory_items,
+            catalog_products=catalog_products,
             all_categories=all_categories,
             bank_accounts=bank_accounts,
             return_reasons=RETURN_REASONS
@@ -752,7 +784,18 @@ def edit_invoice(invoice_id):
             db.session.commit()
             
         categories_used.add(cat_val)
-        buy_p = inv_item.buy_price if inv_item else int(price * 0.75)
+        # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
+        buy_p = 0
+        if inv_item and inv_item.buy_price > 0:
+            buy_p = inv_item.buy_price
+        else:
+            cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
+            if not cat_match:
+                cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
+            if cat_match and cat_match.buy_price > 0:
+                buy_p = cat_match.buy_price
+            else:
+                buy_p = int(price * 0.75)
         row_total = price * qty
         row_profit = row_total - (buy_p * qty)
         total_actual_buy_cost += (buy_p * qty)
@@ -950,6 +993,13 @@ def admin_dashboard():
     shops = Shop.query.all()
     logs = AuditLog.query.order_by(AuditLog.id.desc()).limit(60).all()
     bank_accounts = BankAccount.query.order_by(BankAccount.id.desc()).all()
+    total_catalog_products = ProductCatalog.query.count()
+
+    # محاسبه سود جامع ماه طهماسبی بر پایه بهای خرید و فروش
+    # سود ناخالص فروش = estimated_gross_profit
+    # سود خالص نهایی = سود ناخالص - پورسانت پرسنل - هزینه‌های ماه
+    store_net_profit = estimated_gross_profit - (total_commissions + total_expenses)
+    profit_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
     
     return render_template(
         'admin_dashboard.html',
@@ -964,6 +1014,10 @@ def admin_dashboard():
         petty_deposits=petty_deposits,
         expenses=expenses,
         estimated_gross_profit=estimated_gross_profit,
+        store_net_profit=store_net_profit,
+        profit_margin_percent=profit_margin_percent,
+        total_catalog_products=total_catalog_products,
+        total_sales_all=total_sales_all,
         cheques=cheques,
         pending_cheques_count=len(pending_cheques),
         pending_cheques_total=pending_cheques_total,
@@ -1141,6 +1195,130 @@ def stocktaking_adjust():
     log_activity(f"انبارگردانی کالای {item.name}: موجودی جدید {actual_stock} ({diff:+d})", session.get('full_name'), "انبار")
     flash(f'انبارگردانی کالای {item.name} با موفقیت ثبت شد.', 'success')
     return redirect(url_for('inventory_view'))
+
+# ==================== کاتالوگ مرجع و لیست قیمت مصوب کالاها (بدون وابستگی به موجودی) ====================
+@app.route('/admin/catalog')
+def catalog_view():
+    """مشاهده و مدیریت کاتالوگ مرجع کالاها، قیمت خرید پایه و فروش مصوب"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    search = request.args.get('search', '').strip()
+    category_filter = request.args.get('category', '').strip()
+    
+    query = ProductCatalog.query
+    if search:
+        query = query.filter(ProductCatalog.name.contains(search) | ProductCatalog.brand.contains(search) | ProductCatalog.code.contains(search))
+    if category_filter:
+        query = query.filter_by(category=category_filter)
+        
+    catalog_items = query.order_by(ProductCatalog.category, ProductCatalog.name).all()
+    all_categories = Category.query.all()
+    
+    # آمارهای کلان کاتالوگ
+    total_products = len(catalog_items)
+    avg_profit_margin = 0
+    if total_products > 0:
+        total_margin = sum((item.sell_price - item.buy_price) for item in catalog_items)
+        avg_profit_margin = int(total_margin / total_products)
+        
+    return render_template(
+        'catalog.html',
+        catalog_items=catalog_items,
+        all_categories=all_categories,
+        total_products=total_products,
+        avg_profit_margin=avg_profit_margin,
+        search=search,
+        category_filter=category_filter
+    )
+
+@app.route('/admin/catalog/add', methods=['POST'])
+def add_catalog_item():
+    """افزودن کالای مرجع به کاتالوگ با قیمت خرید و فروش"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    name = request.form.get('name', '').strip()
+    category = request.form.get('category', 'عمومی').strip()
+    brand = request.form.get('brand', '').strip()
+    code = request.form.get('code', '').strip() or None
+    
+    buy_p = int(request.form.get('buy_price', '0').replace(',', '') or '0')
+    sell_p = int(request.form.get('sell_price', '0').replace(',', '') or '0')
+    description = request.form.get('description', '').strip()
+    
+    if not name:
+        flash('نام کالا الزامی است.', 'error')
+        return redirect(url_for('catalog_view'))
+        
+    # ثبت دسته بندی در صورت نبود
+    if category and not Category.query.filter_by(name=category).first():
+        db.session.add(Category(name=category))
+        db.session.commit()
+        
+    new_prod = ProductCatalog(
+        code=code,
+        name=name,
+        category=category,
+        brand=brand,
+        buy_price=buy_p,
+        sell_price=sell_p,
+        description=description
+    )
+    db.session.add(new_prod)
+    db.session.commit()
+    
+    log_activity(f"ثبت کالای {name} در لیست قیمت مرجع (خرید: {buy_p:,} / فروش: {sell_p:,})", session.get('full_name'), "کاتالوگ")
+    flash(f'کالای «{name}» به کاتالوگ مرجع اضافه شد.', 'success')
+    return redirect(url_for('catalog_view'))
+
+@app.route('/admin/catalog/edit/<int:item_id>', methods=['POST'])
+def edit_catalog_item(item_id):
+    """ویرایش مشخصات و قیمت خرید/فروش کالا در کاتالوگ"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    item = ProductCatalog.query.get_or_404(item_id)
+    item.name = request.form.get('name', item.name).strip()
+    item.category = request.form.get('category', item.category).strip()
+    item.brand = request.form.get('brand', '').strip()
+    item.code = request.form.get('code', '').strip() or None
+    
+    buy_p = request.form.get('buy_price', '').replace(',', '').strip()
+    sell_p = request.form.get('sell_price', '').replace(',', '').strip()
+    if buy_p: item.buy_price = int(buy_p)
+    if sell_p: item.sell_price = int(sell_p)
+    item.description = request.form.get('description', '').strip()
+    
+    db.session.commit()
+    log_activity(f"بروزرسانی قیمت مرجع {item.name} (خرید: {item.buy_price:,} / فروش: {item.sell_price:,})", session.get('full_name'), "کاتالوگ")
+    flash(f'قیمت و اطلاعات «{item.name}» بروزرسانی گردید.', 'success')
+    return redirect(url_for('catalog_view'))
+
+@app.route('/admin/catalog/delete/<int:item_id>', methods=['POST'])
+def delete_catalog_item(item_id):
+    """حذف کالا از کاتالوگ مرجع"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    item = ProductCatalog.query.get_or_404(item_id)
+    name = item.name
+    db.session.delete(item)
+    db.session.commit()
+    
+    log_activity(f"حذف {name} از کاتالوگ مرجع", session.get('full_name'), "کاتالوگ")
+    flash(f'کالای «{name}» از کاتالوگ حذف گردید.', 'warning')
+    return redirect(url_for('catalog_view'))
+
+@app.route('/api/catalog/search')
+def api_catalog_search():
+    """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن"""
+    q = request.args.get('q', '').strip()
+    query = ProductCatalog.query
+    if q:
+        query = query.filter(ProductCatalog.name.contains(q) | ProductCatalog.brand.contains(q) | ProductCatalog.category.contains(q))
+    items = query.limit(20).all()
+    return jsonify([i.to_dict() for i in items])
 
 @app.route('/transfer/request', methods=['POST'])
 def request_transfer():

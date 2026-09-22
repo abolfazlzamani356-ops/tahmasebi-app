@@ -172,9 +172,15 @@
                                 </select>
                             </div>
                             <div class="col-span-6">
-                                <input type="text" name="item_custom_name[]" placeholder="یا نام دلخواه کالا..." class="item-name w-full p-1.5 border rounded-xl text-[11px]">
+                                <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ..." class="item-name w-full p-1.5 border rounded-xl text-[11px] font-bold">
                             </div>
                         </div>
+
+                        <datalist id="catalogDatalist">
+                            {% for p in catalog_products %}
+                            <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                            {% endfor %}
+                        </datalist>
 
                         <div class="grid grid-cols-12 gap-1.5 items-center">
                             <div class="col-span-4">
@@ -678,6 +684,28 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             row.querySelector('.item-cat').value = cat || 'عمومی';
         }
         calcTotal();
+    }
+
+    function onSelectCatalogItem(inputElem) {
+        const val = inputElem.value.trim();
+        const datalist = document.getElementById('catalogDatalist');
+        if (!datalist) return;
+        const options = datalist.querySelectorAll('option');
+        for (let opt of options) {
+            if (opt.value === val) {
+                const row = inputElem.closest('.item-row');
+                const price = opt.getAttribute('data-price');
+                const cat = opt.getAttribute('data-category');
+                if (price && Number(price) > 0) {
+                    row.querySelector('.item-price').value = Number(price).toLocaleString();
+                }
+                if (cat) {
+                    row.querySelector('.item-cat').value = cat;
+                }
+                calcTotal();
+                break;
+            }
+        }
     }
 
     function calcTotal() {

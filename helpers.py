@@ -2,7 +2,7 @@ import re
 import json
 import jdatetime
 from datetime import datetime
-from models import db, User, Invoice, InvoiceItem, InventoryItem, StockLog, AuditLog, Settings, SalarySlip, Customer, Cheque
+from models import db, User, Invoice, InvoiceItem, InventoryItem, StockLog, AuditLog, Settings, SalarySlip, Customer, Cheque, ProductCatalog
 
 PERSIAN_MONTHS = {
     1: 'فروردین', 2: 'اردیبهشت', 3: 'خرداد',

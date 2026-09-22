@@ -1098,6 +1098,7 @@ def inventory_view():
     all_categories = Category.query.all()
     transfers = StockTransfer.query.order_by(StockTransfer.id.desc()).limit(15).all()
     ai_insights = get_inventory_ai_insights()
+    catalog_items = ProductCatalog.query.order_by(ProductCatalog.category, ProductCatalog.name).all()
 
     return render_template(
         'inventory.html',
@@ -1105,7 +1106,8 @@ def inventory_view():
         shops=shops,
         all_categories=all_categories,
         transfers=transfers,
-        ai_insights=ai_insights
+        ai_insights=ai_insights,
+        catalog_items=catalog_items
     )
 
 @app.route('/admin/inventory/add', methods=['POST'])
@@ -1269,8 +1271,8 @@ def add_catalog_item():
     db.session.commit()
     
     log_activity(f"ثبت کالای {name} در لیست قیمت مرجع (خرید: {buy_p:,} / فروش: {sell_p:,})", session.get('full_name'), "کاتالوگ")
-    flash(f'کالای «{name}» به کاتالوگ مرجع اضافه شد.', 'success')
-    return redirect(url_for('catalog_view'))
+    flash(f'کالای «{name}» به لیست قیمت مرجع اضافه شد.', 'success')
+    return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/admin/catalog/edit/<int:item_id>', methods=['POST'])
 def edit_catalog_item(item_id):
@@ -1293,7 +1295,7 @@ def edit_catalog_item(item_id):
     db.session.commit()
     log_activity(f"بروزرسانی قیمت مرجع {item.name} (خرید: {item.buy_price:,} / فروش: {item.sell_price:,})", session.get('full_name'), "کاتالوگ")
     flash(f'قیمت و اطلاعات «{item.name}» بروزرسانی گردید.', 'success')
-    return redirect(url_for('catalog_view'))
+    return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/admin/catalog/delete/<int:item_id>', methods=['POST'])
 def delete_catalog_item(item_id):
@@ -1307,8 +1309,8 @@ def delete_catalog_item(item_id):
     db.session.commit()
     
     log_activity(f"حذف {name} از کاتالوگ مرجع", session.get('full_name'), "کاتالوگ")
-    flash(f'کالای «{name}» از کاتالوگ حذف گردید.', 'warning')
-    return redirect(url_for('catalog_view'))
+    flash(f'کالای «{name}» از لیست قیمت حذف گردید.', 'warning')
+    return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/api/catalog/search')
 def api_catalog_search():

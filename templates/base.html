@@ -59,6 +59,12 @@
                     </a>
 
                     {% if session.get('role') == 'admin' %}
+                    <a href="{{ url_for('catalog_view') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint == 'catalog_view' %}bg-purple-600 text-white{% else %}text-purple-300 hover:bg-slate-800{% endif %}">
+                        📋 لیست قیمت و کاتالوگ
+                    </a>
+                    {% endif %}
+
+                    {% if session.get('role') == 'admin' %}
                     <a href="{{ url_for('payroll_view') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint == 'payroll_view' %}bg-indigo-600 text-white{% else %}text-slate-300 hover:bg-slate-800{% endif %}">
                         💼 حقوق و پورسانت
                     </a>

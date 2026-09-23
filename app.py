@@ -343,6 +343,34 @@ def initialize_database():
         db.session.rollback()
         app.logger.warning(f"Akhavan catalog auto-seed warning: {e}")
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی نگین الماس (Negin Almas) - کلیه ۸۷ قلم با ۱۵٪ تخفیف
+    try:
+        from negin_almas_catalog_data import generate_all_negin_almas_items
+        negin_items = generate_all_negin_almas_items(15.0)
+        existing_negin = ProductCatalog.query.filter_by(brand='نگین الماس (Negin Almas)').count()
+        if existing_negin < len(negin_items):
+            for itm in negin_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Negin Almas catalog auto-seed warning: {e}")
+
 
 # اجرا در startup زمان import توسط gunicorn
 with app.app_context():

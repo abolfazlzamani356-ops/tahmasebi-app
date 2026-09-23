@@ -38,6 +38,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v14-permanent-
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB - برای آپلود عکس پرسنلی
 
 # رمز نجات مدیریت
 MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
@@ -401,6 +402,9 @@ with app.app_context():
 def internal_error(e):
     db.session.rollback()
     app.logger.error(f"Internal Server Error: {e}", exc_info=True)
+    # برای API routes، JSON برگردون نه redirect
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'message': f'خطای سرور داخلی: {str(e)}'}), 500
     if 'user_id' in session:
         target = url_for('admin_dashboard' if session.get('role') == 'admin' else 'seller_dashboard')
         if request.path != target:
@@ -2384,88 +2388,93 @@ def user_profile():
 
 @app.route('/api/profile/upload_avatar', methods=['POST'])
 def api_upload_avatar():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'احراز هویت نشده'}), 401
-    
-    user = db.session.get(User, session['user_id'])
-    if not user:
-        return jsonify({'success': False, 'message': 'کاربر یافت نشد'}), 404
+    try:
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'احراز هویت نشده'}), 401
         
-    data = request.get_json(silent=True) or {}
-    base64_data = data.get('image_data', '')
-    
-    # آپلود مستقیم فایل معمولی
-    if not base64_data and 'avatar_file' in request.files:
-        f = request.files['avatar_file']
-        if f and f.filename:
-            ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'jpg'
-            if ext not in ['jpg', 'jpeg', 'png', 'webp']:
-                ext = 'jpg'
-            filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
-            file_bytes = f.read()
-            b64_str = f"data:image/{ext};base64," + base64.b64encode(file_bytes).decode('utf-8')
+        user = db.session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'message': 'کاربر یافت نشد'}), 404
+            
+        data = request.get_json(silent=True) or {}
+        base64_data = data.get('image_data', '')
+        
+        # آپلود مستقیم فایل معمولی
+        if not base64_data and 'avatar_file' in request.files:
+            f = request.files['avatar_file']
+            if f and f.filename:
+                ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'jpg'
+                if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+                    ext = 'jpg'
+                filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
+                file_bytes = f.read()
+                b64_str = f"data:image/{ext};base64," + base64.b64encode(file_bytes).decode('utf-8')
 
+                file_path = os.path.join(AVATARS_DIR, filename)
+                try:
+                    with open(file_path, 'wb') as out_f:
+                        out_f.write(file_bytes)
+                except Exception as disk_err:
+                    app.logger.warning(f"Failed to save avatar to disk: {disk_err}")
+                
+                try:
+                    stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
+                    if os.path.abspath(file_path) != os.path.abspath(stat_path):
+                        with open(stat_path, 'wb') as out_f:
+                            out_f.write(file_bytes)
+                except Exception as stat_err:
+                    app.logger.warning(f"Failed to copy avatar to static: {stat_err}")
+                
+                if user.avatar:
+                    old_name = os.path.basename(user.avatar)
+                    for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
+                        old_path = os.path.join(folder, old_name)
+                        if os.path.exists(old_path):
+                            try: os.remove(old_path)
+                            except: pass
+                        
+                user.avatar = filename
+                user.avatar_data = b64_str
+                session['avatar'] = filename
+                # avatar_data را در session ذخیره نمیکنیم - باعث overflow cookie می‌شود
+                db.session.commit()
+                return jsonify({
+                    'success': True,
+                    'avatar_data': b64_str,
+                    'message': 'تصویر با موفقیت ذخیره شد.'
+                })
+
+        # آپلود تصویر برش داده شده (Cropped Canvas به فرمت Base64)
+        if base64_data:
+            if ',' in base64_data:
+                header, encoded = base64_data.split(',', 1)
+                mime_type = header.split(':')[1].split(';')[0] if ':' in header else 'image/jpeg'
+            else:
+                encoded = base64_data
+                base64_data = 'data:image/jpeg;base64,' + encoded
+                mime_type = 'image/jpeg'
+            
+            img_bytes = base64.b64decode(encoded)
+            ext = mime_type.split('/')[-1].replace('jpeg', 'jpg')
+            if ext not in ['jpg', 'png', 'webp']:
+                ext = 'jpg'
+            
+            filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
+            
             file_path = os.path.join(AVATARS_DIR, filename)
             try:
                 with open(file_path, 'wb') as out_f:
-                    out_f.write(file_bytes)
-            except Exception as e:
-                app.logger.warning(f"Failed to save avatar to disk: {e}")
-            
+                    out_f.write(img_bytes)
+            except Exception as disk_err:
+                app.logger.warning(f"Failed to write avatar to AVATARS_DIR: {disk_err}")
+                
             try:
                 stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
                 if os.path.abspath(file_path) != os.path.abspath(stat_path):
                     with open(stat_path, 'wb') as out_f:
-                        out_f.write(file_bytes)
-            except Exception as e:
-                app.logger.warning(f"Failed to copy avatar to static: {e}")
-            
-            if user.avatar:
-                old_name = os.path.basename(user.avatar)
-                for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
-                    old_path = os.path.join(folder, old_name)
-                    if os.path.exists(old_path):
-                        try: os.remove(old_path)
-                        except: pass
-                    
-            user.avatar = filename
-            user.avatar_data = b64_str
-            session['avatar'] = filename
-            session['avatar_data'] = b64_str
-            db.session.commit()
-            return jsonify({
-                'success': True,
-                'avatar_url': url_for('serve_avatar', filename=filename),
-                'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
-                'avatar_data': b64_str,
-                'message': 'تصویر با موفقیت ذخیره شد.'
-            })
-
-    # آپلود تصویر برش داده شده (Cropped Canvas به فرمت Base64)
-    if base64_data:
-        try:
-            if ',' in base64_data:
-                header, encoded = base64_data.split(',', 1)
-            else:
-                encoded = base64_data
-                base64_data = 'data:image/jpeg;base64,' + encoded
-            img_bytes = base64.b64decode(encoded)
-            
-            filename = f"avatar_{user.id}_{int(time.time())}.jpg"
-            file_path = os.path.join(AVATARS_DIR, filename)
-            try:
-                with open(file_path, 'wb') as f:
-                    f.write(img_bytes)
-            except Exception as e:
-                app.logger.warning(f"Failed to write avatar to AVATARS_DIR: {e}")
-                
-            try:
-                stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
-                if os.path.abspath(file_path) != os.path.abspath(stat_path):
-                    with open(stat_path, 'wb') as f:
-                        f.write(img_bytes)
-            except Exception as e:
-                app.logger.warning(f"Failed to copy base64 avatar to static: {e}")
+                        out_f.write(img_bytes)
+            except Exception as stat_err:
+                app.logger.warning(f"Failed to copy base64 avatar to static: {stat_err}")
                 
             if user.avatar:
                 old_name = os.path.basename(user.avatar)
@@ -2474,24 +2483,26 @@ def api_upload_avatar():
                     if os.path.exists(old_path):
                         try: os.remove(old_path)
                         except: pass
-                    
+                
             user.avatar = filename
             user.avatar_data = base64_data
             session['avatar'] = filename
-            session['avatar_data'] = base64_data
+            # avatar_data را در session ذخیره نمیکنیم - باعث overflow cookie می‌شود
             db.session.commit()
             log_activity("بروزرسانی عکس پرسنلی (کراپ شده)", user.full_name, "پرسنل")
             return jsonify({
                 'success': True,
-                'avatar_url': url_for('serve_avatar', filename=filename),
-                'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
                 'avatar_data': base64_data,
                 'message': 'عکس پرسنلی با موفقیت ذخیره شد.'
             })
-        except Exception as e:
-            return jsonify({'success': False, 'message': f'خطا در پردازش تصویر: {str(e)}'}), 500
 
-    return jsonify({'success': False, 'message': 'تصویری دریافت نشد'}), 400
+        return jsonify({'success': False, 'message': 'تصویری دریافت نشد'}), 400
+
+    except Exception as e:
+        import traceback
+        app.logger.error(f"Avatar upload crash: {traceback.format_exc()}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'خطای سرور: {str(e)}'}), 500
 
 # ==================== API هوش مصنوعی صدور فاکتور ====================
 @app.route('/api/ai/parse_invoice', methods=['POST'])

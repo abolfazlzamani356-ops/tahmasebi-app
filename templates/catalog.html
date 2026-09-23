@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -7,10 +7,36 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     <style>
-        body { font-family: 'Vazirmatn', sans-serif; }
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(at 15% 15%, rgba(99, 102, 241, 0.15) 0px, transparent 45%),
+                radial-gradient(at 85% 10%, rgba(139, 92, 246, 0.12) 0px, transparent 45%),
+                radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px;
+            background-attachment: fixed;
+            color: #f1f5f9;
+        }
+        .bg-white, .glass-card {
+            background-color: #111827 !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 1.25rem !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4) !important;
+            color: #f1f5f9 !important;
+        }
+        .text-slate-900, .text-slate-800, .text-slate-700 { color: #f8fafc !important; }
+        .text-slate-600, .text-slate-500 { color: #94a3b8 !important; }
+        table th { background-color: #1a2234 !important; color: #cbd5e1 !important; border-bottom: 1px solid rgba(255,255,255,0.1) !important; }
+        table td { color: #e2e8f0 !important; border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+        input[type="text"], input[type="number"], select {
+            background-color: #1a2234 !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #f8fafc !important;
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800">
+<body class="min-h-screen">
 
     <!-- نوار ناوبری مدیریت -->
     <nav class="bg-slate-900 text-white shadow-lg sticky top-0 z-40">

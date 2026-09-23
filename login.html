@@ -2,48 +2,48 @@
 {% block title %}ورود به سامانه هوشمند طهماسبی{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-center min-h-[75vh]">
-    <div class="w-full max-w-md fade-in-up">
+<div class="flex items-center justify-center min-h-[75vh] py-8">
+    <div class="w-full max-w-md">
         <!-- Card -->
-        <div class="glass-card p-8 relative overflow-hidden">
-            <!-- Gradient accent top -->
-            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-l from-indigo-500 via-purple-500 to-pink-500 rounded-t-2xl"></div>
+        <div class="glass-card p-8 md:p-10 relative overflow-hidden">
+            <!-- Accent Top Bar -->
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-500"></div>
 
             <!-- Header -->
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-20 h-20 logo-shimmer mb-4 text-4xl shadow-2xl" style="border-radius:1.5rem;">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-amber-500 text-3xl shadow-lg shadow-indigo-500/25 mb-4">
                     🏬
                 </div>
-                <h2 class="text-2xl font-black text-white mt-2">فروشگاه‌های تخصصی طهماسبی</h2>
+                <h2 class="text-xl md:text-2xl font-black text-white">فروشگاه‌های تخصصی طهماسبی</h2>
                 <p class="text-slate-400 text-xs mt-2 font-medium">ورود ایمن به سامانه جامع فروش، انبارداری و حسابداری</p>
             </div>
 
-            <form method="POST" class="space-y-4">
+            <!-- Login Form -->
+            <form method="POST" class="space-y-5">
                 <div>
-                    <label class="block text-xs mb-2 font-bold text-slate-400">نام کاربری</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-2">نام کاربری:</label>
                     <input type="text" name="username" required autofocus
-                           placeholder="نام کاربری خود را وارد کنید"
-                           class="glass-input w-full p-3.5 text-left font-bold text-sm" dir="ltr">
-                </div>
-                <div>
-                    <label class="block text-xs mb-2 font-bold text-slate-400">رمز عبور</label>
-                    <input type="password" name="password" required
-                           placeholder="••••••••"
-                           class="glass-input w-full p-3.5 text-left font-bold text-sm" dir="ltr">
+                           placeholder="مثال: admin یا نام کاربری فروشنده"
+                           class="w-full p-3.5 text-sm font-bold text-left" dir="ltr">
                 </div>
 
-                <button type="submit" class="btn-glass-primary w-full py-3.5 mt-4 flex items-center justify-center gap-2 text-sm">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2">رمز عبور:</label>
+                    <input type="password" name="password" required
+                           placeholder="••••••••"
+                           class="w-full p-3.5 text-sm font-bold text-left" dir="ltr">
+                </div>
+
+                <button type="submit" class="w-full py-3.5 mt-2 rounded-xl text-white font-black text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
                     <span>ورود به حساب کاربری</span>
-                    <span class="text-lg">←</span>
+                    <span class="text-base">←</span>
                 </button>
             </form>
 
-            <!-- Footer note -->
-            <p class="text-center text-[11px] text-slate-600 mt-6">سامانه هوشمند ERP • نسخه ۲۰۲۶</p>
+            <div class="mt-8 pt-5 border-t border-white/5 text-center">
+                <p class="text-[11px] text-slate-500">سامانه جامع ERP و مدیریت زنجیره فروشگاه‌ها • ۲۰۲۶</p>
+            </div>
         </div>
-
-        <!-- Floating glow under card -->
-        <div class="mx-auto mt-3 w-3/4 h-4 rounded-full" style="background: radial-gradient(ellipse, rgba(99,102,241,0.25), transparent 70%); filter: blur(8px);"></div>
     </div>
 </div>
 {% endblock %}

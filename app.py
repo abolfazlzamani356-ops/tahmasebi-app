@@ -2440,6 +2440,8 @@ def api_upload_avatar():
                 db.session.commit()
                 return jsonify({
                     'success': True,
+                    'avatar_url': url_for('serve_avatar', filename=filename),
+                    'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
                     'avatar_data': b64_str,
                     'message': 'تصویر با موفقیت ذخیره شد.'
                 })
@@ -2492,6 +2494,8 @@ def api_upload_avatar():
             log_activity("بروزرسانی عکس پرسنلی (کراپ شده)", user.full_name, "پرسنل")
             return jsonify({
                 'success': True,
+                'avatar_url': url_for('serve_avatar', filename=filename),
+                'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
                 'avatar_data': base64_data,
                 'message': 'عکس پرسنلی با موفقیت ذخیره شد.'
             })

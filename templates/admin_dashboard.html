@@ -1,154 +1,214 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}پنل مدیریت جامع • فروشگاه‌های طهماسبی{% endblock %}
 
 {% block content %}
-<!-- Top Bar -->
-<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
-    <div class="flex items-center gap-3.5">
-        <a href="{{ url_for('user_profile') }}" class="relative group block flex-shrink-0" title="مشاهده و ویرایش پروفایل و عکس مدیریت کل">
-            {% if current_user and (current_user.avatar_data or current_user.avatar) %}
-                <img src="{{ current_user.avatar_data if current_user.avatar_data else url_for('serve_avatar', filename=current_user.avatar) }}" 
-                     onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (current_user.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
-                     alt="مدیریت کل" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500 shadow-md group-hover:scale-105 transition">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-md group-hover:scale-105 transition hidden">
-                    👑
+<!-- Top Bar / Management Cockpit -->
+<div class="glass-card p-6 mb-6">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-5 border-b border-white/10">
+        <!-- Right: Admin Profile -->
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('user_profile') }}" class="relative group block flex-shrink-0" title="مشاهده و ویرایش پروفایل و عکس مدیریت کل">
+                {% if current_user and (current_user.avatar_data or current_user.avatar) %}
+                    <img src="{{ current_user.avatar_data if current_user.avatar_data else url_for('serve_avatar', filename=current_user.avatar) }}" 
+                         onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (current_user.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+                         alt="مدیریت کل" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500/60 shadow-lg group-hover:scale-105 transition">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-lg group-hover:scale-105 transition hidden">
+                        👑
+                    </div>
+                {% else %}
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-lg group-hover:scale-105 transition">
+                        👑
+                    </div>
+                {% endif %}
+                <span class="absolute -bottom-1 -left-1 bg-indigo-600 text-white rounded-full p-1 text-[10px] shadow group-hover:bg-indigo-500 transition">✏️</span>
+            </a>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-xl font-black text-white">پنل مدیریت جامع فروشگاه‌های طهماسبی</h2>
+                    <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-2.5 py-0.5 rounded-full">👑 مدیریت کل</span>
                 </div>
-            {% else %}
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-md group-hover:scale-105 transition">
-                    👑
-                </div>
-            {% endif %}
-            <span class="absolute -bottom-1 -left-1 bg-indigo-600 text-white rounded-full p-1 text-[10px] shadow group-hover:bg-indigo-700 transition">✏️</span>
-        </a>
-        <div>
-            <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                <span>👑</span> پنل مدیریت جامع فروشگاه‌های طهماسبی
-            </h2>
-            <p class="text-xs text-slate-500 mt-1">مدیر کل: <strong class="text-indigo-700">{{ current_user.full_name if current_user else 'محمد طهماسبی' }}</strong> • گزارش مالی دقیق، سود ناخالص واقعی در {{ selected_month_name }} {{ current_year }}</p>
+                <p class="text-xs text-slate-400 mt-1 font-medium">مدیر ارشد: <strong class="text-white">{{ current_user.full_name if current_user else 'محمد طهماسبی' }}</strong> • گزارش مالی و تراز عملکرد در ماه <span class="text-indigo-400 font-bold">{{ selected_month_name }} {{ current_year }}</span></p>
+            </div>
+        </div>
+        
+        <!-- Left: Month Selector & Primary Add User Button -->
+        <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+            <form method="GET" class="flex items-center gap-2 bg-[#1a2234] border border-white/10 px-3 py-1.5 rounded-xl">
+                <span class="text-xs text-slate-400 font-bold">📅 انتخاب ماه:</span>
+                <select name="month" onchange="this.form.submit()" class="bg-transparent border-0 text-xs font-black text-white outline-none cursor-pointer">
+                    {% for m_num, m_name in months.items() %}
+                        <option value="{{ m_num }}" {% if m_num == selected_month %}selected{% endif %}>{{ m_name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
+            <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-1.5">
+                <span>➕</span> تعریف پرسنل جدید
+            </button>
         </div>
     </div>
-    
-    <div class="flex flex-wrap items-center gap-2">
-        <form method="GET" class="flex items-center gap-1.5">
-            <select name="month" onchange="this.form.submit()" class="p-2.5 border rounded-2xl text-xs font-bold bg-slate-50 outline-none text-slate-800">
-                {% for m_num, m_name in months.items() %}
-                    <option value="{{ m_num }}" {% if m_num == selected_month %}selected{% endif %}>{{ m_name }}</option>
-                {% endfor %}
-            </select>
-        </form>
 
-        <a href="{{ url_for('user_profile') }}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3.5 py-2.5 rounded-2xl border border-indigo-200 transition flex items-center gap-1.5 shadow-sm">
+    <!-- Bottom Toolbar: Quick Action Buttons -->
+    <div class="pt-4 flex flex-wrap items-center gap-2 text-xs">
+        <span class="text-slate-400 font-bold text-[11px] ml-1">دسترسی‌های سریع:</span>
+
+        <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-200 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>⚙️</span> تنظیم تارگت‌ها
+        </button>
+
+        <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="bg-[#1a2234] hover:bg-[#243048] border border-rose-500/30 text-rose-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>🏢</span> اجاره شعب ({{ "{:,}".format(total_rent) }} ت)
+        </button>
+
+        <button onclick="document.getElementById('pettyDepositModal').classList.remove('hidden')" class="bg-[#1a2234] hover:bg-[#243048] border border-emerald-500/30 text-emerald-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>💵</span> شارژ تنخواه
+        </button>
+
+        <a href="{{ url_for('catalog_view') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-purple-500/30 text-purple-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>📋</span> لیست قیمت و کاتالوگ ({{ total_catalog_products }})
+        </a>
+
+        <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-[#1a2234] hover:bg-[#243048] border border-emerald-500/30 text-emerald-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>📥</span> خروجی اکسل
+        </a>
+
+        <a href="{{ url_for('download_backup') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-blue-500/30 text-blue-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>🛡️</span> بکاپ دیتابیس
+        </a>
+
+        <button onclick="document.getElementById('adminChangePasswordModal').classList.remove('hidden')" class="bg-[#1a2234] hover:bg-[#243048] border border-amber-500/30 text-amber-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>🔐</span> تغییر رمز
+        </button>
+
+        <a href="{{ url_for('user_profile') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 mr-auto">
             <span>👤</span> پروفایل من
         </a>
-        <a href="{{ url_for('catalog_view') }}" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
-            📋 لیست قیمت و کاتالوگ ({{ total_catalog_products }})
-        </a>
-        <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">📥 اکسل جامع</a>
-        <a href="{{ url_for('download_backup') }}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">🛡️ بکاپ دیتابیس</a>
-        <button onclick="document.getElementById('adminChangePasswordModal').classList.remove('hidden')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">🔐 تغییر رمز</button>
-        <button onclick="document.getElementById('pettyDepositModal').classList.remove('hidden')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">💵 شارژ تنخواه</button>
-        <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition flex items-center gap-1 shadow">🏢 اجاره شعب ({{ "{:,}".format(total_rent) }} ت)</button>
-        <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">⚙️ تنظیم تارگت‌ها</button>
-        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">➕ پرسنل جدید</button>
     </div>
 </div>
 
 <!-- Alert Banner -->
 {% if pending_cheques_count > 0 or total_expenses > total_petty_deposits or low_stock_count > 0 %}
-<div class="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 text-xs flex flex-wrap items-center justify-between gap-2 shadow-sm">
+<div class="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl mb-6 text-xs flex flex-wrap items-center justify-between gap-3 shadow-md">
     <div class="flex flex-wrap items-center gap-2">
-        <span class="text-base">🔔</span>
-        <span class="font-bold text-amber-900">هشدارهای جاری سیستم طهماسبی:</span>
+        <span class="text-lg">🔔</span>
+        <span class="font-black text-amber-300">هشدارهای جاری سیستم طهماسبی:</span>
         {% if pending_cheques_count > 0 %}
-        <span class="bg-amber-200 text-amber-950 px-2.5 py-1 rounded-xl font-bold">{{ pending_cheques_count }} فقره چک در انتظار سررسید</span>
+        <span class="bg-amber-500/20 text-amber-200 border border-amber-500/40 px-3 py-1 rounded-xl font-bold">{{ pending_cheques_count }} فقره چک در انتظار سررسید</span>
         {% endif %}
         {% if low_stock_count > 0 %}
-        <span class="bg-rose-500 text-white px-2.5 py-1 rounded-xl font-bold blink">{{ low_stock_count }} قلم کالا دارای کسری انبار</span>
+        <span class="bg-rose-500 text-white px-3 py-1 rounded-xl font-bold blink">{{ low_stock_count }} قلم کالا دارای کسری انبار</span>
         {% endif %}
         {% if total_expenses > total_petty_deposits %}
-        <span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-xl font-bold">⚠️ کسری موجودی تنخواه شعب</span>
+        <span class="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-xl font-bold">⚠️ کسری موجودی تنخواه شعب</span>
         {% endif %}
     </div>
 </div>
 {% endif %}
 
-<!-- بنر اختصاصی سود خالص ماهانه مدیریت طهماسبی -->
-<div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl mb-6 border border-slate-800 relative overflow-hidden">
-    <div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
-        <div class="space-y-1">
-            <div class="flex items-center gap-2">
+<!-- بنر اختصاصی و مقتدرانه سود خالص ماهانه مدیریت طهماسبی -->
+<div class="glass-card p-6 mb-6 border-l-4 {% if store_net_profit < 0 %}border-l-rose-500{% else %}border-l-emerald-500{% endif %}">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <!-- سمت راست: عنوان و اطلاعات حاشیه سود -->
+        <div class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2.5">
                 <span class="text-2xl">💎</span>
-                <h2 class="text-base font-black text-amber-300">سود خالص نهایی ماه طهماسبی ({{ selected_month_name }})</h2>
-                <span class="{% if store_net_profit < 0 %}bg-rose-500/20 text-rose-400 border border-rose-500/30{% else %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% endif %} text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <h2 class="text-lg font-black text-white">سود خالص نهایی ماه طهماسبی ({{ selected_month_name }})</h2>
+                <span class="{% if store_net_profit < 0 %}bg-rose-500/15 text-rose-400 border border-rose-500/30{% else %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% endif %} text-xs font-bold px-2.5 py-0.5 rounded-lg">
                     حاشیه سود خالص: {{ profit_margin_percent }}%
                 </span>
-                <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span class="bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-xs font-bold px-2.5 py-0.5 rounded-lg">
                     حاشیه ناخالص: {{ gross_margin_percent }}%
                 </span>
             </div>
-            <p class="text-xs text-slate-300">
-                محاسبه سود خالص: سود ناخالص فروشگاه منهای حقوق ثابت و پورسانت پرسنل، اجاره شعب ۱ و ۲، و هزینه‌های جاری
+            <p class="text-xs text-slate-400 leading-relaxed">
+                فرمول تراز: سود ناخالص کلیه فاکتورها منهای حقوق ثابت و پورسانت پرسنل، اجاره شعب ۱ و ۲، و هزینه‌های جاری تنخواه
             </p>
+            
+            <!-- ریز مؤلفه‌های مالی به صورت چیپ‌های شیک -->
+            <div class="flex flex-wrap items-center gap-2.5 pt-2">
+                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
+                    <span class="text-slate-400 font-medium">سود ناخالص:</span>
+                    <strong class="text-emerald-400 mr-1">+ {{ "{:,}".format(estimated_gross_profit) }} ت</strong>
+                </div>
+                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
+                    <span class="text-slate-400 font-medium">حقوق و پورسانت:</span>
+                    <strong class="text-rose-400 mr-1">- {{ "{:,}".format(total_payroll) }} ت</strong>
+                </div>
+                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
+                    <span class="text-slate-400 font-medium">اجاره شعب:</span>
+                    <strong class="text-amber-400 mr-1">- {{ "{:,}".format(total_rent) }} ت</strong>
+                </div>
+                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
+                    <span class="text-slate-400 font-medium">هزینه‌های تنخواه:</span>
+                    <strong class="text-orange-400 mr-1">- {{ "{:,}".format(total_expenses) }} ت</strong>
+                </div>
+            </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-4 md:gap-6">
-            <div class="text-left">
-                <span class="text-[11px] text-slate-400 block font-medium">سود ناخالص فروش:</span>
-                <span class="text-sm font-bold text-slate-200">{{ "{:,}".format(estimated_gross_profit) }} ت</span>
-            </div>
-            <div class="text-left">
-                <span class="text-[11px] text-rose-400 block font-medium">کسر حقوق و پورسانت:</span>
-                <span class="text-sm font-bold text-rose-300" title="حقوق پایه: {{ '{:,}'.format(total_base_salaries) }} | پورسانت: {{ '{:,}'.format(total_commissions) }}">- {{ "{:,}".format(total_payroll) }} ت</span>
-            </div>
-            <div class="text-left">
-                <span class="text-[11px] text-amber-400 block font-medium">کسر اجاره شعب:</span>
-                <span class="text-sm font-bold text-amber-300">- {{ "{:,}".format(total_rent) }} ت</span>
-            </div>
-            <div class="text-left">
-                <span class="text-[11px] text-orange-400 block font-medium">کسر سایر هزینه‌ها:</span>
-                <span class="text-sm font-bold text-orange-300">- {{ "{:,}".format(total_expenses) }} ت</span>
-            </div>
-            <div class="{% if store_net_profit < 0 %}bg-rose-500/15 border-2 border-rose-500/50{% else %}bg-emerald-500/10 border-2 border-emerald-500/40{% endif %} px-4 py-2 rounded-2xl text-left">
-                <span class="text-[11px] {% if store_net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} block font-black">خالص دریافتی مدیریت طهماسبی:</span>
-                <span class="text-xl md:text-2xl font-black {% if store_net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %}">{{ "{:,}".format(store_net_profit) }} تومان</span>
+        <!-- سمت چپ: باکس برجسته رقم نهایی خالص دریافتی -->
+        <div class="w-full lg:w-auto flex-shrink-0">
+            <div class="{% if store_net_profit < 0 %}bg-rose-500/15 border-2 border-rose-500/50 shadow-rose-900/30{% else %}bg-emerald-500/10 border-2 border-emerald-500/50 shadow-emerald-900/30{% endif %} p-5 rounded-2xl text-center lg:text-left shadow-xl min-w-[280px]">
+                <div class="flex items-center justify-between gap-3 mb-1">
+                    <span class="text-xs font-black {% if store_net_profit < 0 %}text-rose-300{% else %}text-emerald-300{% endif %}">
+                        خالص دریافتی مدیریت طهماسبی:
+                    </span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {% if store_net_profit < 0 %}bg-rose-500/20 text-rose-300{% else %}bg-emerald-500/20 text-emerald-300{% endif %}">
+                        {% if store_net_profit < 0 %}🔻 تراز منفی{% else %}🟢 سوددهی مطلوب{% endif %}
+                    </span>
+                </div>
+                <div class="text-2xl md:text-3xl font-black {% if store_net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} mt-2" dir="ltr">
+                    {{ "{:,}".format(store_net_profit) }} <span class="text-xs font-normal">تومان</span>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Key Metrics Cards -->
-<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-    <div class="glass-card p-4 border-r-4 border-r-indigo-600">
-        <span class="text-xs text-slate-500 font-bold">فروش کل مجموعه طهماسبی</span>
-        <h3 class="text-lg font-black text-indigo-700 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div class="glass-card p-4 border-r-4 border-r-indigo-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">فروش کل مجموعه</span>
+            <span class="text-lg">🛒</span>
+        </div>
+        <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
     </div>
 
-    <div class="glass-card p-4 border-r-4 border-r-emerald-600">
-        <span class="text-xs text-slate-500 font-bold">💰 سود ناخالص کالاها</span>
-        <h3 class="text-lg font-black text-emerald-600 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-emerald-600 mt-1 font-bold">اختلاف خرید و فروش فاکتورها</p>
+    <div class="glass-card p-4 border-r-4 border-r-emerald-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">سود ناخالص کالاها</span>
+            <span class="text-lg">💰</span>
+        </div>
+        <h3 class="text-xl font-black text-emerald-400 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-slate-400 mt-1">اختلاف خرید و فروش فاکتورها</p>
     </div>
 
-    <div class="glass-card p-4 border-r-4 border-r-rose-600">
-        <span class="text-xs text-slate-500 font-bold">👥 حقوق و پورسانت پرسنل</span>
-        <h3 class="text-lg font-black text-rose-600 mt-2">{{ "{:,}".format(total_payroll) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+    <div class="glass-card p-4 border-r-4 border-r-rose-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">حقوق و پورسانت پرسنل</span>
+            <span class="text-lg">👥</span>
+        </div>
+        <h3 class="text-xl font-black text-rose-400 mt-2">{{ "{:,}".format(total_payroll) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">ثابت: {{ "{:,}".format(total_base_salaries) }} | پورسانت: {{ "{:,}".format(total_commissions) }}</p>
     </div>
 
-    <div class="glass-card p-4 border-r-4 border-r-purple-600">
-        <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500 font-bold">🏢 اجاره شعب ۱ و ۲</span>
-            <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="text-[10px] text-purple-600 hover:underline font-bold">ویرایش ✏️</button>
+    <div class="glass-card p-4 border-r-4 border-r-purple-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">اجاره شعب ۱ و ۲</span>
+            <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">ویرایش ✏️</button>
         </div>
-        <h3 class="text-lg font-black text-purple-700 mt-2">{{ "{:,}".format(total_rent) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-slate-400 mt-1">کسر از سود ناخالص ماه</p>
+        <h3 class="text-xl font-black text-purple-400 mt-2">{{ "{:,}".format(total_rent) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-slate-400 mt-1">کسر مستقیم از سود ناخالص</p>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-amber-500">
-        <span class="text-xs text-slate-500 font-bold">هزینه‌های جاری و تنخواه</span>
-        <h3 class="text-lg font-black text-amber-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">هزینه‌های جاری تنخواه</span>
+            <span class="text-lg">💸</span>
+        </div>
+        <h3 class="text-xl font-black text-amber-400 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} ت</p>
     </div>
 </div>

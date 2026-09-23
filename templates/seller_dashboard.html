@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}پنل فروشنده • {{ user.full_name }}{% endblock %}
 
@@ -13,12 +13,12 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-        <a href="#leaderboard" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-3.5 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+        <a href="#leaderboard" class="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
             <span>🏆</span> سکوی رقابت ماه
         </a>
-        <form method="GET" class="flex items-center gap-2">
-            <label class="text-xs font-bold text-slate-600">انتخاب ماه:</label>
-            <select name="month" onchange="this.form.submit()" class="p-2 border rounded-xl text-xs font-bold bg-slate-50 outline-none text-slate-800">
+        <form method="GET" class="flex items-center gap-2 bg-[#1a2234] border border-white/10 px-3 py-1.5 rounded-xl">
+            <label class="text-xs font-bold text-slate-400">انتخاب ماه:</label>
+            <select name="month" onchange="this.form.submit()" class="bg-transparent border-0 text-xs font-black text-white outline-none cursor-pointer">
                 {% for m_num, m_name in months.items() %}
                     <option value="{{ m_num }}" {% if m_num == selected_month %}selected{% endif %}>{{ m_name }}</option>
                 {% endfor %}
@@ -28,44 +28,62 @@
 </div>
 
 <!-- Stat Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 fade-in-up">
-    <div class="glass-card p-5 border-r-4 border-r-indigo-600">
-        <span class="text-glass-label">فروش خالص شما در {{ current_month_name }}</span>
-        <h3 class="text-2xl font-black text-glow-indigo mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="glass-card p-5 border-r-4 border-r-indigo-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">فروش خالص شما در {{ current_month_name }}</span>
+            <span class="text-lg">🛒</span>
+        </div>
+        <h3 class="text-2xl font-black text-indigo-400 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
         <span class="text-[10px] text-slate-400">({{ stats.sales_count }} فاکتور تایید شده)</span>
     </div>
 
     <div class="glass-card p-5 border-r-4 border-r-rose-500">
-        <span class="text-glass-label">تعداد مرجوعی‌ها</span>
-        <h3 class="text-2xl font-black text-glow-rose mt-2">{{ stats.returns_count }} <span class="text-xs font-normal text-slate-400">مورد</span></h3>
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">تعداد مرجوعی‌ها</span>
+            <span class="text-lg">🔄</span>
+        </div>
+        <h3 class="text-2xl font-black text-rose-400 mt-2">{{ stats.returns_count }} <span class="text-xs font-normal text-slate-400">مورد</span></h3>
         <span class="text-[10px] text-rose-400">کسر شده از جمع کل فروش</span>
     </div>
 
     {% if user.role == 'admin' %}
     <div class="glass-card p-5 border-r-4 border-r-amber-500">
-        <span class="text-glass-label">سمت و سطح دسترسی</span>
-        <h3 class="text-2xl font-black text-glow-amber mt-2">مدیریت کل</h3>
-        <span class="text-[10px] text-amber-600 font-bold">بدون کسر پورسانت (سود مستقیم فروشگاه)</span>
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">سمت و سطح دسترسی</span>
+            <span class="text-lg">👑</span>
+        </div>
+        <h3 class="text-2xl font-black text-amber-400 mt-2">مدیریت کل</h3>
+        <span class="text-[10px] text-amber-400 font-bold">بدون کسر پورسانت (سود مستقیم فروشگاه)</span>
     </div>
 
     <div class="glass-card p-5 border-r-4 border-r-emerald-500">
-        <span class="text-glass-label">سود ناخالص فاکتورهای شما</span>
-        <h3 class="text-2xl font-black text-glow-emerald mt-2">{{ "{:,}".format(stats.real_profit_share) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
-        <span class="text-[10px] text-emerald-600 font-bold">سود ناخالص عاید شده برای فروشگاه</span>
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">سود ناخالص فاکتورهای شما</span>
+            <span class="text-lg">💰</span>
+        </div>
+        <h3 class="text-2xl font-black text-emerald-400 mt-2">{{ "{:,}".format(stats.real_profit_share) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-emerald-400 font-bold">سود ناخالص عاید شده برای فروشگاه</span>
     </div>
     {% else %}
-    <div class="glass-card p-5 border-r-4 border-r-blue-600">
-        <span class="text-glass-label">درصد مصوب + پاداش تارگت</span>
-        <h3 class="text-2xl font-black text-glow-cyan mt-2">{{ stats.effective_rate }}%</h3>
-        <span class="text-[10px] text-blue-500 font-bold">
+    <div class="glass-card p-5 border-r-4 border-r-blue-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">درصد مصوب + پاداش تارگت</span>
+            <span class="text-lg">📈</span>
+        </div>
+        <h3 class="text-2xl font-black text-blue-400 mt-2">{{ stats.effective_rate }}%</h3>
+        <span class="text-[10px] text-blue-400 font-bold">
             {% if stats.tier_achieved > 0 %}🎉 پله {{ stats.tier_achieved }} تارگت طهماسبی اعمال شد{% else %}نرخ پایه مصوب{% endif %}
         </span>
     </div>
 
     <div class="glass-card p-5 border-r-4 border-r-emerald-500">
-        <span class="text-glass-label">پورسانت قطعی (وصول شده)</span>
-        <h3 class="text-2xl font-black text-glow-emerald mt-2">{{ "{:,}".format(stats.settled_commission) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
-        <span class="text-[10px] text-amber-600 font-bold">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-bold">پورسانت قطعی (وصول شده)</span>
+            <span class="text-lg">💵</span>
+        </div>
+        <h3 class="text-2xl font-black text-emerald-400 mt-2">{{ "{:,}".format(stats.settled_commission) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-amber-400 font-bold">
             {% if stats.pending_commission > 0 %}⏳ {{ "{:,}".format(stats.pending_commission) }} تومان در انتظار وصول چک/بیعانه{% else %}تسویه کامل نقد{% endif %}
         </span>
     </div>

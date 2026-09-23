@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     <style>
+        *, *::before, *::after { box-sizing: border-box; }
         body {
             font-family: 'Vazirmatn', sans-serif;
             background-color: #0b0f19;
@@ -17,22 +18,136 @@
             background-size: 100% 100%, 100% 100%, 32px 32px;
             background-attachment: fixed;
             color: #f1f5f9;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
         }
         .bg-white, .glass-card {
             background-color: #111827 !important;
             border: 1px solid rgba(255, 255, 255, 0.08) !important;
             border-radius: 1.25rem !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4) !important;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
             color: #f1f5f9 !important;
         }
         .text-slate-900, .text-slate-800, .text-slate-700 { color: #f8fafc !important; }
-        .text-slate-600, .text-slate-500 { color: #94a3b8 !important; }
-        table th { background-color: #1a2234 !important; color: #cbd5e1 !important; border-bottom: 1px solid rgba(255,255,255,0.1) !important; }
-        table td { color: #e2e8f0 !important; border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
-        input[type="text"], input[type="number"], select {
+        .text-slate-600 { color: #cbd5e1 !important; }
+        .text-slate-500, .text-slate-400 { color: #94a3b8 !important; }
+        
+        /* Vibrant Financial Metrics */
+        .text-emerald-700, .text-emerald-600 { color: #34d399 !important; }
+        .text-rose-700, .text-rose-600 { color: #fb7185 !important; }
+        .text-indigo-700, .text-indigo-600 { color: #818cf8 !important; }
+        .text-amber-700, .text-amber-600 { color: #fbbf24 !important; }
+        .text-blue-700, .text-blue-600 { color: #60a5fa !important; }
+        .text-purple-700, .text-purple-600 { color: #c084fc !important; }
+
+        /* Tables */
+        table th {
             background-color: #1a2234 !important;
-            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #cbd5e1 !important;
+            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+        }
+        tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.04) !important;
+        }
+        table td {
+            color: #e2e8f0 !important;
+            border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+        }
+
+        /* Inputs, Selects, Textareas - All variations */
+        input, select, textarea {
+            background-color: #1a2234 !important;
+            border: 1px solid rgba(255, 255, 255, 0.14) !important;
             color: #f8fafc !important;
+            border-radius: 0.75rem !important;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #6366f1 !important;
+            background-color: #1e293b !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3) !important;
+            outline: none !important;
+        }
+        input::placeholder, textarea::placeholder {
+            color: #64748b !important;
+        }
+        select option {
+            background-color: #111827 !important;
+            color: #f8fafc !important;
+        }
+
+        /* Pills and Badges */
+        .bg-slate-50 {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+        }
+        .bg-slate-100 {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #cbd5e1 !important;
+        }
+        .bg-indigo-100, .bg-indigo-50 {
+            background-color: rgba(99, 102, 241, 0.15) !important;
+            color: #a5b4fc !important;
+            border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        }
+        .bg-amber-100, .bg-amber-50, .bg-amber-200 {
+            background-color: rgba(245, 158, 11, 0.15) !important;
+            color: #fbbf24 !important;
+            border: 1px solid rgba(245, 158, 11, 0.3) !important;
+        }
+        .bg-emerald-100 {
+            background-color: rgba(16, 185, 129, 0.15) !important;
+            color: #34d399 !important;
+            border: 1px solid rgba(16, 185, 129, 0.3) !important;
+        }
+        .bg-rose-100 {
+            background-color: rgba(244, 63, 94, 0.15) !important;
+            color: #fb7185 !important;
+            border: 1px solid rgba(244, 63, 94, 0.3) !important;
+        }
+        .bg-blue-100, .bg-blue-50 {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+            color: #93c5fd !important;
+            border: 1px solid rgba(59, 130, 246, 0.3) !important;
+        }
+
+        /* Category Badge Standard */
+        .category-pill, .badge-category {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(99, 102, 241, 0.15) !important;
+            color: #a5b4fc !important;
+            border: 1px solid rgba(99, 102, 241, 0.3) !important;
+            border-radius: 0.5rem !important;
+            padding: 0.25rem 0.65rem !important;
+            font-size: 0.75rem !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
+        }
+
+        /* Modals: Guaranteed scrollable & responsive */
+        .fixed.inset-0 {
+            overflow-y: auto !important;
+            padding: 1.5rem 1rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: rgba(0, 0, 0, 0.8) !important;
+            backdrop-filter: blur(8px) !important;
+            -webkit-backdrop-filter: blur(8px) !important;
+        }
+        .fixed.inset-0.hidden {
+            display: none !important;
+        }
+        .fixed.inset-0 > div {
+            max-height: 88vh !important;
+            overflow-y: auto !important;
+            margin: auto !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            background-color: #111827 !important;
+            color: #f8fafc !important;
+            border-radius: 1.5rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
         }
     </style>
 </head>
@@ -205,19 +320,19 @@
                         {% for item in catalog_items %}
                         <tr class="hover:bg-slate-50 transition">
                             <td class="p-4 font-mono text-slate-500">{{ item.code or '—' }}</td>
-                            <td class="p-4 font-black text-slate-800 text-sm">{{ item.name }}</td>
+                            <td class="p-4 font-black text-slate-100 text-sm">{{ item.name }}</td>
                             <td class="p-4">
-                                <span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-bold">
+                                <span class="category-pill">
                                     {{ item.category }}
                                 </span>
                             </td>
-                            <td class="p-4 text-slate-600">{{ item.brand or '—' }}</td>
+                            <td class="p-4 text-slate-400">{{ item.brand or '—' }}</td>
                             {% if is_admin %}
-                            <td class="p-4 font-black text-blue-600 text-sm">{{ "{:,}".format(item.buy_price) }} تومان</td>
+                            <td class="p-4 font-black text-blue-400 text-sm">{{ "{:,}".format(item.buy_price) }} تومان</td>
                             {% endif %}
-                            <td class="p-4 font-black text-emerald-600 text-sm">{{ "{:,}".format(item.sell_price) }} تومان</td>
+                            <td class="p-4 font-black text-emerald-400 text-sm">{{ "{:,}".format(item.sell_price) }} تومان</td>
                             {% if is_admin %}
-                            <td class="p-4 font-black text-purple-600">
+                            <td class="p-4 font-black text-purple-400">
                                 {% set margin = item.sell_price - item.buy_price %}
                                 {{ "{:,}".format(margin) }} تومان
                                 {% if item.sell_price > 0 %}
@@ -228,7 +343,7 @@
                             {% if can_manage_stock %}
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openEditModal({{ item.id }}, '{{ item.name }}', '{{ item.category }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if is_admin else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}')"
+                                    <button onclick="openEditModal({{ item.id }}, '{{ item.name }}', '{{ item.category }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}')"
                                         class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl font-bold transition">
                                         ✏️ ویرایش
                                     </button>
@@ -256,23 +371,23 @@
     </div>
 
     <!-- مودال افزودن محصول -->
-    <div id="addModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between border-b pb-3">
-                <h3 class="font-black text-base text-slate-800">➕ افزودن کالا به لیست قیمت مرجع</h3>
-                <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 font-black">✕</button>
+    <div id="addModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="font-black text-base text-slate-100">➕ افزودن کالا به لیست قیمت مرجع</h3>
+                <button onclick="closeAddModal()" class="text-slate-400 hover:text-white font-black text-lg">✕</button>
             </div>
             <form method="POST" action="{{ url_for('add_catalog_item') }}" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">نام کامل محصول *</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">نام کامل محصول *</label>
                     <input type="text" name="name" required placeholder="مثال: هود داتیس مدل 522 مخفی"
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                        class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">دسته‌بندی</label>
-                        <input list="categoriesList" name="category" placeholder="انتخاب یا تایپ دسته..."
-                            class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-bold text-slate-300 mb-1">دسته‌بندی</label>
+                        <input type="text" list="categoriesList" name="category" placeholder="انتخاب یا تایپ دسته..."
+                            class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                         <datalist id="categoriesList">
                             {% for c in all_categories %}
                             <option value="{{ c.name }}"></option>
@@ -280,40 +395,40 @@
                         </datalist>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">برند / شرکت</label>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">برند / شرکت</label>
                         <input type="text" name="brand" placeholder="مثال: داتیس، اخوان، فونیکس..."
-                            class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    {% if is_admin %}
+                    {% if is_admin or can_manage_stock %}
                     <div>
-                        <label class="block text-xs font-bold text-blue-700 mb-1">قیمت خرید مرجع (تومان) *</label>
+                        <label class="block text-xs font-bold text-blue-400 mb-1">قیمت خرید مرجع (تومان) *</label>
                         <input type="number" name="buy_price" required placeholder="مبلغ خرید..."
-                            class="w-full bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-xs font-black text-blue-800 outline-none focus:border-blue-500">
+                            class="w-full bg-blue-950/40 border border-blue-500/40 rounded-xl p-2.5 text-xs font-black text-blue-300 outline-none focus:border-blue-500">
                     </div>
                     {% endif %}
-                    <div class="{% if not is_admin %}col-span-2{% endif %}">
-                        <label class="block text-xs font-bold text-emerald-700 mb-1">قیمت فروش مصوب (تومان) *</label>
+                    <div class="{% if not (is_admin or can_manage_stock) %}col-span-2{% endif %}">
+                        <label class="block text-xs font-bold text-emerald-400 mb-1">قیمت فروش مصوب (تومان) *</label>
                         <input type="number" name="sell_price" required placeholder="مبلغ فروش..."
-                            class="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs font-black text-emerald-800 outline-none focus:border-emerald-500">
+                            class="w-full bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-2.5 text-xs font-black text-emerald-300 outline-none focus:border-emerald-500">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">کد محصول یا بارکد (اختیاری)</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">کد محصول یا بارکد (اختیاری)</label>
                     <input type="text" name="code" placeholder="مثال: DT-522"
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                        class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">توضیحات</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">توضیحات</label>
                     <textarea name="description" rows="2" placeholder="مشخصات فنی یا توضیحات..."
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-medium outline-none focus:border-indigo-500"></textarea>
+                        class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2 text-xs font-medium text-white outline-none focus:border-indigo-500"></textarea>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs transition">
                         ثبت در کاتالوگ
                     </button>
-                    <button type="button" onclick="closeAddModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 rounded-xl text-xs transition">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition border border-white/10">
                         انصراف
                     </button>
                 </div>
@@ -322,59 +437,59 @@
     </div>
 
     <!-- مودال ویرایش محصول -->
-    <div id="editModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between border-b pb-3">
-                <h3 class="font-black text-base text-slate-800">✏️ ویرایش قیمت و مشخصات کالا</h3>
-                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 font-black">✕</button>
+    <div id="editModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="font-black text-base text-slate-100">✏️ ویرایش قیمت و مشخصات کالا</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white font-black text-lg">✕</button>
             </div>
             <form id="editForm" method="POST" action="" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">نام کامل محصول *</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">نام کامل محصول *</label>
                     <input type="text" name="name" id="edit_name" required
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                        class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">دسته‌بندی</label>
-                        <input list="categoriesList" name="category" id="edit_category"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-bold text-slate-300 mb-1">دسته‌بندی</label>
+                        <input type="text" list="categoriesList" name="category" id="edit_category"
+                            class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">برند / شرکت</label>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">برند / شرکت</label>
                         <input type="text" name="brand" id="edit_brand"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                            class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    {% if is_admin %}
+                    {% if is_admin or can_manage_stock %}
                     <div>
-                        <label class="block text-xs font-bold text-blue-700 mb-1">قیمت خرید مرجع (تومان) *</label>
+                        <label class="block text-xs font-bold text-blue-400 mb-1">قیمت خرید مرجع (تومان) *</label>
                         <input type="number" name="buy_price" id="edit_buy_price" required
-                            class="w-full bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-xs font-black text-blue-800 outline-none focus:border-blue-500">
+                            class="w-full bg-blue-950/40 border border-blue-500/40 rounded-xl p-2.5 text-xs font-black text-blue-300 outline-none focus:border-blue-500">
                     </div>
                     {% endif %}
-                    <div class="{% if not is_admin %}col-span-2{% endif %}">
-                        <label class="block text-xs font-bold text-emerald-700 mb-1">قیمت فروش مصوب (تومان) *</label>
+                    <div class="{% if not (is_admin or can_manage_stock) %}col-span-2{% endif %}">
+                        <label class="block text-xs font-bold text-emerald-400 mb-1">قیمت فروش مصوب (تومان) *</label>
                         <input type="number" name="sell_price" id="edit_sell_price" required
-                            class="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs font-black text-emerald-800 outline-none focus:border-emerald-500">
+                            class="w-full bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-2.5 text-xs font-black text-emerald-300 outline-none focus:border-emerald-500">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">کد محصول یا بارکد</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">کد محصول یا بارکد</label>
                     <input type="text" name="code" id="edit_code"
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold outline-none focus:border-indigo-500">
+                        class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">توضیحات</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">توضیحات</label>
                     <textarea name="description" id="edit_description" rows="2"
-                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-medium outline-none focus:border-indigo-500"></textarea>
+                        class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2 text-xs font-medium text-white outline-none focus:border-indigo-500"></textarea>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-2.5 rounded-xl text-xs transition">
                         ذخیره تغییرات
                     </button>
-                    <button type="button" onclick="closeEditModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 rounded-xl text-xs transition">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition border border-white/10">
                         انصراف
                     </button>
                 </div>

@@ -1593,7 +1593,7 @@ def add_inventory_item():
         shop_id=int(request.form.get('shop_id', 1)),
         stock_quantity=int(request.form.get('stock_quantity', 5)),
         min_alert_stock=int(request.form.get('min_alert_stock', 2)),
-        buy_price=int(buy_raw) if (buy_raw and is_admin()) else 0,
+        buy_price=int(buy_raw) if (buy_raw and (is_admin() or can_manage_stock())) else 0,
         sell_price=int(sell_raw) if sell_raw else 0
     )
     db.session.add(item)
@@ -1617,7 +1617,7 @@ def edit_inventory_item(item_id):
     item.stock_quantity = new_qty
     item.min_alert_stock = int(request.form.get('min_alert_stock', 2))
     
-    if is_admin():
+    if is_admin() or can_manage_stock():
         buy_raw = request.form.get('buy_price', '').replace(',', '')
         if buy_raw: item.buy_price = int(buy_raw)
     sell_raw = request.form.get('sell_price', '').replace(',', '')
@@ -1854,7 +1854,7 @@ def add_catalog_item():
     brand = request.form.get('brand', '').strip()
     code = request.form.get('code', '').strip() or None
     
-    buy_p = int(request.form.get('buy_price', '0').replace(',', '') or '0') if is_admin() else 0
+    buy_p = int(request.form.get('buy_price', '0').replace(',', '') or '0') if (is_admin() or can_manage_stock()) else 0
     sell_p = int(request.form.get('sell_price', '0').replace(',', '') or '0')
     description = request.form.get('description', '').strip()
     
@@ -1895,7 +1895,7 @@ def edit_catalog_item(item_id):
     item.brand = request.form.get('brand', '').strip()
     item.code = request.form.get('code', '').strip() or None
     
-    if is_admin():
+    if is_admin() or can_manage_stock():
         buy_p = request.form.get('buy_price', '').replace(',', '').strip()
         if buy_p: item.buy_price = int(buy_p)
     sell_p = request.form.get('sell_price', '').replace(',', '').strip()

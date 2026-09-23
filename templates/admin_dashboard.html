@@ -243,7 +243,7 @@
                 <span class="text-xs font-black px-2 py-0.5 rounded-lg {% if loop.index == 1 %}bg-amber-400 text-amber-950 shadow-sm{% elif loop.index == 2 %}bg-slate-300 text-slate-800{% elif loop.index == 3 %}bg-orange-300 text-orange-950{% else %}bg-slate-200 text-slate-700{% endif %}">
                     {% if loop.index == 1 %}🥇 رتبه ۱{% elif loop.index == 2 %}🥈 رتبه ۲{% elif loop.index == 3 %}🥉 رتبه ۳{% else %}رتبه {{ loop.index }}{% endif %}
                 </span>
-                <span class="text-[10px] text-slate-600 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200">{{ top.category }}</span>
+                <span class="category-pill text-[10px]">{{ top.category }}</span>
             </div>
             <div>
                 <h4 class="text-xs font-black text-slate-900 leading-snug mb-1">{{ top.item_name }}</h4>

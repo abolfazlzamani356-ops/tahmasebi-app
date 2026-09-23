@@ -483,6 +483,34 @@ def initialize_database():
         db.session.rollback()
         app.logger.warning(f"Gatria catalog auto-seed warning: {e}")
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ کابین روشویی KRD (تولیدی خودمان) - کلیه ۱۲۵ قلم با ۳۲٪ تخفیف تولید
+    try:
+        from krd_catalog_data import generate_all_krd_items
+        krd_items = generate_all_krd_items(32.0)
+        existing_krd = ProductCatalog.query.filter_by(brand='KRD').count()
+        if existing_krd < len(krd_items):
+            for itm in krd_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"KRD catalog auto-seed warning: {e}")
+
 
 
 

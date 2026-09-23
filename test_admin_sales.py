@@ -9,8 +9,8 @@ def test_admin_invoice_and_dashboard_stats():
         # Setup test data
         admin = User.query.filter_by(role='admin').first()
         if not admin:
-            admin = User(username='admin_test', full_name='مدیریت کل (طهماسبی)', role='admin', shop_id=1, commission_rate=0.0)
-            admin.set_password('123456')
+            admin = User(username='admin', full_name='محمد طهماسبی', role='admin', shop_id=1, commission_rate=0.0)
+            admin.set_password('admin1234')
             db.session.add(admin)
             db.session.commit()
         else:

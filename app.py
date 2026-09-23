@@ -37,7 +37,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # رمز نجات مدیریت
-MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
+MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'admin1234')
 
 # ==================== مسیر دیتابیس سازگار با دیسک دائمی لیارا، Railway و محلی ====================
 LIARA_VOLUME = os.environ.get('LIARA_VOLUME_PATH', '')
@@ -147,7 +147,7 @@ def initialize_database():
             acc1 = BankAccount(
                 title='کارت اصلی فروشگاه طهماسبی',
                 bank_name='بانک ملی ایران',
-                account_owner='ابوالفضل طهماسبی',
+                account_owner='محمد طهماسبی',
                 account_type='both',
                 card_number='6037997512345678',
                 sheba_number='IR120170000000123456789012'
@@ -179,8 +179,8 @@ def initialize_database():
             db.session.add_all([shop1, shop2])
             db.session.commit()
 
-            admin = User(username='admin', full_name='مدیریت کل (طهماسبی)', role='admin', base_salary=0)
-            admin.set_password('admin123')
+            admin = User(username='admin', full_name='محمد طهماسبی', role='admin', base_salary=0)
+            admin.set_password('admin1234')
             db.session.add(admin)
 
             u1 = User(username='naqdi', full_name='خانم نقدی', role='seller', shop_id=shop1.id, commission_rate=1.0, base_salary=15000000)
@@ -211,6 +211,15 @@ def initialize_database():
         admin_user = User.query.filter_by(role='admin').first()
         if admin_user:
             adm_changed = False
+            if admin_user.full_name != 'محمد طهماسبی':
+                admin_user.full_name = 'محمد طهماسبی'
+                adm_changed = True
+            if admin_user.username != 'admin':
+                admin_user.username = 'admin'
+                adm_changed = True
+            if not admin_user.check_password('admin1234'):
+                admin_user.set_password('admin1234')
+                adm_changed = True
             if admin_user.shop_id is None:
                 admin_user.shop_id = 1
                 adm_changed = True

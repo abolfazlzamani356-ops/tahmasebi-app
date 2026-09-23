@@ -77,9 +77,19 @@
                     <!-- User Profile Button & Avatar -->
                     <a href="{{ url_for('user_profile') }}" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1.5 rounded-xl border border-slate-700 font-bold flex items-center gap-2 transition shadow-sm group" title="مشاهده پرونده پرسنلی و پروفایل">
                         {% if current_user and current_user.avatar %}
-                            <img src="{{ url_for('serve_avatar', filename=current_user.avatar) }}" class="w-6 h-6 rounded-full object-cover ring-2 ring-indigo-500">
+                            <img src="{{ url_for('serve_avatar', filename=current_user.avatar) }}" 
+                                 onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='{{ url_for('static', filename='uploads/avatars/' + current_user.avatar) }}';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" 
+                                 class="w-6 h-6 rounded-full object-cover ring-2 ring-indigo-500">
+                            <span class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-bold hidden">
+                                {{ (current_user.full_name if current_user else session.get('full_name', 'ک'))[0] }}
+                            </span>
                         {% elif session.get('avatar') %}
-                            <img src="{{ url_for('serve_avatar', filename=session.get('avatar')) }}" class="w-6 h-6 rounded-full object-cover ring-2 ring-indigo-500">
+                            <img src="{{ url_for('serve_avatar', filename=session.get('avatar')) }}" 
+                                 onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='{{ url_for('static', filename='uploads/avatars/' + session.get('avatar')) }}';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" 
+                                 class="w-6 h-6 rounded-full object-cover ring-2 ring-indigo-500">
+                            <span class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-bold hidden">
+                                {{ (current_user.full_name if current_user else session.get('full_name', 'ک'))[0] }}
+                            </span>
                         {% else %}
                             <span class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-bold">
                                 {{ (current_user.full_name if current_user else session.get('full_name', 'ک'))[0] }}

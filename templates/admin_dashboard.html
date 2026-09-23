@@ -8,7 +8,12 @@
     <div class="flex items-center gap-3.5">
         <a href="{{ url_for('user_profile') }}" class="relative group block flex-shrink-0" title="مشاهده و ویرایش پروفایل و عکس مدیریت کل">
             {% if current_user and current_user.avatar %}
-                <img src="{{ url_for('serve_avatar', filename=current_user.avatar) }}" alt="مدیریت کل" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500 shadow-md group-hover:scale-105 transition">
+                <img src="{{ url_for('serve_avatar', filename=current_user.avatar) }}" 
+                     onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + current_user.avatar) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+                     alt="مدیریت کل" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500 shadow-md group-hover:scale-105 transition">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-md group-hover:scale-105 transition hidden">
+                    👑
+                </div>
             {% else %}
                 <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-md group-hover:scale-105 transition">
                     👑
@@ -75,7 +80,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-2xl">💎</span>
                 <h2 class="text-base font-black text-amber-300">سود خالص نهایی ماه طهماسبی ({{ selected_month_name }})</h2>
-                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span class="{% if store_net_profit < 0 %}bg-rose-500/20 text-rose-400 border border-rose-500/30{% else %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% endif %} text-[10px] font-bold px-2 py-0.5 rounded-full">
                     حاشیه سود خالص: {{ profit_margin_percent }}%
                 </span>
                 <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -104,9 +109,9 @@
                 <span class="text-[11px] text-orange-400 block font-medium">کسر سایر هزینه‌ها:</span>
                 <span class="text-sm font-bold text-orange-300">- {{ "{:,}".format(total_expenses) }} ت</span>
             </div>
-            <div class="bg-emerald-500/10 border-2 border-emerald-500/40 px-4 py-2 rounded-2xl text-left">
-                <span class="text-[11px] text-emerald-400 block font-black">خالص دریافتی مدیریت طهماسبی:</span>
-                <span class="text-xl md:text-2xl font-black text-emerald-400">{{ "{:,}".format(store_net_profit) }} تومان</span>
+            <div class="{% if store_net_profit < 0 %}bg-rose-500/15 border-2 border-rose-500/50{% else %}bg-emerald-500/10 border-2 border-emerald-500/40{% endif %} px-4 py-2 rounded-2xl text-left">
+                <span class="text-[11px] {% if store_net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} block font-black">خالص دریافتی مدیریت طهماسبی:</span>
+                <span class="text-xl md:text-2xl font-black {% if store_net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %}">{{ "{:,}".format(store_net_profit) }} تومان</span>
             </div>
         </div>
     </div>
@@ -226,7 +231,12 @@
                 <td class="p-3 font-bold text-slate-900">
                     <div class="flex items-center gap-2.5">
                         {% if item.user.avatar %}
-                            <img src="{{ url_for('serve_avatar', filename=item.user.avatar) }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm flex-shrink-0">
+                            <img src="{{ url_for('serve_avatar', filename=item.user.avatar) }}" 
+                                 onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + item.user.avatar) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+                                 class="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
+                                {{ item.user.full_name[0] }}
+                            </div>
                         {% else %}
                             <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
                                 {{ item.user.full_name[0] }}
@@ -305,7 +315,12 @@
                 <td class="p-3 font-bold text-slate-900">
                     <div class="flex items-center gap-2.5">
                         {% if u.avatar %}
-                            <img src="{{ url_for('serve_avatar', filename=u.avatar) }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500 shadow-sm flex-shrink-0">
+                            <img src="{{ url_for('serve_avatar', filename=u.avatar) }}" 
+                                 onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + u.avatar) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+                                 class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500 shadow-sm flex-shrink-0">
+                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
+                                🚚
+                            </div>
                         {% else %}
                             <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
                                 🚚

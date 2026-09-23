@@ -1,4 +1,5 @@
 import os
+import shutil
 import io
 import re
 import json
@@ -71,6 +72,8 @@ if target_volume:
 os.makedirs(DATA_DIR, exist_ok=True)
 AVATARS_DIR = os.path.join(DATA_DIR, 'uploads', 'avatars')
 os.makedirs(AVATARS_DIR, exist_ok=True)
+STATIC_AVATARS_DIR = os.path.join(app.root_path, 'static', 'uploads', 'avatars')
+os.makedirs(STATIC_AVATARS_DIR, exist_ok=True)
 
 # نرمال‌سازی مسیر برای SQLite در لینوکس و ویندوز
 db_file_abs = os.path.abspath(os.path.join(DATA_DIR, 'tahmasebi_store_persistent.db'))
@@ -154,6 +157,17 @@ def initialize_database():
                 conn.close()
             except Exception:
                 pass
+    
+    # همگام‌سازی عکس‌های پرسنلی از دیسک پایدار به پوشه استاتیک در صورت ریست یا دپلوی مجدد کانتینر
+    try:
+        if os.path.isdir(AVATARS_DIR):
+            for fname in os.listdir(AVATARS_DIR):
+                src_path = os.path.join(AVATARS_DIR, fname)
+                dst_path = os.path.join(STATIC_AVATARS_DIR, fname)
+                if os.path.isfile(src_path) and not os.path.exists(dst_path):
+                    shutil.copy2(src_path, dst_path)
+    except Exception as e:
+        app.logger.warning(f"Error syncing avatars on startup: {e}")
     
     # ثبت داده‌های پایه اگر دیتابیس خالی است
     try:
@@ -433,7 +447,25 @@ def inject_permissions():
 
 @app.route('/uploads/avatars/<path:filename>')
 def serve_avatar(filename):
-    return send_from_directory(AVATARS_DIR, filename)
+    safe_name = os.path.basename(filename)
+    candidates = [
+        os.path.join(STATIC_AVATARS_DIR, safe_name),
+        os.path.join(AVATARS_DIR, safe_name),
+        os.path.join('/data/uploads/avatars', safe_name),
+        os.path.join(app.root_path, 'instance', 'uploads', 'avatars', safe_name),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            try:
+                stat_target = os.path.join(STATIC_AVATARS_DIR, safe_name)
+                if not os.path.exists(stat_target) and os.path.abspath(path) != os.path.abspath(stat_target):
+                    shutil.copy2(path, stat_target)
+            except Exception:
+                pass
+            ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else 'jpg'
+            mimetypes = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp'}
+            return send_file(os.path.abspath(path), mimetype=mimetypes.get(ext, 'image/jpeg'), max_age=86400)
+    return ('تصویر پرسنلی یافت نشد', 404)
 
 @app.route('/')
 def index():
@@ -2349,11 +2381,20 @@ def api_upload_avatar():
             file_path = os.path.join(AVATARS_DIR, filename)
             f.save(file_path)
             
+            try:
+                stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
+                if os.path.abspath(file_path) != os.path.abspath(stat_path):
+                    shutil.copy2(file_path, stat_path)
+            except Exception as e:
+                app.logger.warning(f"Failed to copy avatar to static: {e}")
+            
             if user.avatar:
-                old_path = os.path.join(AVATARS_DIR, user.avatar)
-                if os.path.exists(old_path):
-                    try: os.remove(old_path)
-                    except: pass
+                old_name = os.path.basename(user.avatar)
+                for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
+                    old_path = os.path.join(folder, old_name)
+                    if os.path.exists(old_path):
+                        try: os.remove(old_path)
+                        except: pass
                     
             user.avatar = filename
             session['avatar'] = filename
@@ -2361,6 +2402,7 @@ def api_upload_avatar():
             return jsonify({
                 'success': True,
                 'avatar_url': url_for('serve_avatar', filename=filename),
+                'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
                 'message': 'تصویر با موفقیت ذخیره شد.'
             })
 
@@ -2378,11 +2420,21 @@ def api_upload_avatar():
             with open(file_path, 'wb') as f:
                 f.write(img_bytes)
                 
+            try:
+                stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
+                if os.path.abspath(file_path) != os.path.abspath(stat_path):
+                    with open(stat_path, 'wb') as f:
+                        f.write(img_bytes)
+            except Exception as e:
+                app.logger.warning(f"Failed to copy base64 avatar to static: {e}")
+                
             if user.avatar:
-                old_path = os.path.join(AVATARS_DIR, user.avatar)
-                if os.path.exists(old_path):
-                    try: os.remove(old_path)
-                    except: pass
+                old_name = os.path.basename(user.avatar)
+                for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
+                    old_path = os.path.join(folder, old_name)
+                    if os.path.exists(old_path):
+                        try: os.remove(old_path)
+                        except: pass
                     
             user.avatar = filename
             session['avatar'] = filename
@@ -2391,6 +2443,7 @@ def api_upload_avatar():
             return jsonify({
                 'success': True,
                 'avatar_url': url_for('serve_avatar', filename=filename),
+                'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
                 'message': 'عکس پرسنلی با موفقیت ذخیره شد.'
             })
         except Exception as e:

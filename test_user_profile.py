@@ -3,7 +3,7 @@ import io
 import time
 import base64
 import pytest
-from app import app, db, initialize_database, AVATARS_DIR
+from app import app, db, initialize_database, AVATARS_DIR, STATIC_AVATARS_DIR
 from models import User, Shop
 
 @pytest.fixture
@@ -78,17 +78,24 @@ def test_user_profile_crud_and_avatar(client):
     data = res.get_json()
     assert data['success'] is True
     assert 'avatar_url' in data
+    assert 'static_url' in data
 
     with app.app_context():
         u = db.session.get(User, user_id)
         assert u.avatar is not None
         avatar_path = os.path.join(AVATARS_DIR, u.avatar)
         assert os.path.exists(avatar_path)
+        stat_avatar_path = os.path.join(STATIC_AVATARS_DIR, u.avatar)
+        assert os.path.exists(stat_avatar_path)
 
-    # ۵. تست دریافت عکس از روت /uploads/avatars/
+    # ۵. تست دریافت عکس از روت /uploads/avatars/ و همچنین مسیر استاتیک
     avatar_url = data['avatar_url']
     res = client.get(avatar_url)
     assert res.status_code == 200
+
+    static_url = data['static_url']
+    res_static = client.get(static_url)
+    assert res_static.status_code == 200
 
     # ۶. تست تغییر رمز عبور
     pwd_data = {
@@ -114,6 +121,8 @@ def test_admin_avatar_and_payroll_profile_rendering(client):
     res = client.get('/admin')
     assert res.status_code == 200
     assert 'پنل مدیریت جامع فروشگاه‌های طهماسبی'.encode('utf-8') in res.data
+    assert 'خالص دریافتی مدیریت طهماسبی'.encode('utf-8') in res.data
+    assert (b'bg-rose-500/15' in res.data or b'bg-emerald-500/10' in res.data)
     assert 'پروفایل من'.encode('utf-8') in res.data
 
     # ۳. مشاهده جدول حقوق و دستمزد و رندربندی مشخصات پرسنلی

@@ -3,8 +3,9 @@
 {% block title %}پروفایل و پرونده پرسنلی • {{ user.full_name }}{% endblock %}
 
 {% block content %}
-<!-- Cropper.js Styles -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+<!-- Cropper.js Styles (Local first, CDN fallback) -->
+<link rel="stylesheet" href="{{ url_for('static', filename='libs/cropper/cropper.min.css') }}" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" />
 
 <!-- Top Bar -->
 <div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
@@ -31,8 +32,16 @@
             <div class="relative inline-block mx-auto mb-4 group">
                 <div id="avatarContainer" class="w-36 h-36 rounded-full overflow-hidden ring-4 ring-indigo-500/30 shadow-xl bg-slate-100 mx-auto flex items-center justify-center relative">
                     {% if user.avatar %}
-                        <img id="profileAvatarImg" src="{{ url_for('serve_avatar', filename=user.avatar) }}" alt="{{ user.full_name }}" class="w-full h-full object-cover">
+                        <img id="profileAvatarImg" 
+                             src="{{ url_for('serve_avatar', filename=user.avatar) }}" 
+                             onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + user.avatar) }}'; } else { this.style.display='none'; document.getElementById('profileAvatarPlaceholder').classList.remove('hidden'); }" 
+                             alt="{{ user.full_name }}" 
+                             class="w-full h-full object-cover">
+                        <div id="profileAvatarPlaceholder" class="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center text-5xl font-black hidden">
+                            {{ user.full_name[0] }}
+                        </div>
                     {% else %}
+                        <img id="profileAvatarImg" src="" alt="{{ user.full_name }}" class="w-full h-full object-cover hidden">
                         <div id="profileAvatarPlaceholder" class="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center text-5xl font-black">
                             {{ user.full_name[0] }}
                         </div>
@@ -246,8 +255,15 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Cropper.js Script -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<!-- Cropper.js Script (Local with CDN fallback) -->
+<script src="{{ url_for('static', filename='libs/cropper/cropper.min.js') }}"></script>
+<script>
+if (typeof Cropper === 'undefined') {
+    const s = document.createElement('script');
+    s.src = "https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js";
+    document.head.appendChild(s);
+}
+</script>
 
 <script>
     let cropper = null;
@@ -266,18 +282,18 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             const cropImage = document.getElementById('imageToCrop');
-            cropImage.src = e.target.result;
             
-            // باز کردن مدال
+            // باز کردن مدال قبل از لود تا کانتینر در DOM مرئی باشد
             document.getElementById('cropModal').classList.remove('hidden');
 
             // نابودسازی کراپ قبلی اگر وجود داشت
             if (cropper) {
                 cropper.destroy();
+                cropper = null;
             }
 
-            // راه‌اندازی Cropper.js با نسبت مربع 1:1
-            setTimeout(() => {
+            // راه‌اندازی پس از اطمینان از بارگذاری کامل داده‌ها در المان img
+            cropImage.onload = function() {
                 cropper = new Cropper(cropImage, {
                     aspectRatio: 1,
                     viewMode: 1,
@@ -291,7 +307,8 @@
                     cropBoxResizable: true,
                     toggleDragModeOnDblclick: false,
                 });
-            }, 100);
+            };
+            cropImage.src = e.target.result;
         };
         reader.readAsDataURL(file);
     }
@@ -323,52 +340,67 @@
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<span>⏳</span> در حال ذخیره عکس...';
 
-        // دریافت کانواس کراپ شده با کیفیت بالا در ابعاد 400x400
-        const canvas = cropper.getCroppedCanvas({
-            width: 400,
-            height: 400,
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: 'high'
-        });
+        try {
+            // دریافت کانواس کراپ شده با کیفیت مناسب در ابعاد 400x400
+            const canvas = cropper.getCroppedCanvas({
+                width: 400,
+                height: 400,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high'
+            });
 
-        const base64Data = canvas.toDataURL('image/jpeg', 0.90);
-
-        fetch('/api/profile/upload_avatar', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ image_data: base64Data })
-        })
-        .then(res => res.json())
-        .then(data => {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
-
-            if (data.success) {
-                // بروزرسانی عکس در صفحه جاری
-                const avatarImg = document.getElementById('profileAvatarImg');
-                const placeholder = document.getElementById('profileAvatarPlaceholder');
-                
-                if (avatarImg) {
-                    avatarImg.src = data.avatar_url + '?t=' + new Date().getTime();
-                } else if (placeholder) {
-                    placeholder.outerHTML = `<img id="profileAvatarImg" src="${data.avatar_url}?t=${new Date().getTime()}" alt="پروفایل" class="w-full h-full object-cover">`;
-                }
-
-                closeCropModal();
-                alert('عکس پرسنلی شما با موفقیت کراپ و ذخیره گردید.');
-                // ریفرش نرم برای بروزرسانی هدر و نوبار
-                window.location.reload();
-            } else {
-                alert('خطا در ذخیره تصویر: ' + (data.message || 'نامشخص'));
+            if (!canvas) {
+                alert('خطا در برش تصویر. لطفاً مجدداً امتحان کنید.');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
+                return;
             }
-        })
-        .catch(err => {
+
+            const base64Data = canvas.toDataURL('image/jpeg', 0.88);
+
+            fetch('/api/profile/upload_avatar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image_data: base64Data })
+            })
+            .then(res => res.json())
+            .then(data => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
+
+                if (data.success) {
+                    const avatarImg = document.getElementById('profileAvatarImg');
+                    const placeholder = document.getElementById('profileAvatarPlaceholder');
+                    
+                    const newUrl = (data.avatar_url || data.static_url) + '?t=' + new Date().getTime();
+                    if (avatarImg) {
+                        avatarImg.style.display = '';
+                        avatarImg.classList.remove('hidden');
+                        avatarImg.src = newUrl;
+                    }
+                    if (placeholder) {
+                        placeholder.classList.add('hidden');
+                    }
+
+                    closeCropModal();
+                    alert('عکس پرسنلی شما با موفقیت ذخیره گردید.');
+                    window.location.reload();
+                } else {
+                    alert('خطا در ذخیره تصویر: ' + (data.message || 'نامشخص'));
+                }
+            })
+            .catch(err => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
+                alert('خطای اتصال به سرور: ' + err.message);
+            });
+        } catch (e) {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
-            alert('خطای اتصال به سرور: ' + err.message);
-        });
+            alert('خطا در پردازش تصویر: ' + e.message);
+        }
     }
 </script>
 {% endblock %}

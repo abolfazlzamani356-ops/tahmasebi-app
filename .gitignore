@@ -10,3 +10,5 @@ ENV/
 .idea/
 .vscode/
 *.zip
+static/uploads/avatars/*
+!static/uploads/avatars/.gitkeep

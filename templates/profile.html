@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}پروفایل و پرونده پرسنلی • {{ user.full_name }}{% endblock %}
 
@@ -8,12 +8,12 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.css" />
 
 <!-- Top Bar -->
-<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
     <div class="flex items-center gap-3">
         <span class="text-3xl">👤</span>
         <div>
-            <h2 class="font-black text-slate-800 text-lg">پروفایل کاربری و پرونده پرسنلی</h2>
-            <p class="text-xs text-slate-500 font-medium">مشاهده و ویرایش عکس پرسنلی، کد ملی، شماره شبا، تاریخ تولد و تنظیمات حساب</p>
+            <h2 class="font-black text-white text-lg">پروفایل کاربری و پرونده پرسنلی</h2>
+            <p class="text-xs text-slate-400 font-medium">مشاهده و ویرایش عکس پرسنلی، کد ملی، شماره شبا، تاریخ تولد و تنظیمات حساب</p>
         </div>
     </div>
     
@@ -24,11 +24,11 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in-up">
     <!-- ستون سمت راست: عکس پرسنلی و اطلاعات سازمانی -->
     <div class="space-y-6">
         <!-- کارت تصویر پرسنلی -->
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 text-center relative overflow-hidden">
+        <div class="glass-card p-6 text-center relative overflow-hidden">
             <div class="relative inline-block mx-auto mb-4 group">
                 <div id="avatarContainer" class="w-36 h-36 rounded-full overflow-hidden ring-4 ring-indigo-500/30 shadow-xl bg-slate-100 mx-auto flex items-center justify-center relative">
                     {% if user.avatar_data or user.avatar %}
@@ -59,7 +59,7 @@
             
             <input type="file" id="avatarFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" class="hidden" onchange="handleAvatarFileSelect(this)">
 
-            <h3 class="text-lg font-black text-slate-800">{{ user.full_name }}</h3>
+            <h3 class="text-lg font-black text-white">{{ user.full_name }}</h3>
             <p class="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">@{{ user.username }}</p>
 
             <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5">
@@ -81,19 +81,19 @@
         </div>
 
         <!-- کارت خلاصه وضعیت مالی و پرسنلی -->
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3.5 text-xs">
+        <div class="glass-card p-6 space-y-3.5 text-xs">
             <h4 class="font-bold text-slate-800 border-b pb-2 flex items-center gap-2">
                 <span>💼</span> مشخصات شغلی و قرارداد
             </h4>
-            <div class="flex justify-between items-center py-1 border-b border-slate-100">
+            <div class="flex justify-between items-center py-1 glass-divider border-b">
                 <span class="text-slate-500 font-medium">شعبه فعالیت:</span>
                 <span class="font-bold text-slate-800">{{ user.shop.name if user.shop else 'نامشخص' }}</span>
             </div>
-            <div class="flex justify-between items-center py-1 border-b border-slate-100">
+            <div class="flex justify-between items-center py-1 glass-divider border-b">
                 <span class="text-slate-500 font-medium">حقوق ثابت ماهانه:</span>
                 <span class="font-bold text-emerald-700">{{ "{:,}".format(user.base_salary or 0) }} تومان</span>
             </div>
-            <div class="flex justify-between items-center py-1 border-b border-slate-100">
+            <div class="flex justify-between items-center py-1 glass-divider border-b">
                 <span class="text-slate-500 font-medium">درصد پورسانت مصوب:</span>
                 <span class="font-bold text-indigo-700">{{ user.commission_rate or 0 }}%</span>
             </div>
@@ -107,7 +107,7 @@
     <!-- ستون سمت چپ: فرم ویرایش اطلاعات و تغییر پسورد -->
     <div class="lg:col-span-2 space-y-6">
         <!-- فرم ویرایش مشخصات پرسنلی -->
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+        <div class="glass-card p-6">
             <h3 class="text-base font-black text-slate-800 mb-4 pb-3 border-b flex items-center gap-2">
                 <span>🪪</span> اطلاعات هویتی، بانکی و پرونده پرسنلی
             </h3>
@@ -173,7 +173,7 @@
         </div>
 
         <!-- فرم تغییر رمز عبور -->
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+        <div class="glass-card p-6">
             <h3 class="text-base font-black text-slate-800 mb-4 pb-3 border-b flex items-center gap-2">
                 <span>🔐</span> تغییر رمز عبور ورود به سامانه
             </h3>
@@ -404,3 +404,4 @@ if (typeof Cropper === 'undefined') {
     }
 </script>
 {% endblock %}
+

@@ -1,21 +1,21 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}مدیریت مشتریان و باشگاه وفاداری (CRM) • طهماسبی{% endblock %}
 
 {% block content %}
 <!-- Top Bar -->
-<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
     <div class="flex items-center gap-3">
         <span class="text-3xl">👥</span>
         <div>
-            <h2 class="font-black text-slate-800 text-lg">مدیریت مشتریان، سابقه خرید و باشگاه وفاداری (CRM)</h2>
-            <p class="text-xs text-slate-500 font-medium">سوابق خریداران، مانده بدهی‌های دفتری، سقف اعتبار و شماره‌های تماس</p>
+            <h2 class="font-black text-white text-lg">مدیریت مشتریان، سابقه خرید و باشگاه وفاداری (CRM)</h2>
+            <p class="text-xs text-slate-400 font-medium">سوابق خریداران، مانده بدهی‌های دفتری، سقف اعتبار و شماره‌های تماس</p>
         </div>
     </div>
 </div>
 
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
-    <table class="w-full text-right border-collapse text-xs">
+<div class="glass-card p-6 overflow-x-auto">
+    <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
             <tr class="bg-slate-50 text-slate-700 font-bold">
                 <th class="p-3 border-b">نام مشتری</th>
@@ -65,3 +65,4 @@
     }
 </script>
 {% endblock %}
+

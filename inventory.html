@@ -1,16 +1,16 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}مدیریت کالاها، لیست قیمت و انبارداری • طهماسبی{% endblock %}
 
 {% block content %}
 <!-- هدر صفحه و سوئیچر تب‌ها -->
-<div class="bg-white p-5 rounded-3xl border border-slate-200 mb-6 shadow-sm">
+<div class="glass-card p-5 mb-6 shadow-sm">
     <div class="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-4">
         <div class="flex items-center gap-3">
             <span class="text-3xl">📦</span>
             <div>
-                <h2 class="font-black text-slate-800 text-lg">مدیریت جامع کالاها و انبارداری فروشگاه‌های طهماسبی</h2>
-                <p class="text-xs text-slate-500 font-medium">تعریف قیمت‌های پایه خرید و فروش کاتالوگ، کنترل سود فاکتورها، و آمار موجودی شعب</p>
+                <h2 class="font-black text-white text-lg">مدیریت جامع کالاها و انبارداری فروشگاه‌های طهماسبی</h2>
+                <p class="text-xs text-slate-400 font-medium">تعریف قیمت‌های پایه خرید و فروش کاتالوگ، کنترل سود فاکتورها، و آمار موجودی شعب</p>
             </div>
         </div>
         
@@ -74,7 +74,7 @@
 
     <!-- کارت‌های راهنما و آمار کاتالوگ -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="glass-card p-5 flex items-center gap-4">
             <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-2xl font-black">
                 📑
             </div>
@@ -84,7 +84,7 @@
             </div>
         </div>
 
-        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="glass-card p-5 flex items-center gap-4">
             <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl font-black">
                 💰
             </div>
@@ -118,7 +118,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full text-right text-xs">
+            <table class="table-glass w-full text-right text-xs">
                 <thead>
                     <tr class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                         <th class="p-4">کد کالا</th>
@@ -253,15 +253,15 @@
     </div>
 
     <!-- Stock Transfer Section -->
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+    <div class="glass-card p-6">
         <div class="flex justify-between items-center mb-4 border-b pb-3">
-            <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
                 <span>🔄</span> انتقال کالا بین دو شعبه طهماسبی
             </h3>
             <span class="text-xs text-indigo-600 font-bold">جابجایی بین فروشگاه ۱ و ۲ با کسر و افزایش خودکار</span>
         </div>
         
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in-up">
             <div class="bg-slate-50 p-4 rounded-2xl border">
                 <h4 class="text-xs font-bold text-indigo-800 mb-3">ثبت حواله انتقال کالا:</h4>
                 <form method="POST" action="{{ url_for('request_transfer') }}">
@@ -289,7 +289,7 @@
 
             <div class="lg:col-span-2 overflow-x-auto">
                 <h4 class="text-xs font-bold text-slate-700 mb-3">آخرین حواله‌های انتقال:</h4>
-                <table class="w-full text-right border-collapse text-xs">
+                <table class="table-glass w-full text-right border-collapse text-xs">
                     <thead>
                         <tr class="bg-slate-100 text-slate-600">
                             <th class="p-2.5">نام کالا</th>
@@ -324,7 +324,7 @@
     </div>
 
     <!-- ==================== میز کار فوق‌حرفه‌ای انبارگردانی و تعیین موجودی کاتالوگ شعب ==================== -->
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
+    <div class="glass-card p-6 space-y-5">
         <!-- هدر بخش و انتخاب شعبه فعال -->
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-100 pb-4">
             <div>
@@ -430,7 +430,7 @@
 
         <!-- جدول ردیف به ردیف اقلام کاتالوگ با باکس تنظیم موجودی -->
         <div class="overflow-x-auto rounded-2xl border border-slate-200">
-            <table class="w-full text-right text-xs">
+            <table class="table-glass w-full text-right text-xs">
                 <thead>
                     <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                         <th class="p-3 w-12 text-center">ردیف</th>
@@ -466,9 +466,9 @@
     </div>
 
     <!-- جدول موجودی فیزیکی ثبت‌شده شعب -->
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+    <div class="glass-card p-6">
         <div class="flex justify-between items-center mb-4 border-b pb-3">
-            <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
                 <span>🏬</span> لیست کالاهای موجود در شعب طهماسبی
             </h3>
             {% if can_manage_stock %}
@@ -479,7 +479,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full text-right border-collapse text-xs">
+            <table class="table-glass w-full text-right border-collapse text-xs">
                 <thead>
                     <tr class="bg-slate-50 text-slate-600 font-bold border-b">
                         <th class="p-3">کالا و مدل</th>
@@ -667,7 +667,7 @@
 <!-- Modal: Edit Inventory (انبار فیزیکی) -->
 <div id="editInventoryModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-3">✏️ ویرایش اطلاعات کالا در انبار</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-3">✏️ ویرایش اطلاعات کالا در انبار</h3>
         <form method="POST" id="editInventoryForm" onsubmit="unformatOnSubmit(this)">
             <div class="mb-2">
                 <label class="block text-[11px] text-slate-600 mb-1">نام کالا و مدل:</label>
@@ -722,7 +722,7 @@
 <!-- Modal: Add Inventory (انبار فیزیکی) -->
 <div id="inventoryModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-3">📦 افزودن کالا به انبار فروشگاه</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-3">📦 افزودن کالا به انبار فروشگاه</h3>
         <form method="POST" action="{{ url_for('add_inventory_item') }}" onsubmit="unformatOnSubmit(this)">
             <div class="mb-2">
                 <label class="block text-[11px] text-slate-600 mb-1">نام کامل کالا و مدل:</label>
@@ -788,7 +788,7 @@
 <!-- Modal: Stocktaking -->
 <div id="stocktakingModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-3">📋 ثبت انبارگردانی دوره‌ای</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-3">📋 ثبت انبارگردانی دوره‌ای</h3>
         <form method="POST" action="{{ url_for('stocktaking_adjust') }}">
             <div class="mb-2">
                 <label class="block text-[11px] text-slate-600 mb-1">انتخاب کالا:</label>
@@ -1570,3 +1570,4 @@
     });
 </script>
 {% endblock %}
+

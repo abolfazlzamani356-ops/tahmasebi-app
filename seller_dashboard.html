@@ -1,15 +1,15 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}پنل فروشنده • {{ user.full_name }}{% endblock %}
 
 {% block content %}
 <!-- Header Bar -->
-<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
     <div class="flex items-center gap-3">
         <span class="text-3xl">🎯</span>
         <div>
-            <h2 class="font-black text-slate-800 text-lg">عملکرد ماه {{ current_month_name }} {{ current_year }}</h2>
-            <p class="text-xs text-slate-500 font-medium">{{ user.shop.name if user.shop else ('مدیریت کل (دفتر مرکزی)' if user.role == 'admin' else 'شعبه نامشخص') }} • فروشنده: <span class="font-bold text-indigo-700">{{ user.full_name }}</span></p>
+            <h2 class="font-black text-white text-lg">عملکرد ماه {{ current_month_name }} {{ current_year }}</h2>
+            <p class="text-xs text-slate-400 font-medium">{{ user.shop.name if user.shop else ('مدیریت کل (دفتر مرکزی)' if user.role == 'admin' else 'شعبه نامشخص') }} • فروشنده: <span class="font-bold text-indigo-700">{{ user.full_name }}</span></p>
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
@@ -28,43 +28,43 @@
 </div>
 
 <!-- Stat Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
-        <span class="text-slate-400 text-xs font-bold">فروش خالص شما در {{ current_month_name }}</span>
-        <h3 class="text-2xl font-black text-slate-900 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 fade-in-up">
+    <div class="glass-card p-5 border-r-4 border-r-indigo-600">
+        <span class="text-glass-label">فروش خالص شما در {{ current_month_name }}</span>
+        <h3 class="text-2xl font-black text-glow-indigo mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
         <span class="text-[10px] text-slate-400">({{ stats.sales_count }} فاکتور تایید شده)</span>
     </div>
 
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-rose-500">
-        <span class="text-slate-400 text-xs font-bold">تعداد مرجوعی‌ها</span>
-        <h3 class="text-2xl font-black text-rose-600 mt-2">{{ stats.returns_count }} <span class="text-xs font-normal text-slate-400">مورد</span></h3>
+    <div class="glass-card p-5 border-r-4 border-r-rose-500">
+        <span class="text-glass-label">تعداد مرجوعی‌ها</span>
+        <h3 class="text-2xl font-black text-glow-rose mt-2">{{ stats.returns_count }} <span class="text-xs font-normal text-slate-400">مورد</span></h3>
         <span class="text-[10px] text-rose-400">کسر شده از جمع کل فروش</span>
     </div>
 
     {% if user.role == 'admin' %}
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
-        <span class="text-slate-400 text-xs font-bold">سمت و سطح دسترسی</span>
-        <h3 class="text-2xl font-black text-amber-600 mt-2">مدیریت کل</h3>
+    <div class="glass-card p-5 border-r-4 border-r-amber-500">
+        <span class="text-glass-label">سمت و سطح دسترسی</span>
+        <h3 class="text-2xl font-black text-glow-amber mt-2">مدیریت کل</h3>
         <span class="text-[10px] text-amber-600 font-bold">بدون کسر پورسانت (سود مستقیم فروشگاه)</span>
     </div>
 
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-500">
-        <span class="text-slate-400 text-xs font-bold">سود ناخالص فاکتورهای شما</span>
-        <h3 class="text-2xl font-black text-emerald-600 mt-2">{{ "{:,}".format(stats.real_profit_share) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+    <div class="glass-card p-5 border-r-4 border-r-emerald-500">
+        <span class="text-glass-label">سود ناخالص فاکتورهای شما</span>
+        <h3 class="text-2xl font-black text-glow-emerald mt-2">{{ "{:,}".format(stats.real_profit_share) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
         <span class="text-[10px] text-emerald-600 font-bold">سود ناخالص عاید شده برای فروشگاه</span>
     </div>
     {% else %}
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-blue-600">
-        <span class="text-slate-400 text-xs font-bold">درصد مصوب + پاداش تارگت</span>
-        <h3 class="text-2xl font-black text-blue-600 mt-2">{{ stats.effective_rate }}%</h3>
+    <div class="glass-card p-5 border-r-4 border-r-blue-600">
+        <span class="text-glass-label">درصد مصوب + پاداش تارگت</span>
+        <h3 class="text-2xl font-black text-glow-cyan mt-2">{{ stats.effective_rate }}%</h3>
         <span class="text-[10px] text-blue-500 font-bold">
             {% if stats.tier_achieved > 0 %}🎉 پله {{ stats.tier_achieved }} تارگت طهماسبی اعمال شد{% else %}نرخ پایه مصوب{% endif %}
         </span>
     </div>
 
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-500">
-        <span class="text-slate-400 text-xs font-bold">پورسانت قطعی (وصول شده)</span>
-        <h3 class="text-2xl font-black text-emerald-600 mt-2">{{ "{:,}".format(stats.settled_commission) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+    <div class="glass-card p-5 border-r-4 border-r-emerald-500">
+        <span class="text-glass-label">پورسانت قطعی (وصول شده)</span>
+        <h3 class="text-2xl font-black text-glow-emerald mt-2">{{ "{:,}".format(stats.settled_commission) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
         <span class="text-[10px] text-amber-600 font-bold">
             {% if stats.pending_commission > 0 %}⏳ {{ "{:,}".format(stats.pending_commission) }} تومان در انتظار وصول چک/بیعانه{% else %}تسویه کامل نقد{% endif %}
         </span>
@@ -73,7 +73,7 @@
 </div>
 
 <!-- دستیار صوتی و متنی هوشمند ثبت فاکتور (AI Assistant) -->
-<div class="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white p-5 rounded-3xl shadow-xl mb-6 border border-indigo-800">
+<div class="glass-card glass-card-glow-indigo text-white p-5 mb-6">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <div class="flex items-center gap-2">
@@ -100,10 +100,10 @@
 </div>
 
 <!-- بخش اصلی: صدور فاکتور چندآیتمی متصل به انبار -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in-up mb-8">
     <!-- فرم صدور فاکتور -->
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-fit">
-        <h3 class="text-md font-bold text-slate-800 mb-4 border-b pb-3 flex items-center justify-between">
+    <div class="glass-card p-6 h-fit">
+        <h3 class="text-md font-bold text-slate-200 mb-4 border-b pb-3 flex items-center justify-between">
             <span class="flex items-center gap-2"><span>✍️</span> صدور فاکتور / پیش‌فاکتور / مرجوعی</span>
             <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded-xl">متصل به انبار زنده</span>
         </h3>
@@ -380,7 +380,7 @@
                 </select>
             </div>
 
-            <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-2xl shadow-md transition flex items-center justify-center gap-2">
+            <button type="submit" class="btn-glass-primary w-full py-3 flex items-center justify-center gap-2">
                 <span>🛒 ثبت نهایی و کسر از انبار</span>
             </button>
         </form>
@@ -412,13 +412,13 @@
 
     <!-- جدول کلیه اسناد ماه -->
     <div class="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
-        <h3 class="text-md font-bold text-slate-800 mb-4 border-b pb-3 flex items-center justify-between">
+        <h3 class="text-md font-bold text-slate-200 mb-4 border-b pb-3 flex items-center justify-between">
             <span>📑 کلیه اسناد شما در {{ current_month_name }}</span>
             <span class="text-xs text-slate-400 font-bold">فاکتورهای قطعی، پیش‌فاکتورها و مرجوعی‌ها</span>
         </h3>
-        <table class="w-full text-right border-collapse text-xs">
+        <table class="table-glass w-full text-right border-collapse text-xs">
             <thead>
-                <tr class="bg-slate-50 text-slate-600 font-bold">
+                <tr>
                     <th class="p-3 border-b">شماره</th>
                     <th class="p-3 border-b">نوع سند</th>
                     <th class="p-3 border-b">خریدار</th>
@@ -431,7 +431,7 @@
             </thead>
             <tbody>
                 {% for inv in invoices %}
-                <tr class="hover:bg-slate-50 border-b transition">
+                <tr class="border-b border-white/5 hover:bg-white/5 transition">
                     <td class="p-3 font-bold text-slate-900">{{ inv.invoice_number }}</td>
                     <td class="p-3">
                         {% if inv.status == 'proforma' %}
@@ -506,7 +506,7 @@
         <span class="bg-rose-600 text-white text-xs font-black px-3 py-1 rounded-full">{{ pending_invoices|length }} فاکتور</span>
     </div>
     <div class="overflow-x-auto">
-        <table class="w-full text-right text-xs">
+        <table class="table-glass w-full text-right text-xs">
             <thead>
                 <tr class="bg-rose-100 text-rose-800 font-bold">
                     <th class="p-3 border-b border-rose-200">شماره فاکتور</th>
@@ -621,7 +621,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
 {% endif %}
 
 <!-- سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی -->
-<div id="leaderboard" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-8 rounded-3xl shadow-xl mb-8 border border-slate-800">
+<div id="leaderboard" class="glass-card glass-card-glow-indigo text-white p-8 mb-8">
     <div class="text-center mb-6">
         <span class="text-3xl">🏆</span>
 
@@ -631,7 +631,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
     
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         {% for rank_item in leaderboard %}
-        <div class="bg-slate-800/80 backdrop-blur p-5 rounded-2xl border border-slate-700 text-center relative overflow-hidden shadow-lg">
+        <div class="glass-card p-5 text-center relative overflow-hidden">
             {% if loop.index == 1 %}
                 <div class="absolute top-0 right-0 bg-amber-500 text-slate-950 text-[10px] font-black px-3 py-1 rounded-bl-xl shadow">🥇 رتبه اول</div>
             {% elif loop.index == 2 %}
@@ -645,7 +645,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             </div>
             <h4 class="font-bold text-sm text-slate-100">{{ rank_item.user.full_name }}</h4>
             <p class="text-[10px] text-slate-400 mb-3">{{ rank_item.user.shop.name if rank_item.user.shop else '' }}</p>
-            <div class="bg-slate-900/80 p-2.5 rounded-xl text-xs font-black text-emerald-400 mb-2 border border-slate-700/50">
+            <div class="bg-black/30 p-2.5 rounded-xl text-xs font-black text-glow-emerald mb-2 border border-emerald-500/20">
                 {{ "{:,}".format(rank_item.net_sales) }} تومان
             </div>
             <div class="text-[11px] text-amber-400 font-bold">رضایت مشتری: ★ {{ rank_item.avg_rating }}</div>
@@ -839,3 +839,5 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
     }
 </script>
 {% endblock %}
+
+

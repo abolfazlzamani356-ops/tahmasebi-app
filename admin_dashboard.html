@@ -1,10 +1,10 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}پنل مدیریت جامع • فروشگاه‌های طهماسبی{% endblock %}
 
 {% block content %}
 <!-- Top Bar -->
-<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
     <div class="flex items-center gap-3.5">
         <a href="{{ url_for('user_profile') }}" class="relative group block flex-shrink-0" title="مشاهده و ویرایش پروفایل و عکس مدیریت کل">
             {% if current_user and (current_user.avatar_data or current_user.avatar) %}
@@ -119,25 +119,25 @@
 
 <!-- Key Metrics Cards -->
 <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
+    <div class="glass-card p-4 border-r-4 border-r-indigo-600">
         <span class="text-xs text-slate-500 font-bold">فروش کل مجموعه طهماسبی</span>
         <h3 class="text-lg font-black text-indigo-700 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
     </div>
 
-    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-600">
+    <div class="glass-card p-4 border-r-4 border-r-emerald-600">
         <span class="text-xs text-slate-500 font-bold">💰 سود ناخالص کالاها</span>
         <h3 class="text-lg font-black text-emerald-600 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-emerald-600 mt-1 font-bold">اختلاف خرید و فروش فاکتورها</p>
     </div>
 
-    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-rose-600">
+    <div class="glass-card p-4 border-r-4 border-r-rose-600">
         <span class="text-xs text-slate-500 font-bold">👥 حقوق و پورسانت پرسنل</span>
         <h3 class="text-lg font-black text-rose-600 mt-2">{{ "{:,}".format(total_payroll) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">ثابت: {{ "{:,}".format(total_base_salaries) }} | پورسانت: {{ "{:,}".format(total_commissions) }}</p>
     </div>
 
-    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-purple-600">
+    <div class="glass-card p-4 border-r-4 border-r-purple-600">
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500 font-bold">🏢 اجاره شعب ۱ و ۲</span>
             <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="text-[10px] text-purple-600 hover:underline font-bold">ویرایش ✏️</button>
@@ -146,7 +146,7 @@
         <p class="text-[10px] text-slate-400 mt-1">کسر از سود ناخالص ماه</p>
     </div>
 
-    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
+    <div class="glass-card p-4 border-r-4 border-r-amber-500">
         <span class="text-xs text-slate-500 font-bold">هزینه‌های جاری و تنخواه</span>
         <h3 class="text-lg font-black text-amber-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} ت</p>
@@ -155,21 +155,21 @@
 
 <!-- Charts Section -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+    <div class="glass-card p-5">
         <h3 class="text-sm font-bold text-slate-800 mb-3">📊 مقایسه فروش پرسنل فروشگاه‌های طهماسبی</h3>
         <div class="h-64"><canvas id="sellerSalesChart"></canvas></div>
     </div>
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+    <div class="glass-card p-5">
         <h3 class="text-sm font-bold text-slate-800 mb-3">🥧 سهم دسته‌بندی کالاها (هود، گاز، سینک، روشویی...)</h3>
         <div class="h-64"><canvas id="categoryChart"></canvas></div>
     </div>
 </div>
 
 <!-- Top Selling Items Widget -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8">
+<div class="glass-card p-6 mb-8">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 mb-4 gap-2">
         <div>
-            <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
                 <span>🔥</span> اقلام پرفروش و محبوب فروشگاه‌های طهماسبی
             </h3>
             <p class="text-[11px] text-slate-400 mt-0.5">محصولاتی که بیشترین تعداد فاکتور قطعی و خروج از انبار را داشته‌اند</p>
@@ -206,12 +206,12 @@
 </div>
 
 <!-- Sellers Commission Table -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
-    <h3 class="text-md font-bold text-slate-800 mb-4 flex justify-between items-center">
+<div class="glass-card p-6 mb-8 overflow-x-auto">
+    <h3 class="text-md font-bold text-slate-200 mb-4 flex justify-between items-center">
         <span>👥 پورسانت پرسنل و کارنامه فروش در {{ selected_month_name }}</span>
         <span class="text-xs text-indigo-600 font-bold">پله ۱ تارگت: {{ "{:,}".format(settings.tier1_min) }} (+{{ settings.tier1_bonus }}%) | پله ۲: {{ "{:,}".format(settings.tier2_min) }} (+{{ settings.tier2_bonus }}%)</span>
     </h3>
-    <table class="w-full text-right border-collapse text-xs">
+    <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
             <tr class="bg-slate-50 text-slate-700 font-bold">
                 <th class="p-3 border-b">نام پرسنل</th>
@@ -288,17 +288,17 @@
 </div>
 
 <!-- جدول اختصاصی پرسنل خدمات، تحویل بار و نظافت -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+<div class="glass-card p-6 mb-8 overflow-x-auto">
     <div class="flex justify-between items-center mb-4 border-b pb-3">
         <div>
-            <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+            <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
                 <span>🚚</span> پرسنل خدمات، تحویل بار و نظافت (حقوق ثابت ماهانه - ۰٪ پورسانت)
             </h3>
             <p class="text-[11px] text-slate-400 mt-0.5">پرسنل زحمت‌کش خدمات و باربری طهماسبی که دارای حقوق ثابت ماهیانه بوده و مبالغ پرداختی به ایشان از سود خالص ماه کسر می‌گردد</p>
         </div>
         <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-200 transition">➕ افزودن نیروی خدمات</button>
     </div>
-    <table class="w-full text-right border-collapse text-xs">
+    <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
             <tr class="bg-slate-50 text-slate-700 font-bold">
                 <th class="p-3 border-b">نام پرسنل</th>
@@ -361,9 +361,9 @@
 </div>
 
 <!-- Petty Cash Log Table -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+<div class="glass-card p-6 mb-8 overflow-x-auto">
     <div class="flex justify-between items-center mb-4 border-b pb-3">
-        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
             <span>💵</span> ریز گردش واریزی‌ها و هزینه‌های تنخواه در {{ selected_month_name }}
         </h3>
         <span class="text-xs text-slate-500">واریزی‌ها: {{ "{:,}".format(total_petty_deposits) }} تومان | هزینه‌ها: {{ "{:,}".format(total_expenses) }} تومان</span>
@@ -406,14 +406,14 @@
 </div>
 
 <!-- Cheques Table -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+<div class="glass-card p-6 mb-8 overflow-x-auto">
     <div class="flex justify-between items-center mb-4">
-        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
             <span>🗓️</span> دفترچه چک‌های صیادی مشتریان (با آلارم سررسید)
         </h3>
         <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-xl font-bold">هشدار چک‌های سررسید نزدیک</span>
     </div>
-    <table class="w-full text-right border-collapse text-xs">
+    <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
             <tr class="bg-slate-50 text-slate-700 font-bold">
                 <th class="p-3 border-b">شماره صیادی</th>
@@ -462,7 +462,7 @@
 </div>
 
 <!-- مدیریت حساب‌ها، کارت‌های بانکی و شماره شبا -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8">
+<div class="glass-card p-6 mb-8">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3 border-b pb-4">
         <div>
             <h3 class="text-md font-bold text-slate-900 flex items-center gap-2">
@@ -544,9 +544,9 @@
 </div>
 
 <!-- Advanced Invoices Filter -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+<div class="glass-card p-6 mb-8 overflow-x-auto">
     <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
-        <h3 class="text-md font-bold text-slate-800">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
+        <h3 class="text-md font-bold text-slate-200">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
         <form method="GET" class="flex flex-wrap gap-2 w-full md:w-auto items-center">
             <input type="hidden" name="month" value="{{ selected_month }}">
             
@@ -565,9 +565,9 @@
         </form>
     </div>
 
-    <table class="w-full text-right border-collapse text-xs">
+    <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
-            <tr class="bg-slate-50 text-slate-600 font-bold">
+            <tr>
                 <th class="p-3 border-b">شماره</th>
                 <th class="p-3 border-b">نوع سند</th>
                 <th class="p-3 border-b">شعبه</th>
@@ -583,7 +583,7 @@
         </thead>
         <tbody>
             {% for inv in all_invoices %}
-            <tr class="hover:bg-slate-50 border-b transition">
+            <tr class="border-b border-white/5 hover:bg-white/5 transition">
                 <td class="p-3 font-bold text-slate-800">{{ inv.invoice_number }}</td>
                 <td class="p-3">
                     {% if inv.status == 'proforma' %}
@@ -637,17 +637,17 @@
 </div>
 
 <!-- Audit Log Table -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto mb-6">
+<div class="glass-card p-6 overflow-x-auto mb-6">
     <div class="flex justify-between items-center mb-3 border-b pb-2">
-        <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
             <span>🛡️</span> گزارش جامع رویدادها و لاگ امنیتی سیستم
         </h3>
         <span class="text-[11px] text-slate-400 font-medium">ثبت خودکار کلیه فعالیت‌ها (ورود، خروج، فاکتور، ویرایش، انبار، پرسنل)</span>
     </div>
     <div class="max-h-72 overflow-y-auto custom-scrollbar">
-        <table class="w-full text-right border-collapse text-xs">
+        <table class="table-glass w-full text-right border-collapse text-xs">
             <thead>
-                <tr class="bg-slate-50 text-slate-600 font-bold">
+                <tr>
                     <th class="p-2.5 border-b">دسته‌بندی</th>
                     <th class="p-2.5 border-b">شرح کامل رویداد / عملیات</th>
                     <th class="p-2.5 border-b">کاربر عامل</th>
@@ -851,7 +851,7 @@
 <!-- Modal: Petty Cash Deposit -->
 <div id="pettyDepositModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-3">💵 واریز و شارژ تنخواه به مغازه</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-3">💵 واریز و شارژ تنخواه به مغازه</h3>
         <form method="POST" action="{{ url_for('add_petty_deposit') }}" onsubmit="unformatOnSubmit(this)">
             <div class="mb-2">
                 <label class="block text-[11px] text-slate-600 mb-1">کدام شعبه؟</label>
@@ -880,7 +880,7 @@
 <!-- Modal: Add User -->
 <div id="addUserModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-4">➕ تعریف پرسنل جدید</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-4">➕ تعریف پرسنل جدید</h3>
         <form method="POST" action="{{ url_for('add_user') }}">
             <div class="mb-3">
                 <label class="block text-xs font-bold text-slate-600 mb-1">نام و نام خانوادگی:</label>
@@ -936,7 +936,7 @@
 <!-- Modal: Settings -->
 <div id="settingsModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-3">⚙️ تنظیم پله‌های پورسانت طهماسبی</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-3">⚙️ تنظیم پله‌های پورسانت طهماسبی</h3>
         <form method="POST" action="{{ url_for('update_settings') }}" onsubmit="unformatOnSubmit(this)">
             <div class="bg-slate-50 p-3 rounded-2xl mb-3 border">
                 <h4 class="text-xs font-bold text-indigo-700 mb-2">🥇 پله اول تارگت</h4>
@@ -990,7 +990,7 @@
 <!-- Modal: User Custom Password -->
 <div id="customPasswordModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-2">🔑 تغییر رمز پرسنل</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-2">🔑 تغییر رمز پرسنل</h3>
         <p id="pwModalUser" class="text-xs text-slate-500 mb-4"></p>
         <form method="POST" id="passwordForm">
             <div class="mb-4">
@@ -1118,3 +1118,5 @@
     });
 </script>
 {% endblock %}
+
+

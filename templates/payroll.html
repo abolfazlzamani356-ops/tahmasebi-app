@@ -1,15 +1,15 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block title %}مدیریت حقوق و دستمزد پرسنل • طهماسبی{% endblock %}
 
 {% block content %}
 <!-- Top Bar -->
-<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
     <div class="flex items-center gap-3">
         <span class="text-3xl">💼</span>
         <div>
-            <h2 class="font-black text-slate-800 text-lg">سامانه حقوق، دستمزد و فیش پرسنل در {{ current_month_name }} {{ current_year }}</h2>
-            <p class="text-xs text-slate-500 font-medium">محاسبه خودکار حقوق پایه + پورسانت وصولی + پاداش تارگت - مساعده‌ها</p>
+            <h2 class="font-black text-white text-lg">سامانه حقوق، دستمزد و فیش پرسنل در {{ current_month_name }} {{ current_year }}</h2>
+            <p class="text-xs text-slate-400 font-medium">محاسبه خودکار حقوق پایه + پورسانت وصولی + پاداش تارگت - مساعده‌ها</p>
         </div>
     </div>
     
@@ -26,23 +26,23 @@
 
 <!-- Payroll Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
+    <div class="glass-card p-5 border-r-4 border-r-indigo-600">
         <span class="text-xs text-slate-500 font-bold">مجموع کل حقوق و پورسانت پرسنل:</span>
         <h3 class="text-xl font-black text-indigo-700 mt-2">{{ "{:,}".format(total_payroll_payable) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
     </div>
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-600">
+    <div class="glass-card p-5 border-r-4 border-r-emerald-600">
         <span class="text-xs text-slate-500 font-bold">مجموع پورسانت‌های نقدی و وصول‌شده:</span>
         <h3 class="text-xl font-black text-emerald-600 mt-2">{{ "{:,}".format(total_commissions_settled) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
     </div>
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
+    <div class="glass-card p-5 border-r-4 border-r-amber-500">
         <span class="text-xs text-slate-500 font-bold">مجموع پاداش‌های تارگت پله‌ای ماه:</span>
         <h3 class="text-xl font-black text-amber-600 mt-2">{{ "{:,}".format(total_tier_bonuses) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
     </div>
 </div>
 
 <!-- Payroll Table -->
-<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
-    <table class="w-full text-right border-collapse text-xs">
+<div class="glass-card p-6 mb-8 overflow-x-auto">
+    <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
             <tr class="bg-slate-50 text-slate-700 font-bold">
                 <th class="p-3 border-b">نام پرسنل</th>
@@ -140,7 +140,7 @@
 <!-- Modal: Advance (مساعده) -->
 <div id="advanceModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-800 mb-2">💸 ثبت مساعده / کسورات پرسنل</h3>
+        <h3 class="text-md font-bold text-slate-200 mb-2">💸 ثبت مساعده / کسورات پرسنل</h3>
         <p id="advModalUser" class="text-xs text-slate-500 mb-4"></p>
         <form method="POST" id="advanceForm" onsubmit="unformatOnSubmit(this)">
             <input type="hidden" name="month" value="{{ selected_month }}">
@@ -170,3 +170,4 @@
     }
 </script>
 {% endblock %}
+

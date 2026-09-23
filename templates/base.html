@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}سامانه هوشمند فروشگاه‌های طهماسبی{% endblock %}</title>
-    <!-- TailwindCSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -18,137 +17,470 @@
             }
         }
     </script>
-    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Font Vazirmatn -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
-        body { font-family: 'Vazirmatn', sans-serif; }
+        /* ========== BASE ========== */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background: #050c1a;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
         @media print { .no-print { display: none !important; } }
+
+        /* ========== AURORA BACKGROUND ========== */
+        #aurora-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        /* لایه grid خطوط */
+        #aurora-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        .aurora-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.55;
+            animation: drift 18s ease-in-out infinite alternate;
+        }
+        .aurora-blob:nth-child(1) {
+            width: 700px; height: 700px;
+            background: radial-gradient(circle, #6366f1, #4f46e5 40%, transparent 70%);
+            top: -200px; right: -150px;
+            animation-duration: 20s;
+        }
+        .aurora-blob:nth-child(2) {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, #8b5cf6, #7c3aed 40%, transparent 70%);
+            bottom: -150px; left: -100px;
+            animation-duration: 25s;
+            animation-delay: -8s;
+        }
+        .aurora-blob:nth-child(3) {
+            width: 450px; height: 450px;
+            background: radial-gradient(circle, #06b6d4, #0891b2 40%, transparent 70%);
+            top: 40%; left: 30%;
+            animation-duration: 22s;
+            animation-delay: -4s;
+        }
+        .aurora-blob:nth-child(4) {
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, #ec4899, #db2777 40%, transparent 70%);
+            top: 20%; left: 10%;
+            animation-duration: 28s;
+            animation-delay: -12s;
+            opacity: 0.3;
+        }
+        .aurora-blob:nth-child(5) {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, #10b981, #059669 40%, transparent 70%);
+            bottom: 20%; right: 15%;
+            animation-duration: 32s;
+            animation-delay: -6s;
+            opacity: 0.3;
+        }
+        @keyframes drift {
+            0%   { transform: translate(0px, 0px) scale(1); }
+            33%  { transform: translate(40px, -30px) scale(1.05); }
+            66%  { transform: translate(-20px, 20px) scale(0.97); }
+            100% { transform: translate(15px, -40px) scale(1.03); }
+        }
+        /* شبکه نقاط روشن */
+        .star-field {
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(1.5px 1.5px at 10% 15%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 25% 45%, rgba(255,255,255,0.2) 0%, transparent 100%),
+                radial-gradient(1.5px 1.5px at 45% 10%, rgba(255,255,255,0.25) 0%, transparent 100%),
+                radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.2) 0%, transparent 100%),
+                radial-gradient(1.5px 1.5px at 75% 30%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 85% 60%, rgba(255,255,255,0.15) 0%, transparent 100%),
+                radial-gradient(2px 2px at 90% 85%, rgba(255,255,255,0.2) 0%, transparent 100%),
+                radial-gradient(1px 1px at 35% 80%, rgba(255,255,255,0.2) 0%, transparent 100%);
+        }
+
+        /* ========== NAVBAR GLASS ========== */
+        .navbar-glass {
+            background: rgba(5, 12, 26, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset;
+        }
+        .nav-link {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.4rem 0.85rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease;
+            color: rgba(200,210,240,0.75);
+            border: 1px solid transparent;
+            letter-spacing: 0.01em;
+        }
+        .nav-link:hover {
+            color: #fff;
+            background: rgba(99,102,241,0.18);
+            border-color: rgba(99,102,241,0.3);
+            box-shadow: 0 0 16px rgba(99,102,241,0.2);
+        }
+        .nav-link.active {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(99,102,241,0.45), rgba(139,92,246,0.35));
+            border-color: rgba(139,92,246,0.5);
+            box-shadow: 0 0 20px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .nav-link-danger {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.4rem 0.85rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s ease;
+            color: #fca5a5;
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.25);
+        }
+        .nav-link-danger:hover {
+            background: rgba(239,68,68,0.25);
+            border-color: rgba(239,68,68,0.5);
+            box-shadow: 0 0 16px rgba(239,68,68,0.3);
+            color: #fff;
+        }
+        .avatar-ring {
+            box-shadow: 0 0 0 2px rgba(99,102,241,0.7), 0 0 12px rgba(99,102,241,0.4);
+        }
+        .online-dot {
+            width: 9px; height: 9px;
+            background: #22c55e;
+            border-radius: 50%;
+            border: 2px solid #050c1a;
+            position: absolute;
+            bottom: -1px; left: -1px;
+            box-shadow: 0 0 6px #22c55e;
+            animation: pulse-green 2s ease-in-out infinite;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 4px #22c55e; }
+            50% { box-shadow: 0 0 10px #22c55e, 0 0 20px rgba(34,197,94,0.4); }
+        }
+
+        /* ========== GLASS CARDS ========== */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1.25rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07);
+            color: #e2e8f0;
+            transition: all 0.25s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(255,255,255,0.13);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+            transform: translateY(-1px);
+        }
+        .glass-card-glow-indigo {
+            border-color: rgba(99,102,241,0.25) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 30px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+        }
+        .glass-card-glow-emerald {
+            border-color: rgba(16,185,129,0.25) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 30px rgba(16,185,129,0.08), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+        }
+        .glass-card-glow-rose {
+            border-color: rgba(244,63,94,0.25) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 30px rgba(244,63,94,0.08), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+        }
+        .glass-card-glow-amber {
+            border-color: rgba(245,158,11,0.25) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 30px rgba(245,158,11,0.08), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+        }
+        .glass-card-glow-cyan {
+            border-color: rgba(6,182,212,0.25) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 30px rgba(6,182,212,0.08), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+        }
+
+        /* ========== INPUTS GLASS ========== */
+        .glass-input {
+            background: rgba(255,255,255,0.05) !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            color: #e2e8f0 !important;
+            border-radius: 0.875rem !important;
+            transition: all 0.2s ease !important;
+            backdrop-filter: blur(10px);
+        }
+        .glass-input:focus {
+            background: rgba(99,102,241,0.1) !important;
+            border-color: rgba(99,102,241,0.5) !important;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.2) !important;
+            outline: none !important;
+        }
+        .glass-input::placeholder { color: rgba(148,163,184,0.6) !important; }
+        .glass-input option { background: #1e293b; color: #e2e8f0; }
+
+        /* ========== BUTTONS ========== */
+        .btn-glass-primary {
+            background: linear-gradient(135deg, rgba(99,102,241,0.7), rgba(139,92,246,0.6));
+            border: 1px solid rgba(139,92,246,0.4);
+            color: #fff;
+            font-weight: 700;
+            border-radius: 0.875rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+            backdrop-filter: blur(10px);
+        }
+        .btn-glass-primary:hover {
+            background: linear-gradient(135deg, rgba(99,102,241,0.85), rgba(139,92,246,0.75));
+            box-shadow: 0 6px 25px rgba(99,102,241,0.45);
+            transform: translateY(-1px);
+        }
+        .btn-glass-success {
+            background: linear-gradient(135deg, rgba(16,185,129,0.65), rgba(5,150,105,0.55));
+            border: 1px solid rgba(16,185,129,0.35);
+            color: #fff; font-weight: 700;
+            border-radius: 0.875rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(16,185,129,0.25);
+        }
+        .btn-glass-success:hover {
+            box-shadow: 0 6px 25px rgba(16,185,129,0.4);
+            transform: translateY(-1px);
+        }
+        .btn-glass-danger {
+            background: linear-gradient(135deg, rgba(244,63,94,0.65), rgba(220,38,38,0.55));
+            border: 1px solid rgba(244,63,94,0.35);
+            color: #fff; font-weight: 700;
+            border-radius: 0.875rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(244,63,94,0.25);
+        }
+        .btn-glass-danger:hover {
+            box-shadow: 0 6px 25px rgba(244,63,94,0.4);
+            transform: translateY(-1px);
+        }
+
+        /* ========== TEXT ========== */
+        .text-glass-label { color: rgba(148,163,184,0.8); font-size: 0.72rem; font-weight: 600; }
+        .text-glass-value { color: #f1f5f9; font-weight: 800; }
+        .text-glow-emerald { color: #34d399; text-shadow: 0 0 12px rgba(52,211,153,0.5); }
+        .text-glow-rose { color: #fb7185; text-shadow: 0 0 12px rgba(251,113,133,0.5); }
+        .text-glow-indigo { color: #818cf8; text-shadow: 0 0 12px rgba(129,140,248,0.5); }
+        .text-glow-amber { color: #fbbf24; text-shadow: 0 0 12px rgba(251,191,36,0.5); }
+        .text-glow-cyan { color: #22d3ee; text-shadow: 0 0 12px rgba(34,211,238,0.5); }
+
+        /* ========== DIVIDERS ========== */
+        .glass-divider { border-color: rgba(255,255,255,0.07); }
+
+        /* ========== BADGES ========== */
+        .badge-glass {
+            backdrop-filter: blur(10px);
+            border-radius: 999px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.2rem 0.65rem;
+            border: 1px solid;
+        }
+
+        /* ========== FLASH MESSAGES ========== */
+        .flash-success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+        .flash-error   { background: rgba(244,63,94,0.12); border: 1px solid rgba(244,63,94,0.3); color: #fda4af; }
+        .flash-warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #fde68a; }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.55); }
+
+        /* ========== ANIMATIONS ========== */
+        .fade-in-up { animation: fadeInUp 0.45s ease both; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
         .blink { animation: blinker 1.5s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.3; } }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        /* stagger برای کارت‌ها */
+        .stagger-1 { animation-delay: 0.05s; }
+        .stagger-2 { animation-delay: 0.1s; }
+        .stagger-3 { animation-delay: 0.15s; }
+        .stagger-4 { animation-delay: 0.2s; }
+        .stagger-5 { animation-delay: 0.25s; }
+
+        /* ========== TABLE GLASS ========== */
+        .table-glass thead tr th {
+            background: rgba(99,102,241,0.1);
+            color: rgba(199,210,254,0.9);
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.65rem 0.85rem;
+            border-bottom: 1px solid rgba(99,102,241,0.2);
+        }
+        .table-glass tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.15s ease;
+        }
+        .table-glass tbody tr:hover { background: rgba(255,255,255,0.04); }
+        .table-glass tbody tr td {
+            font-size: 0.75rem;
+            padding: 0.6rem 0.85rem;
+            color: #cbd5e1;
+        }
+
+        /* ========== LOGO SHIMMER ========== */
+        .logo-shimmer {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899, #f59e0b);
+            background-size: 300% 300%;
+            animation: shimmer-gradient 6s ease infinite;
+            border-radius: 1rem;
+        }
+        @keyframes shimmer-gradient {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ========== CONTENT WRAPPER ========== */
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
-    <div>
-        <!-- Navbar -->
-        <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50 no-print border-b border-slate-800">
-            <div class="container mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-amber-500 flex items-center justify-center text-xl shadow-lg">
-                        ✨
-                    </div>
-                    <div>
-                        <a href="{{ url_for('index') }}" class="text-base md:text-lg font-black tracking-tight hover:text-indigo-300 transition">مجموعه فروشگاه‌های تخصصی طهماسبی</a>
-                        <p class="text-[10px] text-slate-400 font-medium">سامانه جامع ERP، حسابداری بلادرنگ، انبارداری هوشمند و حقوق پرسنل</p>
-                    </div>
+<body>
+
+<!-- Aurora Background -->
+<div id="aurora-bg">
+    <div class="star-field"></div>
+    <div class="aurora-blob"></div>
+    <div class="aurora-blob"></div>
+    <div class="aurora-blob"></div>
+    <div class="aurora-blob"></div>
+    <div class="aurora-blob"></div>
+</div>
+
+<div class="content-wrapper">
+    <!-- Navbar -->
+    <nav class="navbar-glass sticky top-0 z-50 no-print">
+        <div class="container mx-auto px-4 py-2.5 flex flex-wrap justify-between items-center gap-3">
+            <!-- Logo -->
+            <div class="flex items-center gap-3">
+                <div class="logo-shimmer w-10 h-10 flex items-center justify-center text-xl shadow-lg flex-shrink-0">
+                    ✨
                 </div>
-
-                {% if session.get('user_id') %}
-                <div class="flex flex-wrap items-center gap-2">
-                    <!-- Navigation Links -->
-                    <a href="{{ url_for('index') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint in ['index', 'seller_dashboard', 'admin_dashboard'] %}bg-indigo-600 text-white{% else %}text-slate-300 hover:bg-slate-800{% endif %}">
-                        📊 داشبورد
+                <div>
+                    <a href="{{ url_for('index') }}" class="text-sm md:text-base font-black tracking-tight text-white hover:text-indigo-300 transition leading-tight block">
+                        مجموعه فروشگاه‌های تخصصی طهماسبی
                     </a>
-                    
-                    <a href="{{ url_for('inventory_view') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint == 'inventory_view' %}bg-indigo-600 text-white{% else %}text-slate-300 hover:bg-slate-800{% endif %}">
-                        📦 انبارداری و کالاها
-                    </a>
+                    <p class="text-[10px] text-slate-500 font-medium">سامانه جامع ERP • حسابداری • انبارداری • پرسنل</p>
+                </div>
+            </div>
 
-                    {% if session.get('role') == 'admin' or session.get('can_manage_inventory') %}
-                    <a href="{{ url_for('catalog_view') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint == 'catalog_view' %}bg-purple-600 text-white{% else %}text-purple-300 hover:bg-slate-800{% endif %}">
-                        📋 لیست قیمت و کاتالوگ
-                    </a>
-                    {% endif %}
+            {% if session.get('user_id') %}
+            <div class="flex flex-wrap items-center gap-1.5">
+                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint in ['index', 'seller_dashboard', 'admin_dashboard'] %}active{% endif %}">
+                    📊 داشبورد
+                </a>
+                <a href="{{ url_for('inventory_view') }}" class="nav-link {% if request.endpoint == 'inventory_view' %}active{% endif %}">
+                    📦 انبارداری
+                </a>
+                {% if session.get('role') == 'admin' or session.get('can_manage_inventory') %}
+                <a href="{{ url_for('catalog_view') }}" class="nav-link {% if request.endpoint == 'catalog_view' %}active{% endif %}" style="color: #c4b5fd;">
+                    📋 کاتالوگ
+                </a>
+                {% endif %}
+                {% if session.get('role') == 'admin' %}
+                <a href="{{ url_for('payroll_view') }}" class="nav-link {% if request.endpoint == 'payroll_view' %}active{% endif %}">
+                    💼 حقوق
+                </a>
+                <a href="{{ url_for('customers_view') }}" class="nav-link {% if request.endpoint == 'customers_view' %}active{% endif %}">
+                    👥 مشتریان
+                </a>
+                {% endif %}
 
-                    {% if session.get('role') == 'admin' %}
-                    <a href="{{ url_for('payroll_view') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint == 'payroll_view' %}bg-indigo-600 text-white{% else %}text-slate-300 hover:bg-slate-800{% endif %}">
-                        💼 حقوق و پورسانت
-                    </a>
-
-                    <a href="{{ url_for('customers_view') }}" class="text-xs font-bold px-3 py-2 rounded-xl transition {% if request.endpoint == 'customers_view' %}bg-indigo-600 text-white{% else %}text-slate-300 hover:bg-slate-800{% endif %}">
-                        👥 مشتریان (CRM)
-                    </a>
-                    {% endif %}
-
-                    <!-- User Profile Button & Avatar -->
-                    <a href="{{ url_for('user_profile') }}" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1.5 rounded-xl border border-slate-700 font-bold flex items-center gap-2 transition shadow-sm group" title="مشاهده پرونده پرسنلی و پروفایل">
+                <!-- Profile + Avatar -->
+                <a href="{{ url_for('user_profile') }}" class="nav-link flex items-center gap-2 {% if request.endpoint == 'user_profile' %}active{% endif %}" style="padding: 0.3rem 0.75rem;">
+                    <div class="relative flex-shrink-0">
                         {% if current_user and (current_user.avatar_data or current_user.avatar) %}
-                            <img src="{{ current_user.avatar_data if current_user.avatar_data else url_for('serve_avatar', filename=current_user.avatar) }}" 
-                                 onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='{{ url_for('static', filename='uploads/avatars/' + (current_user.avatar or '')) }}';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" 
-                                 class="w-6 h-6 rounded-full object-cover ring-2 ring-indigo-500">
-                            <span class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-bold hidden">
-                                {{ (current_user.full_name if current_user else session.get('full_name', 'ک'))[0] }}
-                            </span>
-                        {% elif session.get('avatar_data') or session.get('avatar') %}
-                            <img src="{{ session.get('avatar_data') if session.get('avatar_data') else url_for('serve_avatar', filename=session.get('avatar')) }}" 
-                                 onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='{{ url_for('static', filename='uploads/avatars/' + (session.get('avatar') or '')) }}';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" 
-                                 class="w-6 h-6 rounded-full object-cover ring-2 ring-indigo-500">
-                            <span class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-bold hidden">
-                                {{ (current_user.full_name if current_user else session.get('full_name', 'ک'))[0] }}
+                            <img src="{{ current_user.avatar_data if current_user.avatar_data else url_for('serve_avatar', filename=current_user.avatar) }}"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                                 class="w-7 h-7 rounded-full object-cover avatar-ring">
+                            <span class="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white items-center justify-center text-[11px] font-black avatar-ring" style="display:none;">
+                                {{ (current_user.full_name or 'ک')[0] }}
                             </span>
                         {% else %}
-                            <span class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-bold">
+                            <span class="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[11px] font-black avatar-ring">
                                 {{ (current_user.full_name if current_user else session.get('full_name', 'ک'))[0] }}
                             </span>
                         {% endif %}
-                        <span>{{ current_user.full_name if current_user else session.get('full_name') }}</span>
-                        <span class="text-[10px] text-slate-400 group-hover:text-indigo-300 transition">({{ 'مدیریت کل' if session.get('role') == 'admin' else ('ادمین انبار 👑' if session.get('can_manage_inventory') else ('خدمات 🚚' if session.get('role') in ['logistics', 'services'] else 'فروشنده')) }})</span>
-                    </a>
+                        <span class="online-dot"></span>
+                    </div>
+                    <span class="hidden md:inline text-white font-bold text-xs">{{ current_user.full_name if current_user else session.get('full_name') }}</span>
+                </a>
 
-                    <a href="{{ url_for('logout') }}" class="text-xs bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-xl transition font-bold shadow">
-                        خروج
-                    </a>
-                </div>
-                {% endif %}
+                <a href="{{ url_for('logout') }}" class="nav-link-danger">خروج ↩</a>
             </div>
-        </nav>
+            {% endif %}
+        </div>
+    </nav>
 
-        <!-- Flash Messages -->
-        <main class="container mx-auto p-4 md:p-6 max-w-7xl">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="mb-4 p-4 rounded-2xl text-xs md:text-sm font-bold shadow-sm transition flex items-center justify-between {% if category == 'error' %}bg-rose-50 text-rose-700 border border-rose-200{% elif category == 'warning' %}bg-amber-50 text-amber-800 border border-amber-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
-                            <div class="flex items-center gap-2">
-                                <span>{% if category == 'error' %}⚠️{% elif category == 'warning' %}🔔{% else %}✅{% endif %}</span>
-                                <span>{{ message }}</span>
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+    <!-- Flash Messages -->
+    <main class="container mx-auto px-4 py-5 max-w-7xl flex-1">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="space-y-2 mb-5">
+                {% for category, message in messages %}
+                    <div class="p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2 fade-in-up
+                        {% if category == 'error' %}flash-error{% elif category == 'warning' %}flash-warning{% else %}flash-success{% endif %}">
+                        <span>{% if category == 'error' %}⚠️{% elif category == 'warning' %}🔔{% else %}✅{% endif %}</span>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
 
-            {% block content %}{% endblock %}
-        </main>
-    </div>
+        {% block content %}{% endblock %}
+    </main>
 
     <!-- Footer -->
-    <footer class="py-4 text-center text-xs text-slate-400 no-print border-t border-slate-200 bg-white mt-12">
-        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-2">
-            <p>سامانه جامع و فوق هوشمند فروشگاه‌های تخصصی طهماسبی • نسخه ارتقایافته ۲۰۲۶</p>
-            <p class="text-[11px] text-slate-400">طراحی شده برای انبارداری بلادرنگ، تسویه هوشمند و محاسبه دقیق سود و پورسانت</p>
+    <footer class="py-4 text-center no-print border-t border-white/5 bg-black/20 backdrop-blur-sm mt-8">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-1.5">
+            <p class="text-[11px] text-slate-500">سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ۲۰۲۶</p>
+            <p class="text-[10px] text-slate-600">طراحی شده برای انبارداری بلادرنگ، تسویه هوشمند و محاسبه دقیق سود و پورسانت</p>
         </div>
     </footer>
+</div>
 
-    <!-- Global Helpers -->
-    <script>
-        function formatNumber(input) {
-            let value = input.value.replace(/\D/g, '');
-            if (value !== '') {
-                input.value = Number(value).toLocaleString();
-            }
-        }
-        function unformatOnSubmit(form) {
-            const inputs = form.querySelectorAll('.currency-input');
-            inputs.forEach(input => {
-                input.value = input.value.replace(/,/g, '');
-            });
-        }
-    </script>
-    {% block scripts %}{% endblock %}
+<!-- Global Helpers -->
+<script>
+    function formatNumber(input) {
+        let value = input.value.replace(/\D/g, '');
+        if (value !== '') input.value = Number(value).toLocaleString();
+    }
+    function unformatOnSubmit(form) {
+        const inputs = form.querySelectorAll('.currency-input');
+        inputs.forEach(input => { input.value = input.value.replace(/,/g, ''); });
+    }
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

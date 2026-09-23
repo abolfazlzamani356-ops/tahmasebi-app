@@ -9,7 +9,7 @@
         <span class="text-3xl">🎯</span>
         <div>
             <h2 class="font-black text-slate-800 text-lg">عملکرد ماه {{ current_month_name }} {{ current_year }}</h2>
-            <p class="text-xs text-slate-500 font-medium">{{ user.shop.name if user.shop else 'شعبه نامشخص' }} • فروشنده: <span class="font-bold text-indigo-700">{{ user.full_name }}</span></p>
+            <p class="text-xs text-slate-500 font-medium">{{ user.shop.name if user.shop else ('مدیریت کل (دفتر مرکزی)' if user.role == 'admin' else 'شعبه نامشخص') }} • فروشنده: <span class="font-bold text-indigo-700">{{ user.full_name }}</span></p>
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
@@ -41,6 +41,19 @@
         <span class="text-[10px] text-rose-400">کسر شده از جمع کل فروش</span>
     </div>
 
+    {% if user.role == 'admin' %}
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
+        <span class="text-slate-400 text-xs font-bold">سمت و سطح دسترسی</span>
+        <h3 class="text-2xl font-black text-amber-600 mt-2">مدیریت کل</h3>
+        <span class="text-[10px] text-amber-600 font-bold">بدون کسر پورسانت (سود مستقیم فروشگاه)</span>
+    </div>
+
+    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-500">
+        <span class="text-slate-400 text-xs font-bold">سود ناخالص فاکتورهای شما</span>
+        <h3 class="text-2xl font-black text-emerald-600 mt-2">{{ "{:,}".format(stats.real_profit_share) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-emerald-600 font-bold">سود ناخالص عاید شده برای فروشگاه</span>
+    </div>
+    {% else %}
     <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-blue-600">
         <span class="text-slate-400 text-xs font-bold">درصد مصوب + پاداش تارگت</span>
         <h3 class="text-2xl font-black text-blue-600 mt-2">{{ stats.effective_rate }}%</h3>
@@ -56,6 +69,7 @@
             {% if stats.pending_commission > 0 %}⏳ {{ "{:,}".format(stats.pending_commission) }} تومان در انتظار وصول چک/بیعانه{% else %}تسویه کامل نقد{% endif %}
         </span>
     </div>
+    {% endif %}
 </div>
 
 <!-- دستیار صوتی و متنی هوشمند ثبت فاکتور (AI Assistant) -->
@@ -94,7 +108,18 @@
             <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded-xl">متصل به انبار زنده</span>
         </h3>
 
-        <form method="POST" action="{{ url_for('add_invoice') }}" onsubmit="unformatOnSubmit(this)" id="mainInvoiceForm">
+        <form method="POST" action="{{ url_for('add_invoice') }}" onsubmit="return handleInvoiceSubmit(this)" id="mainInvoiceForm">
+            {% if user.role == 'admin' and all_shops %}
+            <div class="mb-3 bg-amber-50/80 p-2.5 rounded-2xl border border-amber-200">
+                <label class="block text-[11px] font-bold text-amber-900 mb-1">🏬 ثبت فاکتور به نام شعبه (مختص مدیریت):</label>
+                <select name="target_shop_id" class="w-full p-2 border border-amber-300 rounded-xl text-xs bg-white font-bold text-amber-900">
+                    {% for sh in all_shops %}
+                    <option value="{{ sh.id }}" {% if sh.id == active_shop_id %}selected{% endif %}>{{ sh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
             <!-- نوع سند -->
             <div class="mb-3">
                 <label class="block text-xs font-bold text-slate-600 mb-1">نوع سند:</label>
@@ -132,8 +157,15 @@
 
             <div class="grid grid-cols-2 gap-2 mb-3">
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">شماره فاکتور / سند:</label>
-                    <input type="text" name="invoice_number" id="invNumInput" required placeholder="مثلاً: 1205" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 text-xs font-bold">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-bold text-slate-600">شماره فاکتور / سند:</label>
+                        {% if next_inv_suggestion %}
+                        <button type="button" onclick="document.getElementById('invNumInput').value='{{ next_inv_suggestion }}'" class="text-[10px] text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded font-bold transition" title="کلیک برای درج شماره پیشنهادی بعدی">
+                            🎲 شماره بعدی: {{ next_inv_suggestion }}
+                        </button>
+                        {% endif %}
+                    </div>
+                    <input type="text" name="invoice_number" id="invNumInput" value="{{ next_inv_suggestion or '' }}" required placeholder="مثلاً: 1205" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 text-xs font-bold text-left" dir="ltr">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1">نام خریدار:</label>
@@ -625,6 +657,25 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
 
 {% block scripts %}
 <script>
+    let isInvoiceSubmitting = false;
+    function handleInvoiceSubmit(form) {
+        if (form.checkValidity && !form.checkValidity()) {
+            return true;
+        }
+        if (isInvoiceSubmitting) {
+            return false;
+        }
+        unformatOnSubmit(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            submitBtn.innerHTML = '<span>⏳</span> در حال ثبت و کسر از انبار...';
+        }
+        isInvoiceSubmitting = true;
+        return true;
+    }
+
     function handleDocTypeChange(type) {
         document.getElementById('proformaDateBox').style.display = (type === 'proforma') ? 'block' : 'none';
         document.getElementById('returnReasonBox').style.display = (type === 'return') ? 'block' : 'none';

@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import json
 import random
 import jdatetime
@@ -32,6 +33,8 @@ if not os.path.exists(templates_dir) or not os.path.exists(os.path.join(template
 app = Flask(__name__, template_folder=templates_dir)
 app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v14-permanent-secure-2026')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # رمز نجات مدیریت
 MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
@@ -201,6 +204,21 @@ def initialize_database():
             ]
             db.session.add_all(items)
             db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    try:
+        admin_user = User.query.filter_by(role='admin').first()
+        if admin_user:
+            adm_changed = False
+            if admin_user.shop_id is None:
+                admin_user.shop_id = 1
+                adm_changed = True
+            if admin_user.commission_rate != 0:
+                admin_user.commission_rate = 0.0
+                adm_changed = True
+            if adm_changed:
+                db.session.commit()
     except Exception:
         db.session.rollback()
 
@@ -530,11 +548,17 @@ def internal_error(e):
     db.session.rollback()
     app.logger.error(f"Internal Server Error: {e}", exc_info=True)
     if 'user_id' in session:
-        flash('یک خطای موقت در سیستم رخ داد، اما اتصال حساب شما کاملاً امن و برقرار است.', 'warning')
-        if session.get('role') == 'admin':
-            return redirect(url_for('admin_dashboard'))
-        return redirect(url_for('seller_dashboard'))
-    return render_template('login.html'), 500
+        target = url_for('admin_dashboard' if session.get('role') == 'admin' else 'seller_dashboard')
+        if request.path != target:
+            flash('یک خطای موقت در سیستم رخ داد، اما اتصال حساب شما کاملاً امن و برقرار است.', 'warning')
+            return redirect(target)
+    return """
+    <div style="font-family: Tahoma, sans-serif; direction: rtl; text-align: center; padding: 50px;">
+        <h2 style="color: #e11d48;">یک خطای موقت در سیستم رخ داده است</h2>
+        <p style="color: #475569;">اطلاعات شما محفوظ است. لطفاً چند لحظه بعد صفحه را بازبینی فرمایید یا به صفحه اصلی بازگردید.</p>
+        <a href="/" style="display: inline-block; margin-top: 15px; padding: 10px 20px; background: #0f172a; color: white; text-decoration: none; border-radius: 8px;">بازگشت به صفحه اصلی</a>
+    </div>
+    """, 500
 
 @app.errorhandler(404)
 def not_found(e):
@@ -598,9 +622,11 @@ def seller_dashboard():
         Invoice.shamsi_month == selected_month
     ).order_by(Invoice.created_at.desc()).all()
     
+    active_shop_id = user.shop_id or session.get('shop_id') or 1
     colleagues = User.query.filter(User.id != user.id, User.is_active == True).all()
-    other_shops = Shop.query.filter(Shop.id != user.shop_id).all()
-    inventory_items = InventoryItem.query.filter_by(shop_id=user.shop_id).all()
+    all_shops = Shop.query.all()
+    other_shops = [sh for sh in all_shops if sh.id != active_shop_id]
+    inventory_items = InventoryItem.query.filter_by(shop_id=active_shop_id).all()
     all_categories = Category.query.all()
     
     all_sellers = User.query.filter_by(role='seller', is_active=True).all()
@@ -621,6 +647,18 @@ def seller_dashboard():
 
     catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).all()
 
+    # تولید هوشمند شماره فاکتور پیشنهادی بعدی
+    last_inv = Invoice.query.order_by(Invoice.id.desc()).first()
+    next_inv_suggestion = ""
+    if last_inv and last_inv.invoice_number:
+        m = re.search(r'(\d+)$', last_inv.invoice_number)
+        if m:
+            digits = m.group(1)
+            next_num = int(digits) + 1
+            next_inv_suggestion = last_inv.invoice_number[:m.start(1)] + f"{next_num:0{len(digits)}d}"
+    if not next_inv_suggestion:
+        next_inv_suggestion = f"INV-{now_j.year}{now_j.month:02d}{now_j.day:02d}-1001"
+
     return render_template(
         'seller_dashboard.html',
         user=user,
@@ -635,6 +673,9 @@ def seller_dashboard():
         return_reasons=RETURN_REASONS,
         colleagues=colleagues,
         other_shops=other_shops,
+        all_shops=all_shops,
+        active_shop_id=active_shop_id,
+        next_inv_suggestion=next_inv_suggestion,
         inventory_items=inventory_items,
         catalog_products=catalog_products,
         bank_accounts=bank_accounts,
@@ -649,6 +690,10 @@ def add_invoice():
 
     user = User.query.get(session['user_id'])
     shop_id = session.get('shop_id') or (user.shop_id if user else None) or 1
+    if user and user.role == 'admin':
+        admin_target_shop = safe_int(request.form.get('target_shop_id'), 0)
+        if admin_target_shop > 0:
+            shop_id = admin_target_shop
 
     try:
         now_j = jdatetime.datetime.now()
@@ -1254,32 +1299,64 @@ def admin_dashboard():
     seller_filter = request.args.get('seller_filter', '').strip()
     
     settings = Settings.query.first()
-    sellers = User.query.filter_by(role='seller', is_active=True).all()
     
-    sellers_data = []
+    # ۱. محاسبه جامع فروش کل مجموعه، فروش شعب و سود ناخالص بر اساس کلیه فاکتورهای قطعی ماه (شامل فروشندگان و مدیریت)
+    month_invoices = Invoice.query.filter(
+        Invoice.shamsi_year == now_j.year,
+        Invoice.shamsi_month == selected_month,
+        Invoice.status == 'final'
+    ).all()
+    
     shop1_total = 0
     shop2_total = 0
-    total_commissions = 0
     total_sales_all = 0
     estimated_gross_profit = 0
     
+    for inv in month_invoices:
+        passed_chk = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
+        settled_amt = (inv.paid_amount or 0) + passed_chk
+        profit_amt = inv.real_profit or 0
+        
+        if inv.invoice_type == 'sale':
+            total_sales_all += settled_amt
+            estimated_gross_profit += profit_amt
+            if inv.shop_id == 2:
+                shop2_total += settled_amt
+            else:
+                shop1_total += settled_amt
+        elif inv.invoice_type == 'return':
+            total_sales_all -= settled_amt
+            estimated_gross_profit -= profit_amt
+            if inv.shop_id == 2:
+                shop2_total -= settled_amt
+            else:
+                shop1_total -= settled_amt
+
+    # ۲. محاسبه آمار عملکرد و پورسانت پرسنل فروشنده
+    sellers = User.query.filter_by(role='seller', is_active=True).all()
+    sellers_data = []
+    total_commissions = 0
     chart_sellers_labels = []
     chart_sellers_data = []
     
     for s in sellers:
         s_stats = calculate_seller_exact_stats(s.id, now_j.year, selected_month, s.commission_rate, settings)
         total_commissions += s_stats['settled_commission']
-        total_sales_all += s_stats['net_sales']
-        estimated_gross_profit += s_stats['real_profit_share']
-        
-        if s.shop_id == 1:
-            shop1_total += s_stats['net_sales']
-        else:
-            shop2_total += s_stats['net_sales']
-            
         sellers_data.append({'user': s, 'stats': s_stats})
         chart_sellers_labels.append(s.full_name)
         chart_sellers_data.append(s_stats['net_sales'])
+
+    # ۳. بررسی و نمایش فروش مدیریت کل در جدول پرسنل و نمودار در صورت ثبت فاکتور توسط مدیریت
+    admin_users = User.query.filter_by(role='admin', is_active=True).all()
+    for adm in admin_users:
+        adm_stats = calculate_seller_exact_stats(adm.id, now_j.year, selected_month, 0, settings)
+        if adm_stats['sales_count'] > 0 or adm_stats['gross_sales'] > 0:
+            adm_stats['settled_commission'] = 0
+            adm_stats['pending_commission'] = 0
+            adm_stats['effective_rate'] = 0
+            sellers_data.insert(0, {'user': adm, 'stats': adm_stats})
+            chart_sellers_labels.insert(0, f"{adm.full_name} (مدیریت)")
+            chart_sellers_data.insert(0, adm_stats['net_sales'])
         
     expenses = Expense.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month).all()
     total_expenses = sum(e.amount for e in expenses)
@@ -1371,10 +1448,12 @@ def admin_dashboard():
     store_net_profit = estimated_gross_profit - (total_commissions + total_expenses)
     profit_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
     
+    all_staff = User.query.filter_by(is_active=True).order_by(User.role, User.full_name).all()
+
     return render_template(
         'admin_dashboard.html',
         sellers_data=sellers_data,
-        all_sellers=sellers,
+        all_sellers=all_staff,
         seller_filter=seller_filter,
         shop1_total=shop1_total,
         shop2_total=shop2_total,

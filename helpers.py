@@ -178,12 +178,17 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             real_profit_share -= item_profit
             returns_count += 1
 
+    user = User.query.get(user_id)
+    is_admin = bool(user and user.role == 'admin')
+    if is_admin:
+        base_commission_rate = 0.0
+
     net_sales = max(net_sales, 0)
 
     # محاسبه پاداش تارگت پله‌ای
     bonus = 0.0
     tier_achieved = 0
-    if settings:
+    if settings and not is_admin:
         if net_sales >= settings.tier2_min:
             bonus = settings.tier2_bonus
             tier_achieved = 2
@@ -191,16 +196,16 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             bonus = settings.tier1_bonus
             tier_achieved = 1
 
-    effective_rate = round(min(base_commission_rate + bonus, 5.0), 2)
+    effective_rate = 0.0 if is_admin else round(min(base_commission_rate + bonus, 5.0), 2)
 
     # پورسانت قطعی (فقط روی مبلغ واقعی تسویه‌شده)
-    total_commission_calculated = int((net_sales * effective_rate) / 100)
+    total_commission_calculated = 0 if is_admin else int((net_sales * effective_rate) / 100)
     settled_commission_amount = total_commission_calculated
 
     # پورسانت معلق (روی مانده‌های تسویه‌نشده + چک‌های در انتظار)
-    pending_commission_amount = int((pending_commission_sales * effective_rate) / 100)
+    pending_commission_amount = 0 if is_admin else int((pending_commission_sales * effective_rate) / 100)
 
-    tier_bonus_amount = int((net_sales * bonus) / 100)
+    tier_bonus_amount = 0 if is_admin else int((net_sales * bonus) / 100)
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 5.0
 
     return {

@@ -5,11 +5,23 @@
 {% block content %}
 <!-- Top Bar -->
 <div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
-    <div>
-        <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
-            <span>👑</span> پنل مدیریت جامع فروشگاه‌های طهماسبی
-        </h2>
-        <p class="text-xs text-slate-500 mt-1">گزارش مالی دقیق، سود ناخالص واقعی، گردش تنخواه و لاگ‌های سیستم در {{ selected_month_name }} {{ current_year }}</p>
+    <div class="flex items-center gap-3.5">
+        <a href="{{ url_for('user_profile') }}" class="relative group block flex-shrink-0" title="مشاهده و ویرایش پروفایل و عکس مدیریت کل">
+            {% if current_user and current_user.avatar %}
+                <img src="{{ url_for('serve_avatar', filename=current_user.avatar) }}" alt="مدیریت کل" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500 shadow-md group-hover:scale-105 transition">
+            {% else %}
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-md group-hover:scale-105 transition">
+                    👑
+                </div>
+            {% endif %}
+            <span class="absolute -bottom-1 -left-1 bg-indigo-600 text-white rounded-full p-1 text-[10px] shadow group-hover:bg-indigo-700 transition">✏️</span>
+        </a>
+        <div>
+            <h2 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                <span>👑</span> پنل مدیریت جامع فروشگاه‌های طهماسبی
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">مدیر کل: <strong class="text-indigo-700">{{ current_user.full_name if current_user else 'محمد طهماسبی' }}</strong> • گزارش مالی دقیق، سود ناخالص واقعی در {{ selected_month_name }} {{ current_year }}</p>
+        </div>
     </div>
     
     <div class="flex flex-wrap items-center gap-2">
@@ -21,6 +33,9 @@
             </select>
         </form>
 
+        <a href="{{ url_for('user_profile') }}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3.5 py-2.5 rounded-2xl border border-indigo-200 transition flex items-center gap-1.5 shadow-sm">
+            <span>👤</span> پروفایل من
+        </a>
         <a href="{{ url_for('catalog_view') }}" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
             📋 لیست قیمت و کاتالوگ ({{ total_catalog_products }})
         </a>
@@ -209,10 +224,24 @@
             {% for item in sellers_data %}
             <tr class="border-b hover:bg-slate-50 transition">
                 <td class="p-3 font-bold text-slate-900">
-                    {{ item.user.full_name }}
-                    {% if item.user.can_manage_inventory %}
-                        <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
-                    {% endif %}
+                    <div class="flex items-center gap-2.5">
+                        {% if item.user.avatar %}
+                            <img src="{{ url_for('serve_avatar', filename=item.user.avatar) }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm flex-shrink-0">
+                        {% else %}
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
+                                {{ item.user.full_name[0] }}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <span>{{ item.user.full_name }}</span>
+                            {% if item.user.national_id %}
+                                <span class="block text-[10px] text-slate-400 font-mono font-normal">کد ملی: {{ item.user.national_id }}</span>
+                            {% endif %}
+                        </div>
+                        {% if item.user.can_manage_inventory %}
+                            <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
+                        {% endif %}
+                    </div>
                 </td>
                 <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ item.user.shop.name if item.user.shop else '-' }}</span></td>
                 <td class="p-3 font-medium">{{ item.stats.sales_count }} فاکتور</td>
@@ -235,7 +264,7 @@
                 <td class="p-3 text-amber-500 font-bold">★ {{ item.stats.avg_rating }}</td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}', '{{ item.user.national_id or '' }}', '{{ item.user.birth_date or '' }}', '{{ item.user.emergency_phone or '' }}', '{{ item.user.sheba_number or '' }}', '{{ item.user.address or '' }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
                         <button type="button" onclick="openPasswordModal({{ item.user.id }}, '{{ item.user.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=item.user.id) }}" onsubmit="return confirm('پرسنل ({{ item.user.full_name }}) حذف شود؟ سوابق فاکتورهای گذشته محفوظ می‌ماند.')">
                             <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
@@ -273,12 +302,25 @@
         <tbody>
             {% for u in logistics_staff %}
             <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-900 flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                    {{ u.full_name }}
-                    {% if u.can_manage_inventory %}
-                        <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
-                    {% endif %}
+                <td class="p-3 font-bold text-slate-900">
+                    <div class="flex items-center gap-2.5">
+                        {% if u.avatar %}
+                            <img src="{{ url_for('serve_avatar', filename=u.avatar) }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500 shadow-sm flex-shrink-0">
+                        {% else %}
+                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
+                                🚚
+                            </div>
+                        {% endif %}
+                        <div>
+                            <span>{{ u.full_name }}</span>
+                            {% if u.national_id %}
+                                <span class="block text-[10px] text-slate-400 font-mono font-normal">کد ملی: {{ u.national_id }}</span>
+                            {% endif %}
+                        </div>
+                        {% if u.can_manage_inventory %}
+                            <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
+                        {% endif %}
+                    </div>
                 </td>
                 <td class="p-3"><span class="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">🚚 تحویل بار، انبارداری و خدمات</span></td>
                 <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ u.shop.name if u.shop else '-' }}</span></td>
@@ -286,7 +328,7 @@
                 <td class="p-3 text-slate-600 font-mono text-[11px]">{{ u.phone or '-' }} {% if u.card_number %}| {{ u.card_number }}{% endif %}</td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}', '{{ u.national_id or '' }}', '{{ u.birth_date or '' }}', '{{ u.emergency_phone or '' }}', '{{ u.sheba_number or '' }}', '{{ u.address or '' }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
                         <button type="button" onclick="openPasswordModal({{ u.id }}, '{{ u.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}" onsubmit="return confirm('پرسنل ({{ u.full_name }}) حذف شود؟')">
                             <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
@@ -679,6 +721,30 @@
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div>
+                    <label class="block font-bold text-slate-600 mb-1">کد ملی (۱۰ رقمی):</label>
+                    <input type="text" name="national_id" id="editUserNationalId" maxlength="10" placeholder="0012345678" class="w-full p-2.5 border rounded-xl text-left font-mono" dir="ltr">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">تاریخ تولد (شمسی):</label>
+                    <input type="text" name="birth_date" id="editUserBirthDate" placeholder="1374/01/01" class="w-full p-2.5 border rounded-xl text-center font-mono" dir="ltr">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">شماره تماس اضطراری:</label>
+                    <input type="text" name="emergency_phone" id="editUserEmergencyPhone" placeholder="09... یا 021..." class="w-full p-2.5 border rounded-xl text-left" dir="ltr">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">شماره شبا بانکی:</label>
+                    <input type="text" name="sheba_number" id="editUserSheba" placeholder="IR..." class="w-full p-2.5 border rounded-xl text-left font-mono font-bold text-[11px]" dir="ltr">
+                </div>
+            </div>
+            <div>
+                <label class="block font-bold text-slate-600 mb-1">نشانی محل سکونت:</label>
+                <input type="text" name="address" id="editUserAddress" placeholder="آدرس پرسنل..." class="w-full p-2.5 border rounded-xl">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
                     <label class="block font-bold text-slate-600 mb-1">حقوق پایه ماهیانه (تومان):</label>
                     <input type="text" name="base_salary" id="editUserSalary" onkeyup="formatNumber(this)" class="currency-input w-full p-2.5 border rounded-xl font-bold text-emerald-700 text-left" dir="ltr">
                 </div>
@@ -927,12 +993,17 @@
 
 {% block scripts %}
 <script>
-    function openEditUserModal(userId, fullName, username, phone, card, salary, comm, shopId, canManageInv, role) {
+    function openEditUserModal(userId, fullName, username, phone, card, salary, comm, shopId, canManageInv, role, nationalId, birthDate, emergencyPhone, sheba, address) {
         document.getElementById('editUserForm').action = '/admin/user/edit/' + userId;
         document.getElementById('editUserFullName').value = fullName || '';
         document.getElementById('editUserUsername').value = username || '';
         document.getElementById('editUserPhone').value = phone || '';
         document.getElementById('editUserCard').value = card || '';
+        if (document.getElementById('editUserNationalId')) document.getElementById('editUserNationalId').value = nationalId || '';
+        if (document.getElementById('editUserBirthDate')) document.getElementById('editUserBirthDate').value = birthDate || '';
+        if (document.getElementById('editUserEmergencyPhone')) document.getElementById('editUserEmergencyPhone').value = emergencyPhone || '';
+        if (document.getElementById('editUserSheba')) document.getElementById('editUserSheba').value = sheba || '';
+        if (document.getElementById('editUserAddress')) document.getElementById('editUserAddress').value = address || '';
         document.getElementById('editUserSalary').value = salary ? Number(salary).toLocaleString('en-US') : '';
         document.getElementById('editUserCommission').value = comm !== undefined ? comm : '1.0';
         document.getElementById('editUserShopId').value = shopId || 1;

@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+
+{% block title %}پروفایل و پرونده پرسنلی • {{ user.full_name }}{% endblock %}
+
+{% block content %}
+<!-- Cropper.js Styles -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+
+<!-- Top Bar -->
+<div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">👤</span>
+        <div>
+            <h2 class="font-black text-slate-800 text-lg">پروفایل کاربری و پرونده پرسنلی</h2>
+            <p class="text-xs text-slate-500 font-medium">مشاهده و ویرایش عکس پرسنلی، کد ملی، شماره شبا، تاریخ تولد و تنظیمات حساب</p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+        <a href="{{ url_for('index') }}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+            <span>🔙</span> بازگشت به داشبورد
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- ستون سمت راست: عکس پرسنلی و اطلاعات سازمانی -->
+    <div class="space-y-6">
+        <!-- کارت تصویر پرسنلی -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 text-center relative overflow-hidden">
+            <div class="relative inline-block mx-auto mb-4 group">
+                <div id="avatarContainer" class="w-36 h-36 rounded-full overflow-hidden ring-4 ring-indigo-500/30 shadow-xl bg-slate-100 mx-auto flex items-center justify-center relative">
+                    {% if user.avatar %}
+                        <img id="profileAvatarImg" src="{{ url_for('serve_avatar', filename=user.avatar) }}" alt="{{ user.full_name }}" class="w-full h-full object-cover">
+                    {% else %}
+                        <div id="profileAvatarPlaceholder" class="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center text-5xl font-black">
+                            {{ user.full_name[0] }}
+                        </div>
+                    {% endif %}
+                    <!-- Overlay on hover -->
+                    <div onclick="document.getElementById('avatarFileInput').click()" class="absolute inset-0 bg-slate-950/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer">
+                        <span class="text-2xl mb-1">📷</span>
+                        <span class="text-[11px] font-bold">تغییر و کراپ عکس</span>
+                    </div>
+                </div>
+                <button type="button" onclick="document.getElementById('avatarFileInput').click()" class="absolute bottom-0 right-2 bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-full shadow-lg border-2 border-white transition transform active:scale-95" title="انتخاب تصویر جدید">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+            </div>
+            
+            <input type="file" id="avatarFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" class="hidden" onchange="handleAvatarFileSelect(this)">
+
+            <h3 class="text-lg font-black text-slate-800">{{ user.full_name }}</h3>
+            <p class="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">@{{ user.username }}</p>
+
+            <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                {% if user.role == 'admin' %}
+                    <span class="bg-purple-100 text-purple-800 text-[11px] font-bold px-3 py-1 rounded-xl border border-purple-200">👑 مدیریت کل</span>
+                {% elif user.can_manage_inventory %}
+                    <span class="bg-amber-100 text-amber-800 text-[11px] font-bold px-3 py-1 rounded-xl border border-amber-300">👑 ادمین انبار و کاتالوگ</span>
+                {% elif user.role in ['logistics', 'services'] %}
+                    <span class="bg-blue-100 text-blue-800 text-[11px] font-bold px-3 py-1 rounded-xl border border-blue-200">🚚 خدمات و تحویل بار</span>
+                {% else %}
+                    <span class="bg-indigo-100 text-indigo-800 text-[11px] font-bold px-3 py-1 rounded-xl border border-indigo-200">فروشنده مجرب</span>
+                {% endif %}
+                <span class="bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-xl">{{ user.shop.name if user.shop else 'دفتر مرکزی' }}</span>
+            </div>
+
+            <p class="text-[11px] text-slate-500 mt-4 leading-relaxed">
+                جهت قرار گرفتن بهتر چهره، پس از انتخاب عکس می‌توانید آن را به دلخواه <strong class="text-indigo-600">بزرگ، کوچک و کراپ</strong> کنید.
+            </p>
+        </div>
+
+        <!-- کارت خلاصه وضعیت مالی و پرسنلی -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-3.5 text-xs">
+            <h4 class="font-bold text-slate-800 border-b pb-2 flex items-center gap-2">
+                <span>💼</span> مشخصات شغلی و قرارداد
+            </h4>
+            <div class="flex justify-between items-center py-1 border-b border-slate-100">
+                <span class="text-slate-500 font-medium">شعبه فعالیت:</span>
+                <span class="font-bold text-slate-800">{{ user.shop.name if user.shop else 'نامشخص' }}</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-slate-100">
+                <span class="text-slate-500 font-medium">حقوق ثابت ماهانه:</span>
+                <span class="font-bold text-emerald-700">{{ "{:,}".format(user.base_salary or 0) }} تومان</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-slate-100">
+                <span class="text-slate-500 font-medium">درصد پورسانت مصوب:</span>
+                <span class="font-bold text-indigo-700">{{ user.commission_rate or 0 }}%</span>
+            </div>
+            <div class="flex justify-between items-center py-1">
+                <span class="text-slate-500 font-medium">وضعیت حساب کاربری:</span>
+                <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-lg">فعال و مجاز</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ستون سمت چپ: فرم ویرایش اطلاعات و تغییر پسورد -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- فرم ویرایش مشخصات پرسنلی -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <h3 class="text-base font-black text-slate-800 mb-4 pb-3 border-b flex items-center gap-2">
+                <span>🪪</span> اطلاعات هویتی، بانکی و پرونده پرسنلی
+            </h3>
+
+            <form method="POST" action="{{ url_for('user_profile') }}" class="space-y-4 text-xs">
+                <input type="hidden" name="action" value="update_info">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">نام و نام خانوادگی:</label>
+                        <input type="text" name="full_name" value="{{ user.full_name }}" required class="w-full p-3 border rounded-2xl font-bold bg-slate-50 text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">کد ملی (۱۰ رقمی):</label>
+                        <input type="text" name="national_id" value="{{ user.national_id or '' }}" maxlength="10" placeholder="مثال: 0012345678" class="w-full p-3 border rounded-2xl font-mono text-left bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" dir="ltr">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">تاریخ تولد (شمسی):</label>
+                        <input type="text" name="birth_date" value="{{ user.birth_date or '' }}" placeholder="مثال: 1374/06/15" class="w-full p-3 border rounded-2xl font-mono text-center bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" dir="ltr">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">شماره موبایل مستقیم:</label>
+                        <input type="text" name="phone" value="{{ user.phone or '' }}" placeholder="0912..." class="w-full p-3 border rounded-2xl font-mono text-left bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" dir="ltr">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">شماره تماس اضطراری (بستگان یا منزل):</label>
+                        <input type="text" name="emergency_phone" value="{{ user.emergency_phone or '' }}" placeholder="09... یا 021..." class="w-full p-3 border rounded-2xl font-mono text-left bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" dir="ltr">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">شماره کارت بانکی (جهت واریز مساعده و حقوق):</label>
+                        <input type="text" name="card_number" value="{{ user.card_number or '' }}" maxlength="19" placeholder="۶۰۳۷..." class="w-full p-3 border rounded-2xl font-mono text-left bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition" dir="ltr">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1.5">شماره شبا بانکی (بدون فاصله یا خط تیره):</label>
+                    <div class="relative">
+                        <input type="text" name="sheba_number" value="{{ user.sheba_number or '' }}" placeholder="IR120170000000000000000000" class="w-full p-3 border rounded-2xl font-mono font-bold text-left bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition uppercase" dir="ltr">
+                    </div>
+                    <span class="text-[10px] text-slate-400 mt-1 block">شماره شبا جهت تسویه رسمی پایان ماه و ثبت در سامانه ساتنا/پایا استفاده می‌شود.</span>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1.5">نشانی محل سکونت:</label>
+                    <textarea name="address" rows="2" placeholder="استان، شهر، خیابان و پلاک..." class="w-full p-3 border rounded-2xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">{{ user.address or '' }}</textarea>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-2xl shadow-md transition flex items-center gap-2">
+                        <span>💾</span> ذخیره و بروزرسانی اطلاعات پرونده
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- فرم تغییر رمز عبور -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <h3 class="text-base font-black text-slate-800 mb-4 pb-3 border-b flex items-center gap-2">
+                <span>🔐</span> تغییر رمز عبور ورود به سامانه
+            </h3>
+
+            <form method="POST" action="{{ url_for('user_profile') }}" class="space-y-4 text-xs max-w-lg">
+                <input type="hidden" name="action" value="change_password">
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1.5">رمز عبور فعلی:</label>
+                    <input type="password" name="old_password" required placeholder="رمز عبور کنونی شما" class="w-full p-3 border rounded-2xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none transition" dir="ltr">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">رمز عبور جدید:</label>
+                        <input type="password" name="new_password" required minlength="4" placeholder="حداقل ۴ رقم یا کاراکتر" class="w-full p-3 border rounded-2xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none transition" dir="ltr">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">تکرار رمز عبور جدید:</label>
+                        <input type="password" name="confirm_password" required minlength="4" placeholder="تکرار همان رمز" class="w-full p-3 border rounded-2xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none transition" dir="ltr">
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2.5 rounded-2xl shadow-md transition flex items-center gap-2">
+                        <span>🔑</span> اعمال رمز عبور جدید
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== مودال کراپ و برش هوشمند تصویر چهره (Cropper.js) ==================== -->
+<div id="cropModal" class="hidden fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                <span>✂️</span> تنظیم کادر و برش عکس پرسنلی
+            </h3>
+            <button type="button" onclick="closeCropModal()" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-500 leading-relaxed">
+            کادر مربعی را روی چهره خود تنظیم فرمایید. می‌توانید با اسکرول ماوس یا لمس، تصویر را زوم و جابجا کنید.
+        </p>
+
+        <!-- کانتینر تصویر کراپ -->
+        <div class="w-full h-80 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center">
+            <img id="imageToCrop" src="" alt="برای کراپ" class="max-w-full max-h-full block">
+        </div>
+
+        <!-- دکمه‌های کنترل کراپ (زوم و چرخش) -->
+        <div class="flex items-center justify-center gap-2 pt-1">
+            <button type="button" onclick="zoomCropper(0.1)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                ➕ بزرگ‌نمایی
+            </button>
+            <button type="button" onclick="zoomCropper(-0.1)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                ➖ کوچک‌نمایی
+            </button>
+            <button type="button" onclick="rotateCropper(90)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                🔄 چرخش ۹۰°
+            </button>
+            <button type="button" onclick="resetCropper()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                ↺ بازنشانی
+            </button>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onclick="closeCropModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-2xl text-xs font-bold transition">
+                انصراف
+            </button>
+            <button type="button" id="saveCroppedAvatarBtn" onclick="saveCroppedAvatar()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-2">
+                <span>✅</span> تایید و ذخیره عکس چهره
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Cropper.js Script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+<script>
+    let cropper = null;
+
+    function handleAvatarFileSelect(input) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        
+        // بررسی حجم (حداکثر 10 مگابایت)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('حجم تصویر انتخابی بیش از ۱۰ مگابایت است. لطفاً تصویر سبک‌تری انتخاب نمایید.');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const cropImage = document.getElementById('imageToCrop');
+            cropImage.src = e.target.result;
+            
+            // باز کردن مدال
+            document.getElementById('cropModal').classList.remove('hidden');
+
+            // نابودسازی کراپ قبلی اگر وجود داشت
+            if (cropper) {
+                cropper.destroy();
+            }
+
+            // راه‌اندازی Cropper.js با نسبت مربع 1:1
+            setTimeout(() => {
+                cropper = new Cropper(cropImage, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    dragMode: 'move',
+                    autoCropArea: 0.85,
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: false,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    toggleDragModeOnDblclick: false,
+                });
+            }, 100);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function zoomCropper(delta) {
+        if (cropper) cropper.zoom(delta);
+    }
+
+    function rotateCropper(degree) {
+        if (cropper) cropper.rotate(degree);
+    }
+
+    function resetCropper() {
+        if (cropper) cropper.reset();
+    }
+
+    function closeCropModal() {
+        document.getElementById('cropModal').classList.add('hidden');
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        document.getElementById('avatarFileInput').value = '';
+    }
+
+    function saveCroppedAvatar() {
+        if (!cropper) return;
+        const saveBtn = document.getElementById('saveCroppedAvatarBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span>⏳</span> در حال ذخیره عکس...';
+
+        // دریافت کانواس کراپ شده با کیفیت بالا در ابعاد 400x400
+        const canvas = cropper.getCroppedCanvas({
+            width: 400,
+            height: 400,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high'
+        });
+
+        const base64Data = canvas.toDataURL('image/jpeg', 0.90);
+
+        fetch('/api/profile/upload_avatar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image_data: base64Data })
+        })
+        .then(res => res.json())
+        .then(data => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
+
+            if (data.success) {
+                // بروزرسانی عکس در صفحه جاری
+                const avatarImg = document.getElementById('profileAvatarImg');
+                const placeholder = document.getElementById('profileAvatarPlaceholder');
+                
+                if (avatarImg) {
+                    avatarImg.src = data.avatar_url + '?t=' + new Date().getTime();
+                } else if (placeholder) {
+                    placeholder.outerHTML = `<img id="profileAvatarImg" src="${data.avatar_url}?t=${new Date().getTime()}" alt="پروفایل" class="w-full h-full object-cover">`;
+                }
+
+                closeCropModal();
+                alert('عکس پرسنلی شما با موفقیت کراپ و ذخیره گردید.');
+                // ریفرش نرم برای بروزرسانی هدر و نوبار
+                window.location.reload();
+            } else {
+                alert('خطا در ذخیره تصویر: ' + (data.message || 'نامشخص'));
+            }
+        })
+        .catch(err => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>✅</span> تایید و ذخیره عکس چهره';
+            alert('خطای اتصال به سرور: ' + err.message);
+        });
+    }
+</script>
+{% endblock %}

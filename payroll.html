@@ -60,14 +60,33 @@
             {% for p in payroll_items %}
             <tr class="border-b hover:bg-slate-50 transition">
                 <td class="p-3">
-                    <span class="font-bold text-slate-900 block">{{ p.user.full_name }}</span>
-                    {% if p.user.role in ['logistics', 'services'] %}
-                    <span class="inline-block bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">🚚 پرسنل خدمات و تحویل بار</span>
-                    {% elif p.user.can_manage_inventory %}
-                    <span class="inline-block bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">👑 ادمین انبار و کاتالوگ</span>
-                    {% else %}
-                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">فروشنده ({{ p.user.commission_rate }}%)</span>
-                    {% endif %}
+                    <div class="flex items-center gap-2.5">
+                        {% if p.user.avatar %}
+                            <img src="{{ url_for('serve_avatar', filename=p.user.avatar) }}" class="w-9 h-9 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm flex-shrink-0">
+                        {% else %}
+                            <div class="w-9 h-9 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {{ p.user.full_name[0] }}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <span class="font-bold text-slate-900 block">{{ p.user.full_name }}</span>
+                            <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                {% if p.user.national_id %}
+                                <span class="text-[10px] text-slate-400 font-mono">کد ملی: {{ p.user.national_id }}</span>
+                                {% endif %}
+                                {% if p.user.sheba_number %}
+                                <span class="text-[10px] text-emerald-600 font-mono font-bold" title="شماره شبا">💳 {{ p.user.sheba_number }}</span>
+                                {% endif %}
+                            </div>
+                            {% if p.user.role in ['logistics', 'services'] %}
+                            <span class="inline-block bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">🚚 پرسنل خدمات و تحویل بار</span>
+                            {% elif p.user.can_manage_inventory %}
+                            <span class="inline-block bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">👑 ادمین انبار و کاتالوگ</span>
+                            {% else %}
+                            <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">فروشنده ({{ p.user.commission_rate }}%)</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </td>
                 <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ p.user.shop.name if p.user.shop else '-' }}</span></td>
                 <td class="p-3 font-bold text-blue-700">

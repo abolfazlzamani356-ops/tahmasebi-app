@@ -72,6 +72,14 @@ class User(db.Model):
     phone = db.Column(db.String(20), nullable=True)
     card_number = db.Column(db.String(30), nullable=True)
     can_manage_inventory = db.Column(db.Boolean, default=False) # دسترسی ویژه ادمین انبار و کاتالوگ
+    avatar = db.Column(db.String(255), nullable=True) # نام فایل عکس پرسنلی در uploads/avatars
+    national_id = db.Column(db.String(20), nullable=True) # کد ملی ۱۰ رقمی
+    birth_date = db.Column(db.String(30), nullable=True) # تاریخ تولد شمسی
+    start_date = db.Column(db.String(30), nullable=True) # تاریخ شروع به کار / استخدام
+    emergency_phone = db.Column(db.String(30), nullable=True) # شماره تماس اضطراری
+    sheba_number = db.Column(db.String(50), nullable=True) # شماره شبا بانکی
+    address = db.Column(db.String(255), nullable=True) # نشانی محل سکونت
+    notes = db.Column(db.Text, nullable=True) # یادداشت‌ها و سوابق پرسنلی
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

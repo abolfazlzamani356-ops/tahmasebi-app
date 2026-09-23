@@ -5,7 +5,9 @@ import json
 import random
 import jdatetime
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
+import time
+import base64
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify
 from sqlalchemy import func
 
 from models import (
@@ -67,6 +69,8 @@ if target_volume:
         app.logger.warning(f"Could not write to volume ({target_volume}): {e}. Using fallback instance directory.")
 
 os.makedirs(DATA_DIR, exist_ok=True)
+AVATARS_DIR = os.path.join(DATA_DIR, 'uploads', 'avatars')
+os.makedirs(AVATARS_DIR, exist_ok=True)
 
 # نرمال‌سازی مسیر برای SQLite در لینوکس و ویندوز
 db_file_abs = os.path.abspath(os.path.join(DATA_DIR, 'tahmasebi_store_persistent.db'))
@@ -126,6 +130,14 @@ def initialize_database():
             ("invoices", "dest_sheba_number", "TEXT"),
             ("users", "can_manage_inventory", "BOOLEAN DEFAULT 0"),
             ("shops", "rent_amount", "BIGINT DEFAULT 0"),
+            ("users", "avatar", "TEXT"),
+            ("users", "national_id", "TEXT"),
+            ("users", "birth_date", "TEXT"),
+            ("users", "start_date", "TEXT"),
+            ("users", "emergency_phone", "TEXT"),
+            ("users", "sheba_number", "TEXT"),
+            ("users", "address", "TEXT"),
+            ("users", "notes", "TEXT"),
         ]
 
         for table, col, col_def in migrations:
@@ -407,10 +419,21 @@ def can_manage_stock():
 
 @app.context_processor
 def inject_permissions():
+    current_u = None
+    if 'user_id' in session:
+        try:
+            current_u = db.session.get(User, session['user_id'])
+        except Exception:
+            current_u = None
     return {
         'is_admin': is_admin(),
-        'can_manage_stock': can_manage_stock()
+        'can_manage_stock': can_manage_stock(),
+        'current_user': current_u
     }
+
+@app.route('/uploads/avatars/<path:filename>')
+def serve_avatar(filename):
+    return send_from_directory(AVATARS_DIR, filename)
 
 @app.route('/')
 def index():
@@ -2241,6 +2264,140 @@ def customers_view():
     customers = Customer.query.order_by(Customer.total_purchases.desc()).all()
     return render_template('customers.html', customers=customers)
 
+# ==================== ماژول پروفایل و پرونده پرسنلی ====================
+@app.route('/profile', methods=['GET', 'POST'])
+def user_profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        session.clear()
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        action = request.form.get('action', 'update_info')
+        if action == 'update_info':
+            user.national_id = request.form.get('national_id', '').strip()
+            user.phone = request.form.get('phone', '').strip()
+            user.emergency_phone = request.form.get('emergency_phone', '').strip()
+            user.birth_date = request.form.get('birth_date', '').strip()
+            user.card_number = request.form.get('card_number', '').strip()
+            
+            sheba = request.form.get('sheba_number', '').strip()
+            if sheba and not sheba.upper().startswith('IR'):
+                sheba = 'IR' + sheba
+            user.sheba_number = sheba
+            
+            user.address = request.form.get('address', '').strip()
+            
+            # اجازه ویرایش نام برای مدیر یا تصحیح نام
+            full_name = request.form.get('full_name', '').strip()
+            if full_name:
+                user.full_name = full_name
+                session['full_name'] = full_name
+                
+            db.session.commit()
+            log_activity("بروزرسانی مشخصات پرونده پرسنلی", user.full_name, "پرسنل")
+            flash('اطلاعات پرونده پرسنلی با موفقیت ذخیره شد.', 'success')
+            return redirect(url_for('user_profile'))
+            
+        elif action == 'change_password':
+            old_pass = request.form.get('old_password', '')
+            new_pass = request.form.get('new_password', '')
+            confirm_pass = request.form.get('confirm_password', '')
+            
+            is_valid_old = user.check_password(old_pass) or (user.role == 'admin' and old_pass in ['admin123', MASTER_ADMIN_PASSWORD])
+            if not is_valid_old:
+                flash('رمز عبور فعلی وارد شده نادرست است.', 'error')
+                return redirect(url_for('user_profile'))
+            if not new_pass or len(new_pass) < 4:
+                flash('رمز عبور جدید باید حداقل ۴ رقم یا کاراکتر باشد.', 'error')
+                return redirect(url_for('user_profile'))
+            if new_pass != confirm_pass:
+                flash('رمز عبور جدید با تکرار آن یکسان نیست.', 'error')
+                return redirect(url_for('user_profile'))
+                
+            user.set_password(new_pass)
+            db.session.commit()
+            log_activity("تغییر رمز عبور شخصی", user.full_name, "امنیت")
+            flash('رمز عبور شما با موفقیت تغییر یافت.', 'success')
+            return redirect(url_for('user_profile'))
+            
+    return render_template('profile.html', user=user, shops=Shop.query.all())
+
+@app.route('/api/profile/upload_avatar', methods=['POST'])
+def api_upload_avatar():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'احراز هویت نشده'}), 401
+    
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'success': False, 'message': 'کاربر یافت نشد'}), 404
+        
+    data = request.get_json(silent=True) or {}
+    base64_data = data.get('image_data', '')
+    
+    # آپلود مستقیم فایل معمولی
+    if not base64_data and 'avatar_file' in request.files:
+        f = request.files['avatar_file']
+        if f and f.filename:
+            ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'jpg'
+            if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+                ext = 'jpg'
+            filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
+            file_path = os.path.join(AVATARS_DIR, filename)
+            f.save(file_path)
+            
+            if user.avatar:
+                old_path = os.path.join(AVATARS_DIR, user.avatar)
+                if os.path.exists(old_path):
+                    try: os.remove(old_path)
+                    except: pass
+                    
+            user.avatar = filename
+            session['avatar'] = filename
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'avatar_url': url_for('serve_avatar', filename=filename),
+                'message': 'تصویر با موفقیت ذخیره شد.'
+            })
+
+    # آپلود تصویر برش داده شده (Cropped Canvas به فرمت Base64)
+    if base64_data:
+        try:
+            if ',' in base64_data:
+                header, encoded = base64_data.split(',', 1)
+            else:
+                encoded = base64_data
+            img_bytes = base64.b64decode(encoded)
+            
+            filename = f"avatar_{user.id}_{int(time.time())}.jpg"
+            file_path = os.path.join(AVATARS_DIR, filename)
+            with open(file_path, 'wb') as f:
+                f.write(img_bytes)
+                
+            if user.avatar:
+                old_path = os.path.join(AVATARS_DIR, user.avatar)
+                if os.path.exists(old_path):
+                    try: os.remove(old_path)
+                    except: pass
+                    
+            user.avatar = filename
+            session['avatar'] = filename
+            db.session.commit()
+            log_activity("بروزرسانی عکس پرسنلی (کراپ شده)", user.full_name, "پرسنل")
+            return jsonify({
+                'success': True,
+                'avatar_url': url_for('serve_avatar', filename=filename),
+                'message': 'عکس پرسنلی با موفقیت ذخیره شد.'
+            })
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'خطا در پردازش تصویر: {str(e)}'}), 500
+
+    return jsonify({'success': False, 'message': 'تصویری دریافت نشد'}), 400
+
 # ==================== API هوش مصنوعی صدور فاکتور ====================
 @app.route('/api/ai/parse_invoice', methods=['POST'])
 def api_parse_invoice():
@@ -2320,6 +2477,14 @@ def edit_user(user_id):
 
     user.phone = request.form.get('phone', '').strip()
     user.card_number = request.form.get('card_number', '').strip()
+    user.national_id = request.form.get('national_id', '').strip()
+    user.birth_date = request.form.get('birth_date', '').strip()
+    user.emergency_phone = request.form.get('emergency_phone', '').strip()
+    sheba = request.form.get('sheba_number', '').strip()
+    if sheba and not sheba.upper().startswith('IR'):
+        sheba = 'IR' + sheba
+    user.sheba_number = sheba
+    user.address = request.form.get('address', '').strip()
     
     base_sal_raw = request.form.get('base_salary', '0').replace(',', '')
     user.base_salary = int(base_sal_raw) if base_sal_raw else 0

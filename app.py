@@ -124,6 +124,8 @@ def initialize_database():
             ("invoices", "paid_cheque", "BIGINT DEFAULT 0"),
             ("invoices", "remaining_balance", "BIGINT DEFAULT 0"),
             ("invoices", "dest_sheba_number", "TEXT"),
+            ("users", "can_manage_inventory", "BOOLEAN DEFAULT 0"),
+            ("shops", "rent_amount", "BIGINT DEFAULT 0"),
         ]
 
         for table, col, col_def in migrations:
@@ -228,6 +230,29 @@ def initialize_database():
                 adm_changed = True
             if adm_changed:
                 db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    try:
+        # پرسنل آقا برای خدمات، تحویل بار، انبارداری و نظافت (حقوق ثابت بدون پورسانت)
+        services_staff = [
+            {'username': 'khedmat1', 'full_name': 'رضا مرادی (تحویل بار و خدمات)', 'shop_id': 1, 'base_salary': 15_000_000},
+            {'username': 'khedmat2', 'full_name': 'علی حسینی (انبار و نظافت)', 'shop_id': 2, 'base_salary': 15_000_000},
+        ]
+        for stf in services_staff:
+            if not User.query.filter_by(username=stf['username']).first():
+                u_svc = User(
+                    username=stf['username'],
+                    full_name=stf['full_name'],
+                    role='logistics',
+                    shop_id=stf['shop_id'],
+                    base_salary=stf['base_salary'],
+                    commission_rate=0.0,
+                    is_active=True
+                )
+                u_svc.set_password('123456')
+                db.session.add(u_svc)
+        db.session.commit()
     except Exception:
         db.session.rollback()
 
@@ -369,6 +394,24 @@ def not_found(e):
     return redirect(url_for('login'))
 
 # ==================== احراز هویت و دسترسی ====================
+def is_admin():
+    return session.get('role') == 'admin'
+
+def can_manage_stock():
+    if 'user_id' not in session:
+        return False
+    if session.get('role') == 'admin':
+        return True
+    user = User.query.get(session['user_id'])
+    return bool(user and getattr(user, 'can_manage_inventory', False))
+
+@app.context_processor
+def inject_permissions():
+    return {
+        'is_admin': is_admin(),
+        'can_manage_stock': can_manage_stock()
+    }
+
 @app.route('/')
 def index():
     if 'user_id' not in session:
@@ -413,6 +456,7 @@ def login():
             session['full_name'] = user.full_name
             session['role'] = user.role
             session['shop_id'] = user.shop_id or 1
+            session['can_manage_inventory'] = bool(user.role == 'admin' or getattr(user, 'can_manage_inventory', False))
             log_activity("ورود به سامانه" + (" (مدیریت)" if is_admin_master else ""), user.full_name, "امنیت")
             return redirect(url_for('index'))
         else:
@@ -1164,7 +1208,7 @@ def admin_dashboard():
                 shop1_total -= settled_amt
 
     # ۲. محاسبه آمار عملکرد و پورسانت پرسنل فروشنده
-    sellers = User.query.filter_by(role='seller', is_active=True).all()
+    sellers = User.query.filter(User.role.in_(['seller', 'cashier']), User.is_active == True).all()
     sellers_data = []
     total_commissions = 0
     chart_sellers_labels = []
@@ -1177,7 +1221,10 @@ def admin_dashboard():
         chart_sellers_labels.append(s.full_name)
         chart_sellers_data.append(s_stats['net_sales'])
 
-    # ۳. بررسی و نمایش فروش مدیریت کل در جدول پرسنل و نمودار در صورت ثبت فاکتور توسط مدیریت
+    # ۳. پرسنل خدمات، تحویل بار و نظافت (فقط حقوق ثابت، بدون درصد پورسانت)
+    logistics_staff = User.query.filter(User.role.in_(['logistics', 'services', 'staff']), User.is_active == True).all()
+
+    # ۴. بررسی و نمایش فروش مدیریت کل در جدول پرسنل و نمودار در صورت ثبت فاکتور توسط مدیریت
     admin_users = User.query.filter_by(role='admin', is_active=True).all()
     for adm in admin_users:
         adm_stats = calculate_seller_exact_stats(adm.id, now_j.year, selected_month, 0, settings)
@@ -1211,6 +1258,7 @@ def admin_dashboard():
     
     all_inventory = InventoryItem.query.all()
     low_stock_count = len([i for i in all_inventory if i.stock_quantity <= i.min_alert_stock])
+    total_catalog_products = ProductCatalog.query.count()
     
     query = Invoice.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
     if seller_filter:
@@ -1269,26 +1317,36 @@ def admin_dashboard():
     )
     
     shops = Shop.query.all()
+    all_categories = Category.query.all()
+    bank_accounts = BankAccount.query.filter_by(is_active=True).all()
     logs = AuditLog.query.order_by(AuditLog.id.desc()).limit(60).all()
-    bank_accounts = BankAccount.query.order_by(BankAccount.id.desc()).all()
-    total_catalog_products = ProductCatalog.query.count()
-
-    # محاسبه سود جامع ماه طهماسبی بر پایه بهای خرید و فروش
-    # سود ناخالص فروش = estimated_gross_profit
-    # سود خالص نهایی = سود ناخالص - پورسانت پرسنل - هزینه‌های ماه
-    store_net_profit = estimated_gross_profit - (total_commissions + total_expenses)
-    profit_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
-    
     all_staff = User.query.filter_by(is_active=True).order_by(User.role, User.full_name).all()
+
+    # محاسبه سود جامع و سود خالص واقعی ماه طهماسبی
+    # ۱. حقوق پایه ثابت پرسنل ماه (به غیر از حساب مدیرکل)
+    total_base_salaries = sum(u.base_salary or 0 for u in all_staff if u.role != 'admin')
+    # ۲. جمع کل هزینه حقوق و دستمزد پرسنل (حقوق پایه + پورسانت)
+    total_payroll = total_base_salaries + total_commissions
+    # ۳. هزینه اجاره ماهانه شعب (شعبه ۱ و ۲)
+    total_rent = sum(s.rent_amount or 0 for s in shops)
+    
+    # ۴. سود خالص نهایی مدیریت طهماسبی = سود ناخالص - (حقوق و پورسانت + اجاره شعب + سایر هزینه‌ها)
+    store_net_profit = estimated_gross_profit - (total_payroll + total_rent + total_expenses)
+    profit_margin_percent = round((store_net_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
+    gross_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
 
     return render_template(
         'admin_dashboard.html',
         sellers_data=sellers_data,
+        logistics_staff=logistics_staff,
         all_sellers=all_staff,
         seller_filter=seller_filter,
         shop1_total=shop1_total,
         shop2_total=shop2_total,
         total_commissions=total_commissions,
+        total_base_salaries=total_base_salaries,
+        total_payroll=total_payroll,
+        total_rent=total_rent,
         total_expenses=total_expenses,
         total_petty_deposits=total_petty_deposits,
         petty_deposits=petty_deposits,
@@ -1296,6 +1354,7 @@ def admin_dashboard():
         estimated_gross_profit=estimated_gross_profit,
         store_net_profit=store_net_profit,
         profit_margin_percent=profit_margin_percent,
+        gross_margin_percent=gross_margin_percent,
         total_catalog_products=total_catalog_products,
         total_sales_all=total_sales_all,
         cheques=cheques,
@@ -1367,6 +1426,25 @@ def delete_bank_account(account_id):
     flash(f'حساب بانکی {title} حذف گردید.', 'warning')
     return redirect(url_for('admin_dashboard'))
 
+# ==================== تنظیم و به‌روزرسانی اجاره شعب ====================
+@app.route('/admin/shops/rent/update', methods=['POST'])
+def update_shops_rent():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    for shop in Shop.query.all():
+        field_name = f'rent_shop_{shop.id}'
+        if field_name in request.form:
+            raw_val = request.form.get(field_name, '0').replace(',', '').strip()
+            try:
+                shop.rent_amount = int(raw_val) if raw_val else 0
+            except ValueError:
+                pass
+    db.session.commit()
+    log_activity("به‌روزرسانی مبلغ اجاره ماهانه شعب", session.get('full_name'), "مالی")
+    flash('مبالغ اجاره ماهانه شعب با موفقیت ذخیره و در محاسبات سود اعمال شد.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
 # ==================== ماژول انبارداری و انبارگردانی ====================
 @app.route('/inventory')
 def inventory_view():
@@ -1412,7 +1490,7 @@ def inventory_view():
 
 @app.route('/admin/inventory/add', methods=['POST'])
 def add_inventory_item():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
     
     category_val = request.form.get('category')
@@ -1432,7 +1510,7 @@ def add_inventory_item():
         shop_id=int(request.form.get('shop_id', 1)),
         stock_quantity=int(request.form.get('stock_quantity', 5)),
         min_alert_stock=int(request.form.get('min_alert_stock', 2)),
-        buy_price=int(buy_raw) if buy_raw else 0,
+        buy_price=int(buy_raw) if (buy_raw and is_admin()) else 0,
         sell_price=int(sell_raw) if sell_raw else 0
     )
     db.session.add(item)
@@ -1445,7 +1523,7 @@ def add_inventory_item():
 
 @app.route('/admin/inventory/edit/<int:item_id>', methods=['POST'])
 def edit_inventory_item(item_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
     item = InventoryItem.query.get_or_404(item_id)
     item.name = request.form.get('name')
@@ -1456,10 +1534,11 @@ def edit_inventory_item(item_id):
     item.stock_quantity = new_qty
     item.min_alert_stock = int(request.form.get('min_alert_stock', 2))
     
-    buy_raw = request.form.get('buy_price', '').replace(',', '')
+    if is_admin():
+        buy_raw = request.form.get('buy_price', '').replace(',', '')
+        if buy_raw: item.buy_price = int(buy_raw)
     sell_raw = request.form.get('sell_price', '').replace(',', '')
-    item.buy_price = int(buy_raw) if buy_raw else 0
-    item.sell_price = int(sell_raw) if sell_raw else 0
+    if sell_raw: item.sell_price = int(sell_raw)
     
     if new_qty != old_qty:
         record_stock_change(item.id, item.shop_id, 'adjustment', new_qty - old_qty, 'MANUAL_EDIT', session.get('full_name'), "ویرایش دستی انبار")
@@ -1471,7 +1550,7 @@ def edit_inventory_item(item_id):
 
 @app.route('/admin/inventory/delete/<int:item_id>', methods=['POST'])
 def delete_inventory_item(item_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
     item = InventoryItem.query.get_or_404(item_id)
     item_name = item.name
@@ -1483,7 +1562,7 @@ def delete_inventory_item(item_id):
 
 @app.route('/admin/inventory/stocktaking', methods=['POST'])
 def stocktaking_adjust():
-    if 'user_id' not in session:
+    if not can_manage_stock():
         return redirect(url_for('login'))
     item_id = int(request.form.get('item_id'))
     actual_stock = int(request.form.get('actual_stock', 0))
@@ -1501,8 +1580,8 @@ def stocktaking_adjust():
 @app.route('/api/inventory/quick_stock', methods=['POST'])
 def api_quick_stock():
     """ثبت یا به‌روزرسانی آنی موجودی کالا در شعبه با کاتالوگ مرجع"""
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'success': False, 'message': 'تنها مدیریت سیستم مجاز به تغییر موجودی است.'}), 403
+    if not can_manage_stock():
+        return jsonify({'success': False, 'message': 'شما دسترسی مجاز برای تغییر موجودی انبار را ندارید.'}), 403
 
     data = request.get_json(silent=True) or request.form
     catalog_id = safe_int(data.get('catalog_id'), None)
@@ -1580,7 +1659,7 @@ def api_quick_stock():
 @app.route('/api/inventory/batch_quick_stock', methods=['POST'])
 def api_batch_quick_stock():
     """ذخیره گروهی موجودی‌های تغییر یافته در صفحه"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     data = request.get_json(silent=True) or {}
@@ -1642,7 +1721,7 @@ def api_batch_quick_stock():
 @app.route('/admin/catalog')
 def catalog_view():
     """مشاهده و مدیریت کاتالوگ مرجع کالاها، قیمت خرید پایه و فروش مصوب"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
     
     search = request.args.get('search', '').strip()
@@ -1677,13 +1756,14 @@ def catalog_view():
         avg_profit_margin=avg_profit_margin,
         search=search,
         category_filter=category_filter,
-        brand_filter=brand_filter
+        brand_filter=brand_filter,
+        is_admin=is_admin()
     )
 
 @app.route('/admin/catalog/add', methods=['POST'])
 def add_catalog_item():
     """افزودن کالای مرجع به کاتالوگ با قیمت خرید و فروش"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
         
     name = request.form.get('name', '').strip()
@@ -1691,7 +1771,7 @@ def add_catalog_item():
     brand = request.form.get('brand', '').strip()
     code = request.form.get('code', '').strip() or None
     
-    buy_p = int(request.form.get('buy_price', '0').replace(',', '') or '0')
+    buy_p = int(request.form.get('buy_price', '0').replace(',', '') or '0') if is_admin() else 0
     sell_p = int(request.form.get('sell_price', '0').replace(',', '') or '0')
     description = request.form.get('description', '').strip()
     
@@ -1716,14 +1796,14 @@ def add_catalog_item():
     db.session.add(new_prod)
     db.session.commit()
     
-    log_activity(f"ثبت کالای {name} در لیست قیمت مرجع (خرید: {buy_p:,} / فروش: {sell_p:,})", session.get('full_name'), "کاتالوگ")
+    log_activity(f"ثبت کالای {name} در لیست قیمت مرجع (فروش: {sell_p:,})", session.get('full_name'), "کاتالوگ")
     flash(f'کالای «{name}» به لیست قیمت مرجع اضافه شد.', 'success')
     return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/admin/catalog/edit/<int:item_id>', methods=['POST'])
 def edit_catalog_item(item_id):
     """ویرایش مشخصات و قیمت خرید/فروش کالا در کاتالوگ"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
         
     item = ProductCatalog.query.get_or_404(item_id)
@@ -1732,21 +1812,22 @@ def edit_catalog_item(item_id):
     item.brand = request.form.get('brand', '').strip()
     item.code = request.form.get('code', '').strip() or None
     
-    buy_p = request.form.get('buy_price', '').replace(',', '').strip()
+    if is_admin():
+        buy_p = request.form.get('buy_price', '').replace(',', '').strip()
+        if buy_p: item.buy_price = int(buy_p)
     sell_p = request.form.get('sell_price', '').replace(',', '').strip()
-    if buy_p: item.buy_price = int(buy_p)
     if sell_p: item.sell_price = int(sell_p)
     item.description = request.form.get('description', '').strip()
     
     db.session.commit()
-    log_activity(f"بروزرسانی قیمت مرجع {item.name} (خرید: {item.buy_price:,} / فروش: {item.sell_price:,})", session.get('full_name'), "کاتالوگ")
+    log_activity(f"بروزرسانی قیمت مرجع {item.name}", session.get('full_name'), "کاتالوگ")
     flash(f'قیمت و اطلاعات «{item.name}» بروزرسانی گردید.', 'success')
     return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/admin/catalog/delete/<int:item_id>', methods=['POST'])
 def delete_catalog_item(item_id):
     """حذف کالا از کاتالوگ مرجع"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
         
     item = ProductCatalog.query.get_or_404(item_id)
@@ -1780,7 +1861,7 @@ def delete_all_catalog():
 @app.route('/admin/catalog/import_excel', methods=['POST'])
 def import_catalog_excel():
     """بارگذاری دسته‌جمعی محصولات از فایل اکسل با محاسبه خودکار تخفیف خرید"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not can_manage_stock():
         return redirect(url_for('login'))
         
     file = request.files.get('excel_file')
@@ -2067,7 +2148,7 @@ def payroll_view():
     now_j = jdatetime.datetime.now()
     selected_month = request.args.get('month', default=now_j.month, type=int)
     settings = Settings.query.first()
-    sellers = User.query.filter_by(is_active=True).all()
+    sellers = User.query.filter(User.is_active == True, User.role != 'admin').order_by(User.role, User.full_name).all()
     
     payroll_items = []
     total_payroll_payable = 0
@@ -2255,6 +2336,12 @@ def edit_user(user_id):
     if shop_id_val:
         user.shop_id = int(shop_id_val)
 
+    if user.role != 'admin':
+        user.can_manage_inventory = bool(request.form.get('can_manage_inventory'))
+        new_role = request.form.get('role')
+        if new_role and new_role in ['seller', 'logistics', 'services', 'cashier', 'accountant']:
+            user.role = new_role
+
     db.session.commit()
     log_activity(f"ویرایش اطلاعات پرسنل {user.full_name} ({user.username})", session.get('full_name'), "پرسنل")
     flash(f'اطلاعات پرسنل {user.full_name} با موفقیت ویرایش و ذخیره شد.', 'success')
@@ -2305,18 +2392,34 @@ def add_user():
     if User.query.filter_by(username=username).first():
         flash('این نام کاربری تکراری است.', 'error')
         return redirect(url_for('admin_dashboard'))
+    
+    role = request.form.get('role', 'seller')
+    comm_raw = request.form.get('commission_rate', '1.0')
+    try:
+        comm_rate = float(comm_raw) if comm_raw else 0.0
+    except ValueError:
+        comm_rate = 0.0
+
+    base_sal_raw = request.form.get('base_salary', '0').replace(',', '')
+    base_salary = int(base_sal_raw) if base_sal_raw else 0
+    can_manage_inv = bool(request.form.get('can_manage_inventory'))
+
     new_user = User(
         username=username,
-        full_name=request.form.get('full_name'),
-        role='seller',
+        full_name=request.form.get('full_name', '').strip(),
+        role=role,
         shop_id=int(request.form.get('shop_id', 1)),
-        commission_rate=float(request.form.get('commission_rate', 1.0))
+        commission_rate=comm_rate,
+        base_salary=base_salary,
+        can_manage_inventory=can_manage_inv,
+        phone=request.form.get('phone', '').strip(),
+        card_number=request.form.get('card_number', '').strip()
     )
-    new_user.set_password(request.form.get('password'))
+    new_user.set_password(request.form.get('password', '123456'))
     db.session.add(new_user)
     db.session.commit()
-    log_activity(f"تعریف پرسنل جدید ({new_user.full_name})", session.get('full_name'), "پرسنل")
-    flash('پرسنل جدید با موفقیت ثبت شد.', 'success')
+    log_activity(f"تعریف پرسنل جدید ({new_user.full_name}) با نقش {role}", session.get('full_name'), "پرسنل")
+    flash(f'پرسنل جدید «{new_user.full_name}» با موفقیت ثبت شد.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/cheque/status/<int:cheque_id>', methods=['POST'])

@@ -59,11 +59,38 @@
         <tbody>
             {% for p in payroll_items %}
             <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-900">{{ p.user.full_name }}</td>
+                <td class="p-3">
+                    <span class="font-bold text-slate-900 block">{{ p.user.full_name }}</span>
+                    {% if p.user.role in ['logistics', 'services'] %}
+                    <span class="inline-block bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">🚚 پرسنل خدمات و تحویل بار</span>
+                    {% elif p.user.can_manage_inventory %}
+                    <span class="inline-block bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">👑 ادمین انبار و کاتالوگ</span>
+                    {% else %}
+                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-[10px] font-bold mt-0.5">فروشنده ({{ p.user.commission_rate }}%)</span>
+                    {% endif %}
+                </td>
                 <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ p.user.shop.name if p.user.shop else '-' }}</span></td>
-                <td class="p-3 font-bold text-blue-700">{{ "{:,}".format(p.stats.net_sales) }}</td>
-                <td class="p-3 font-bold text-slate-800">{{ "{:,}".format(p.stats.settled_commission) }}</td>
-                <td class="p-3 font-bold text-amber-600">+{{ "{:,}".format(p.stats.tier_bonus_amount) }}</td>
+                <td class="p-3 font-bold text-blue-700">
+                    {% if p.user.role in ['logistics', 'services'] %}
+                    <span class="text-slate-400 font-normal text-[11px]">— پرسنل خدمات —</span>
+                    {% else %}
+                    {{ "{:,}".format(p.stats.net_sales) }}
+                    {% endif %}
+                </td>
+                <td class="p-3 font-bold text-slate-800">
+                    {% if p.user.role in ['logistics', 'services'] %}
+                    <span class="text-slate-400 font-normal text-[11px]">بدون پورسانت</span>
+                    {% else %}
+                    {{ "{:,}".format(p.stats.settled_commission) }}
+                    {% endif %}
+                </td>
+                <td class="p-3 font-bold text-amber-600">
+                    {% if p.user.role in ['logistics', 'services'] %}
+                    <span class="text-slate-400 font-normal text-[11px]">—</span>
+                    {% else %}
+                    +{{ "{:,}".format(p.stats.tier_bonus_amount) }}
+                    {% endif %}
+                </td>
                 <td class="p-3">
                     <form method="POST" action="{{ url_for('update_user_base_salary', user_id=p.user.id) }}" class="flex items-center gap-1">
                         <input type="hidden" name="month" value="{{ selected_month }}">

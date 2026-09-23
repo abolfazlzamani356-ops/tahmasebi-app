@@ -32,9 +32,10 @@ def test_admin_invoice_and_dashboard_stats():
         assert stats['settled_commission'] == 0
         assert stats['effective_rate'] == 0.0
 
+        import time
         # Simulate admin creating an invoice for 8,000,000
         test_inv = Invoice(
-            invoice_number='TEST-ADM-001054',
+            invoice_number=f'TEST-ADM-{int(time.time()*1000)}',
             customer_name='خریدار نمونه',
             status='final',
             invoice_type='sale',

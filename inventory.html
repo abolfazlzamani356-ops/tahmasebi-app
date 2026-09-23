@@ -15,7 +15,7 @@
         </div>
         
         <div class="flex flex-wrap items-center gap-2">
-            {% if session.get('role') == 'admin' %}
+            {% if is_admin %}
             <button onclick="openFaucetWizardModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                 🚿 سازنده سریع ست شیرآلات
             </button>
@@ -23,9 +23,13 @@
             <button onclick="openExcelModal()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                 📥 ورود دسته‌جمعی از اکسل
             </button>
+            {% endif %}
+            {% if can_manage_stock %}
             <button onclick="openCatalogAddModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                 ➕ تعریف تکی کالا
             </button>
+            {% endif %}
+            {% if is_admin %}
             <button onclick="openClearAllModal()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                 🗑️ پاکسازی لیست کاتالوگ
             </button>
@@ -95,7 +99,7 @@
                 <span class="text-xs text-purple-200 font-bold">تعریف کالا بدون نیاز به موجودی</span>
                 <p class="text-[11px] text-slate-300 mt-1">قیمت خرید و فروش را یک‌بار ثبت و هر زمان ویرایش کنید</p>
             </div>
-            {% if session.get('role') == 'admin' %}
+            {% if can_manage_stock %}
             <button onclick="openCatalogAddModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-4 py-2 rounded-2xl text-xs transition shadow-lg">
                 ➕ افزودن کالا
             </button>
@@ -110,7 +114,7 @@
                 <span class="text-base">📋</span>
                 <h3 class="text-sm font-black text-slate-800">لیست قیمت پایه محصولات مجموعه طهماسبی</h3>
             </div>
-            <span class="text-xs text-slate-500">قیمت‌های این جدول مبنای محاسبه سود واقعی فاکتورهای پرسنل هستند</span>
+            <span class="text-xs text-slate-500">قیمت‌های رسمی فروش و کاتالوگ محصولات</span>
         </div>
 
         <div class="overflow-x-auto">
@@ -121,10 +125,14 @@
                         <th class="p-4">نام و مدل کالا</th>
                         <th class="p-4">دسته‌بندی</th>
                         <th class="p-4">برند</th>
+                        {% if is_admin %}
                         <th class="p-4 text-blue-700 font-black">قیمت خرید برای ما (پایه)</th>
+                        {% endif %}
                         <th class="p-4 text-emerald-700 font-black">قیمت فروش مصوب (پیش‌فرض فاکتور)</th>
+                        {% if is_admin %}
                         <th class="p-4 text-purple-700 font-black">سود پایه هر عدد</th>
-                        {% if session.get('role') == 'admin' %}
+                        {% endif %}
+                        {% if can_manage_stock %}
                         <th class="p-4 text-center">عملیات</th>
                         {% endif %}
                     </tr>
@@ -141,8 +149,11 @@
                                 </span>
                             </td>
                             <td class="p-4 text-slate-600">{{ item.brand or '—' }}</td>
+                            {% if is_admin %}
                             <td class="p-4 font-black text-blue-600 text-sm">{{ "{:,}".format(item.buy_price) }} تومان</td>
+                            {% endif %}
                             <td class="p-4 font-black text-emerald-600 text-sm">{{ "{:,}".format(item.sell_price) }} تومان</td>
+                            {% if is_admin %}
                             <td class="p-4 font-black text-purple-600">
                                 {% set margin = item.sell_price - item.buy_price %}
                                 {{ "{:,}".format(margin) }} تومان
@@ -150,10 +161,11 @@
                                 <span class="text-[10px] text-slate-400 block font-normal">({{ "%.1f"|format(margin / item.sell_price * 100) }}%)</span>
                                 {% endif %}
                             </td>
-                            {% if session.get('role') == 'admin' %}
+                            {% endif %}
+                            {% if can_manage_stock %}
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openCatalogEditModal({{ item.id }}, '{{ item.name }}', '{{ item.category }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price }}, {{ item.sell_price }}, '{{ item.description or '' }}')"
+                                    <button onclick="openCatalogEditModal({{ item.id }}, '{{ item.name }}', '{{ item.category }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if is_admin else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}')"
                                         class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-xl font-bold transition">
                                         ✏️ ویرایش قیمت
                                     </button>
@@ -169,7 +181,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="8" class="p-8 text-center text-slate-400">
+                            <td colspan="{{ 8 if is_admin else (6 if can_manage_stock else 5) }}" class="p-8 text-center text-slate-400">
                                 هنوز محصولی در لیست قیمت مرجع ثبت نشده است. روی دکمه «تعریف محصول جدید» کلیک کنید.
                             </td>
                         </tr>
@@ -194,6 +206,7 @@
             <span class="text-xs bg-indigo-500/30 text-indigo-300 px-3 py-1 rounded-full font-bold">هوش انبارداری</span>
         </div>
 
+        {% if is_admin %}
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
                 <span class="text-slate-400 block mb-1">ارزش کل خرید انبار:</span>
@@ -212,6 +225,18 @@
                 <span class="text-base font-black text-rose-400">{{ ai_insights.critical_count }} قلم کالا</span>
             </div>
         </div>
+        {% else %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
+                <span class="text-slate-400 block mb-1">ارزش فروش کل موجودی کالاها:</span>
+                <span class="text-base font-black text-emerald-400">{{ "{:,}".format(ai_insights.total_sell_valuation) }} تومان</span>
+            </div>
+            <div class="bg-slate-800/70 p-4 rounded-2xl border border-slate-700">
+                <span class="text-slate-400 block mb-1">کالاهای دارای کسری و رو به اتمام:</span>
+                <span class="text-base font-black text-rose-400">{{ ai_insights.critical_count }} قلم کالا</span>
+            </div>
+        </div>
+        {% endif %}
 
         {% if ai_insights.critical_items %}
         <div class="mt-4 pt-4 border-t border-slate-700/60">
@@ -348,6 +373,7 @@
                 </div>
                 <span class="text-2xl">🔴</span>
             </div>
+            {% if is_admin %}
             <div class="bg-slate-900 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-sm">
                 <div>
                     <span class="text-slate-400 font-bold block text-[11px]">ارزش خرید موجودی شعبه:</span>
@@ -355,6 +381,15 @@
                 </div>
                 <span class="text-2xl">💰</span>
             </div>
+            {% else %}
+            <div class="bg-slate-900 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                    <span class="text-slate-400 font-bold block text-[11px]">مجموع موجودی این شعبه:</span>
+                    <span id="statTotalUnits" class="text-sm font-black text-indigo-300 mt-0.5 block">۰ عدد</span>
+                </div>
+                <span class="text-2xl">📦</span>
+            </div>
+            {% endif %}
         </div>
 
         <!-- نوار ابزار جستجو و فیلترها -->
@@ -385,10 +420,12 @@
             </div>
 
             <!-- دکمه ذخیره گروهی صفحه -->
+            {% if can_manage_stock %}
             <button type="button" onclick="saveCurrentPageBatch()" 
                 class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow transition flex items-center gap-1.5">
                 <span>💾</span> ذخیره دسته‌جمعی تغییرات این صفحه
             </button>
+            {% endif %}
         </div>
 
         <!-- جدول ردیف به ردیف اقلام کاتالوگ با باکس تنظیم موجودی -->
@@ -399,12 +436,16 @@
                         <th class="p-3 w-12 text-center">ردیف</th>
                         <th class="p-3">نام و مدل کالا</th>
                         <th class="p-3">برند / دسته‌بندی</th>
+                        {% if is_admin %}
                         <th class="p-3 text-blue-700 font-black">قیمت خرید پایه</th>
+                        {% endif %}
                         <th class="p-3 text-emerald-700 font-black">قیمت فروش مصوب</th>
                         <th class="p-3 text-center">وضعیت در این شعبه</th>
                         <th class="p-3 text-center w-52 bg-indigo-50/70 font-black text-indigo-950">تعداد موجودی فیزیکی</th>
                         <th class="p-3 text-center w-28">حداقل هشدار</th>
+                        {% if can_manage_stock %}
                         <th class="p-3 text-center w-28">عملیات ثبت</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody id="catalogStockTableBody" class="divide-y divide-slate-100 font-medium">
@@ -430,7 +471,7 @@
             <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
                 <span>🏬</span> لیست کالاهای موجود در شعب طهماسبی
             </h3>
-            {% if session.get('role') == 'admin' %}
+            {% if can_manage_stock %}
             <button onclick="document.getElementById('inventoryModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition">
                 ➕ تعریف موجودی شعبه
             </button>
@@ -446,10 +487,12 @@
                         <th class="p-3">شعبه</th>
                         <th class="p-3">موجودی</th>
                         <th class="p-3">هشدار کسری</th>
+                        {% if is_admin %}
                         <th class="p-3">قیمت خرید</th>
+                        {% endif %}
                         <th class="p-3">قیمت فروش</th>
                         <th class="p-3">وضعیت انبار</th>
-                        {% if session.get('role') == 'admin' %}
+                        {% if can_manage_stock %}
                         <th class="p-3 text-center">عملیات</th>
                         {% endif %}
                     </tr>
@@ -464,7 +507,9 @@
                             {{ item.stock_quantity }} عدد
                         </td>
                         <td class="p-3 text-slate-400">{{ item.min_alert_stock }} عدد</td>
+                        {% if is_admin %}
                         <td class="p-3 font-bold text-slate-600">{{ "{:,}".format(item.buy_price) }} ت</td>
+                        {% endif %}
                         <td class="p-3 font-black text-emerald-700">{{ "{:,}".format(item.sell_price) }} ت</td>
                         <td class="p-3">
                             {% if item.stock_quantity == 0 %}
@@ -475,10 +520,10 @@
                             <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">موجود و کافی</span>
                             {% endif %}
                         </td>
-                        {% if session.get('role') == 'admin' %}
+                        {% if can_manage_stock %}
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-1.5">
-                                <button onclick='openEditInventoryModal({{ item.to_dict()|tojson }})' class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 rounded-lg text-[10px] font-bold transition">
+                                <button onclick='openEditInventoryModal({{ item.to_dict(is_admin)|tojson }})' class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 rounded-lg text-[10px] font-bold transition">
                                     ✏️ ویرایش
                                 </button>
                                 <form method="POST" action="{{ url_for('delete_inventory_item', item_id=item.id) }}" onsubmit="return confirm('کالای ({{ item.name }}) از انبار حذف شود؟')">
@@ -491,7 +536,7 @@
                         {% endif %}
                     </tr>
                     {% else %}
-                    <tr><td colspan="9" class="text-center p-6 text-slate-400">کالایی در انبار ثبت نشده است.</td></tr>
+                    <tr><td colspan="{{ 9 if is_admin else (8 if can_manage_stock else 7) }}" class="text-center p-6 text-slate-400">کالایی در انبار ثبت نشده است.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -533,12 +578,14 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
+                {% if is_admin %}
                 <div>
                     <label class="block text-xs font-black text-blue-700 mb-1">🔵 قیمت خرید برای ما (تومان) *</label>
                     <input type="number" name="buy_price" required placeholder="مثال: 7200000"
                         class="w-full bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-xs font-black text-blue-800 outline-none focus:border-blue-500">
                 </div>
-                <div>
+                {% endif %}
+                <div class="{% if not is_admin %}col-span-2{% endif %}">
                     <label class="block text-xs font-black text-emerald-700 mb-1">🟢 قیمت فروش مصوب (تومان) *</label>
                     <input type="number" name="sell_price" required placeholder="مثال: 10700000"
                         class="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs font-black text-emerald-800 outline-none focus:border-emerald-500">
@@ -587,12 +634,14 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
+                {% if is_admin %}
                 <div>
                     <label class="block text-xs font-black text-blue-700 mb-1">🔵 قیمت خرید برای ما (تومان)</label>
                     <input type="number" name="buy_price" id="catEditBuyPrice" required
                         class="w-full bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-xs font-black text-blue-800 outline-none focus:border-blue-500">
                 </div>
-                <div>
+                {% endif %}
+                <div class="{% if not is_admin %}col-span-2{% endif %}">
                     <label class="block text-xs font-black text-emerald-700 mb-1">🟢 قیمت فروش مصوب (تومان)</label>
                     <input type="number" name="sell_price" id="catEditSellPrice" required
                         class="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs font-black text-emerald-800 outline-none focus:border-emerald-500">
@@ -651,11 +700,13 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-2 mb-3">
+                {% if is_admin %}
                 <div>
                     <label class="block text-[11px] text-slate-600 mb-1">قیمت خرید (تومان):</label>
                     <input type="text" id="editInvBuyPrice" name="buy_price" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
                 </div>
-                <div>
+                {% endif %}
+                <div class="{% if not is_admin %}col-span-2{% endif %}">
                     <label class="block text-[11px] text-slate-600 mb-1">قیمت فروش (تومان):</label>
                     <input type="text" id="editInvSellPrice" name="sell_price" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
                 </div>
@@ -714,11 +765,13 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-4">
+                {% if is_admin %}
                 <div>
                     <label class="block text-[11px] text-slate-600 mb-1">قیمت خرید (تومان):</label>
                     <input type="text" name="buy_price" placeholder="7,200,000" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold text-slate-700">
                 </div>
-                <div>
+                {% endif %}
+                <div class="{% if not is_admin %}col-span-2{% endif %}">
                     <label class="block text-[11px] text-slate-600 mb-1">قیمت فروش (تومان):</label>
                     <input type="text" name="sell_price" placeholder="9,800,000" onkeyup="formatNumber(this)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold text-emerald-700">
                 </div>
@@ -1085,7 +1138,8 @@
         document.getElementById('catEditCategory').value = cat;
         document.getElementById('catEditBrand').value = brand;
         document.getElementById('catEditCode').value = code;
-        document.getElementById('catEditBuyPrice').value = buy;
+        const buyInput = document.getElementById('catEditBuyPrice');
+        if (buyInput) buyInput.value = buy;
         document.getElementById('catEditSellPrice').value = sell;
         document.getElementById('catalogEditModal').classList.remove('hidden');
     }
@@ -1106,7 +1160,8 @@
         document.getElementById('editInvShop').value = item.shop_id;
         document.getElementById('editInvStock').value = item.stock_quantity;
         document.getElementById('editInvMinStock').value = item.min_alert_stock;
-        document.getElementById('editInvBuyPrice').value = Number(item.buy_price || 0).toLocaleString();
+        const buyEl = document.getElementById('editInvBuyPrice');
+        if (buyEl) buyEl.value = Number(item.buy_price || 0).toLocaleString();
         document.getElementById('editInvSellPrice').value = Number(item.sell_price || 0).toLocaleString();
         document.getElementById('editInventoryModal').classList.remove('hidden');
     }
@@ -1124,6 +1179,9 @@
     }
 
     // ==================== اسکریپت پیشرفته میز کار انبارگردانی سریع کاتالوگ ====================
+    const isAdmin = {{ 'true' if is_admin else 'false' }};
+    const canManageStock = {{ 'true' if can_manage_stock else 'false' }};
+
     let currentStockShop = 1;
     let currentStockPage = 1;
     const stockPageSize = 50;
@@ -1139,7 +1197,7 @@
             category: {{ c.category|tojson }},
             brand: {{ (c.brand or '')|tojson }},
             code: {{ (c.code or '')|tojson }},
-            buy_price: {{ c.buy_price }},
+            buy_price: {{ c.buy_price if is_admin else 0 }},
             sell_price: {{ c.sell_price }},
             stock_1: {{ s1.stock }},
             min_1: {{ s1.min_alert }},
@@ -1173,6 +1231,7 @@
         let lowCount = 0;
         let outCount = 0;
         let totalBuyVal = 0;
+        let totalUnits = 0;
 
         rawCatalogStockData.forEach(item => {
             const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
@@ -1182,10 +1241,12 @@
                 outCount++;
             } else if (stock <= min) {
                 lowCount++;
-                totalBuyVal += (stock * item.buy_price);
+                if (isAdmin) totalBuyVal += (stock * item.buy_price);
+                totalUnits += stock;
             } else {
                 availableCount++;
-                totalBuyVal += (stock * item.buy_price);
+                if (isAdmin) totalBuyVal += (stock * item.buy_price);
+                totalUnits += stock;
             }
         });
 
@@ -1193,11 +1254,13 @@
         const elLow = document.getElementById('statLowCount');
         const elOut = document.getElementById('statOutCount');
         const elVal = document.getElementById('statTotalBuyValuation');
+        const elUnits = document.getElementById('statTotalUnits');
 
         if (elAvail) elAvail.innerText = availableCount.toLocaleString('fa-IR') + ' قلم';
         if (elLow) elLow.innerText = lowCount.toLocaleString('fa-IR') + ' قلم';
         if (elOut) elOut.innerText = outCount.toLocaleString('fa-IR') + ' قلم';
-        if (elVal) elVal.innerText = totalBuyVal.toLocaleString('fa-IR') + ' تومان';
+        if (elVal && isAdmin) elVal.innerText = totalBuyVal.toLocaleString('fa-IR') + ' تومان';
+        if (elUnits && !isAdmin) elUnits.innerText = totalUnits.toLocaleString('fa-IR') + ' عدد';
     }
 
     function onStockFilterChange() {
@@ -1262,7 +1325,10 @@
         if (nextBtn) nextBtn.disabled = (currentStockPage >= totalPages);
 
         if (pageItems.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400 font-bold">هیچ کالایی با فیلترهای انتخابی یافت نشد.</td></tr>`;
+            let colSpan = 7;
+            if (isAdmin) colSpan += 1;
+            if (canManageStock) colSpan += 1;
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-8 text-center text-slate-400 font-bold">هیچ کالایی با فیلترهای انتخابی یافت نشد.</td></tr>`;
             return;
         }
 
@@ -1280,23 +1346,17 @@
                 badgeHtml = `<span id="badge_${item.id}" class="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟢 موجود (${stock})</span>`;
             }
 
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 transition';
-            tr.innerHTML = `
-                <td class="p-3 text-center text-slate-400 font-bold text-[11px]">${rowNumber}</td>
-                <td class="p-3">
-                    <span class="font-black text-slate-800 text-xs block">${escapeHtml(item.name)}</span>
-                    ${item.code ? `<span class="text-[10px] font-mono text-slate-400">کد: ${escapeHtml(item.code)}</span>` : ''}
+            const buyColHtml = isAdmin ? `<td class="p-3 font-bold text-blue-700 text-xs">${item.buy_price.toLocaleString('fa-IR')} ت</td>` : '';
+            const actionColHtml = canManageStock ? `
+                <td class="p-3 text-center">
+                    <button type="button" id="save_btn_${item.id}" onclick="quickSaveStockItem(${item.id}, this)"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1 mx-auto">
+                        <span>💾</span> ثبت
+                    </button>
                 </td>
-                <td class="p-3">
-                    <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold block w-max mb-0.5">${escapeHtml(item.brand || 'عمومی')}</span>
-                    <span class="text-[10px] text-slate-500 font-medium">${escapeHtml(item.category)}</span>
-                </td>
-                <td class="p-3 font-bold text-blue-700 text-xs">${item.buy_price.toLocaleString('fa-IR')} ت</td>
-                <td class="p-3 font-black text-emerald-700 text-xs">${item.sell_price.toLocaleString('fa-IR')} ت</td>
-                <td class="p-3 text-center" id="badge_td_${item.id}">
-                    ${badgeHtml}
-                </td>
+            ` : '';
+
+            const stockInputsHtml = canManageStock ? `
                 <td class="p-3 text-center bg-indigo-50/40">
                     <div class="inline-flex items-center justify-center gap-1 bg-white p-1 rounded-xl border border-indigo-200 shadow-sm">
                         <button type="button" onclick="stepStockQty(${item.id}, -1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-sm flex items-center justify-center transition">－</button>
@@ -1311,12 +1371,30 @@
                         class="w-14 p-1 text-center font-bold text-xs text-slate-600 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-slate-400" 
                         dir="ltr" oninput="markRowDirty(${item.id})">
                 </td>
-                <td class="p-3 text-center">
-                    <button type="button" id="save_btn_${item.id}" onclick="quickSaveStockItem(${item.id}, this)"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1 mx-auto">
-                        <span>💾</span> ثبت
-                    </button>
+            ` : `
+                <td class="p-3 text-center font-black text-indigo-900 text-sm bg-indigo-50/20">${stock} عدد</td>
+                <td class="p-3 text-center font-bold text-slate-500 text-xs">${min} عدد</td>
+            `;
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition';
+            tr.innerHTML = `
+                <td class="p-3 text-center text-slate-400 font-bold text-[11px]">${rowNumber}</td>
+                <td class="p-3">
+                    <span class="font-black text-slate-800 text-xs block">${escapeHtml(item.name)}</span>
+                    ${item.code ? `<span class="text-[10px] font-mono text-slate-400">کد: ${escapeHtml(item.code)}</span>` : ''}
                 </td>
+                <td class="p-3">
+                    <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold block w-max mb-0.5">${escapeHtml(item.brand || 'عمومی')}</span>
+                    <span class="text-[10px] text-slate-500 font-medium">${escapeHtml(item.category)}</span>
+                </td>
+                ${buyColHtml}
+                <td class="p-3 font-black text-emerald-700 text-xs">${item.sell_price.toLocaleString('fa-IR')} ت</td>
+                <td class="p-3 text-center" id="badge_td_${item.id}">
+                    ${badgeHtml}
+                </td>
+                ${stockInputsHtml}
+                ${actionColHtml}
             `;
             tbody.appendChild(tr);
         });

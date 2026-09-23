@@ -11,6 +11,7 @@ class Shop(db.Model):
     name = db.Column(db.String(150), nullable=False)
     phone = db.Column(db.String(50), nullable=True)
     address = db.Column(db.String(255), nullable=True)
+    rent_amount = db.Column(db.BigInteger, default=0) # اجاره ماهانه شعبه (تومان)
     
     users = db.relationship('User', backref='shop', lazy=True)
     invoices = db.relationship('Invoice', backref='shop', lazy=True)
@@ -19,7 +20,13 @@ class Shop(db.Model):
     inventory_items = db.relationship('InventoryItem', backref='shop', lazy=True)
 
     def to_dict(self):
-        return {'id': self.id, 'name': self.name, 'phone': self.phone, 'address': self.address}
+        return {
+            'id': self.id,
+            'name': self.name,
+            'phone': self.phone,
+            'address': self.address,
+            'rent_amount': self.rent_amount or 0
+        }
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -64,6 +71,7 @@ class User(db.Model):
     base_salary = db.Column(db.BigInteger, default=0) # حقوق پایه ثابت ماهانه
     phone = db.Column(db.String(20), nullable=True)
     card_number = db.Column(db.String(30), nullable=True)
+    can_manage_inventory = db.Column(db.Boolean, default=False) # دسترسی ویژه ادمین انبار و کاتالوگ
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -138,7 +146,7 @@ class InventoryItem(db.Model):
 
     stock_logs = db.relationship('StockLog', backref='item', lazy=True, cascade='all, delete-orphan')
 
-    def to_dict(self):
+    def to_dict(self, include_buy_price=True):
         return {
             'id': self.id,
             'code': self.code or '',
@@ -150,7 +158,7 @@ class InventoryItem(db.Model):
             'shop_name': self.shop.name if self.shop else '',
             'stock_quantity': self.stock_quantity,
             'min_alert_stock': self.min_alert_stock,
-            'buy_price': self.buy_price,
+            'buy_price': self.buy_price if include_buy_price else 0,
             'sell_price': self.sell_price,
             'is_low_stock': self.stock_quantity <= self.min_alert_stock
         }

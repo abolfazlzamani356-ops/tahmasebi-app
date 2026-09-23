@@ -28,6 +28,7 @@
         <a href="{{ url_for('download_backup') }}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition">🛡️ بکاپ دیتابیس</a>
         <button onclick="document.getElementById('adminChangePasswordModal').classList.remove('hidden')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">🔐 تغییر رمز</button>
         <button onclick="document.getElementById('pettyDepositModal').classList.remove('hidden')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">💵 شارژ تنخواه</button>
+        <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition flex items-center gap-1 shadow">🏢 اجاره شعب ({{ "{:,}".format(total_rent) }} ت)</button>
         <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">⚙️ تنظیم تارگت‌ها</button>
         <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl transition">➕ پرسنل جدید</button>
     </div>
@@ -60,26 +61,33 @@
                 <span class="text-2xl">💎</span>
                 <h2 class="text-base font-black text-amber-300">سود خالص نهایی ماه طهماسبی ({{ selected_month_name }})</h2>
                 <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    حاشیه سود: {{ profit_margin_percent }}%
+                    حاشیه سود خالص: {{ profit_margin_percent }}%
+                </span>
+                <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    حاشیه ناخالص: {{ gross_margin_percent }}%
                 </span>
             </div>
             <p class="text-xs text-slate-300">
-                محاسبه شده دقیق: اختلاف قیمت فروش و بهای تمام‌شده خرید مرجع، پس از کسر پورسانت پرسنل و هزینه‌ها
+                محاسبه سود خالص: سود ناخالص فروشگاه منهای حقوق ثابت و پورسانت پرسنل، اجاره شعب ۱ و ۲، و هزینه‌های جاری
             </p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-6">
+        <div class="flex flex-wrap items-center gap-4 md:gap-6">
             <div class="text-left">
-                <span class="text-[11px] text-slate-400 block font-medium">سود ناخالص فروشگاه:</span>
+                <span class="text-[11px] text-slate-400 block font-medium">سود ناخالص فروش:</span>
                 <span class="text-sm font-bold text-slate-200">{{ "{:,}".format(estimated_gross_profit) }} ت</span>
             </div>
             <div class="text-left">
-                <span class="text-[11px] text-rose-400 block font-medium">کسر پورسانت پرسنل:</span>
-                <span class="text-sm font-bold text-rose-300">- {{ "{:,}".format(total_commissions) }} ت</span>
+                <span class="text-[11px] text-rose-400 block font-medium">کسر حقوق و پورسانت:</span>
+                <span class="text-sm font-bold text-rose-300" title="حقوق پایه: {{ '{:,}'.format(total_base_salaries) }} | پورسانت: {{ '{:,}'.format(total_commissions) }}">- {{ "{:,}".format(total_payroll) }} ت</span>
             </div>
             <div class="text-left">
-                <span class="text-[11px] text-amber-400 block font-medium">کسر هزینه‌ها:</span>
-                <span class="text-sm font-bold text-amber-300">- {{ "{:,}".format(total_expenses) }} ت</span>
+                <span class="text-[11px] text-amber-400 block font-medium">کسر اجاره شعب:</span>
+                <span class="text-sm font-bold text-amber-300">- {{ "{:,}".format(total_rent) }} ت</span>
+            </div>
+            <div class="text-left">
+                <span class="text-[11px] text-orange-400 block font-medium">کسر سایر هزینه‌ها:</span>
+                <span class="text-sm font-bold text-orange-300">- {{ "{:,}".format(total_expenses) }} ت</span>
             </div>
             <div class="bg-emerald-500/10 border-2 border-emerald-500/40 px-4 py-2 rounded-2xl text-left">
                 <span class="text-[11px] text-emerald-400 block font-black">خالص دریافتی مدیریت طهماسبی:</span>
@@ -90,29 +98,38 @@
 </div>
 
 <!-- Key Metrics Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-indigo-600">
         <span class="text-xs text-slate-500 font-bold">فروش کل مجموعه طهماسبی</span>
-        <h3 class="text-xl font-black text-indigo-700 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <h3 class="text-lg font-black text-indigo-700 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
         <p class="text-[10px] text-slate-400 mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
     </div>
 
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-600">
-        <span class="text-xs text-slate-500 font-bold">💰 سود ناخالص واقعی فروشگاه</span>
-        <h3 class="text-xl font-black text-emerald-600 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-emerald-600 mt-1 font-bold">بر اساس بهای تمام شده فاکتورها</p>
+    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-emerald-600">
+        <span class="text-xs text-slate-500 font-bold">💰 سود ناخالص کالاها</span>
+        <h3 class="text-lg font-black text-emerald-600 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-emerald-600 mt-1 font-bold">اختلاف خرید و فروش فاکتورها</p>
     </div>
 
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-rose-600">
-        <span class="text-xs text-slate-500 font-bold">وضعیت حساب تنخواه شعب</span>
-        <h3 class="text-xl font-black text-rose-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-xs font-normal text-slate-400">تومان خرج‌شده</span></h3>
-        <p class="text-[10px] text-emerald-600 mt-1 font-bold">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} تومان</p>
+    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-rose-600">
+        <span class="text-xs text-slate-500 font-bold">👥 حقوق و پورسانت پرسنل</span>
+        <h3 class="text-lg font-black text-rose-600 mt-2">{{ "{:,}".format(total_payroll) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-slate-400 mt-1">ثابت: {{ "{:,}".format(total_base_salaries) }} | پورسانت: {{ "{:,}".format(total_commissions) }}</p>
     </div>
 
-    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
-        <span class="text-xs text-slate-500 font-bold">چک‌های صیادی در انتظار وصول</span>
-        <h3 class="text-xl font-black text-amber-600 mt-2">{{ "{:,}".format(pending_cheques_total) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-amber-600 mt-1">{{ pending_cheques_count }} فقره چک در گردش</p>
+    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-purple-600">
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500 font-bold">🏢 اجاره شعب ۱ و ۲</span>
+            <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="text-[10px] text-purple-600 hover:underline font-bold">ویرایش ✏️</button>
+        </div>
+        <h3 class="text-lg font-black text-purple-700 mt-2">{{ "{:,}".format(total_rent) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-slate-400 mt-1">کسر از سود ناخالص ماه</p>
+    </div>
+
+    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 border-r-4 border-r-amber-500">
+        <span class="text-xs text-slate-500 font-bold">هزینه‌های جاری و تنخواه</span>
+        <h3 class="text-lg font-black text-amber-600 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
+        <p class="text-[10px] text-slate-400 mt-1">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} ت</p>
     </div>
 </div>
 
@@ -191,7 +208,12 @@
         <tbody>
             {% for item in sellers_data %}
             <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-900">{{ item.user.full_name }}</td>
+                <td class="p-3 font-bold text-slate-900">
+                    {{ item.user.full_name }}
+                    {% if item.user.can_manage_inventory %}
+                        <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
+                    {% endif %}
+                </td>
                 <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ item.user.shop.name if item.user.shop else '-' }}</span></td>
                 <td class="p-3 font-medium">{{ item.stats.sales_count }} فاکتور</td>
                 <td class="p-3 font-bold text-blue-700 text-sm">{{ "{:,}".format(item.stats.net_sales) }}</td>
@@ -213,13 +235,68 @@
                 <td class="p-3 text-amber-500 font-bold">★ {{ item.stats.avg_rating }}</td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }})" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
                         <button type="button" onclick="openPasswordModal({{ item.user.id }}, '{{ item.user.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=item.user.id) }}" onsubmit="return confirm('پرسنل ({{ item.user.full_name }}) حذف شود؟ سوابق فاکتورهای گذشته محفوظ می‌ماند.')">
                             <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
                         </form>
                     </div>
                 </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- جدول اختصاصی پرسنل خدمات، تحویل بار و نظافت -->
+<div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8 overflow-x-auto">
+    <div class="flex justify-between items-center mb-4 border-b pb-3">
+        <div>
+            <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+                <span>🚚</span> پرسنل خدمات، تحویل بار و نظافت (حقوق ثابت ماهانه - ۰٪ پورسانت)
+            </h3>
+            <p class="text-[11px] text-slate-400 mt-0.5">پرسنل زحمت‌کش خدمات و باربری طهماسبی که دارای حقوق ثابت ماهیانه بوده و مبالغ پرداختی به ایشان از سود خالص ماه کسر می‌گردد</p>
+        </div>
+        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-200 transition">➕ افزودن نیروی خدمات</button>
+    </div>
+    <table class="w-full text-right border-collapse text-xs">
+        <thead>
+            <tr class="bg-slate-50 text-slate-700 font-bold">
+                <th class="p-3 border-b">نام پرسنل</th>
+                <th class="p-3 border-b">نقش و مسئولیت</th>
+                <th class="p-3 border-b">شعبه محل خدمت</th>
+                <th class="p-3 border-b">حقوق پایه ماهانه (تومان)</th>
+                <th class="p-3 border-b">شماره تماس / کارت بانکی</th>
+                <th class="p-3 border-b text-center">عملیات حساب</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in logistics_staff %}
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                    {{ u.full_name }}
+                    {% if u.can_manage_inventory %}
+                        <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
+                    {% endif %}
+                </td>
+                <td class="p-3"><span class="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">🚚 تحویل بار، انبارداری و خدمات</span></td>
+                <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ u.shop.name if u.shop else '-' }}</span></td>
+                <td class="p-3 font-black text-emerald-700 text-sm">{{ "{:,}".format(u.base_salary or 0) }} تومان</td>
+                <td class="p-3 text-slate-600 font-mono text-[11px]">{{ u.phone or '-' }} {% if u.card_number %}| {{ u.card_number }}{% endif %}</td>
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" onclick="openPasswordModal({{ u.id }}, '{{ u.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
+                        <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}" onsubmit="return confirm('پرسنل ({{ u.full_name }}) حذف شود؟')">
+                            <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="p-4 text-center text-slate-400 font-medium">هیچ نیروی خدمات یا باربری ثبت نشده است.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -618,6 +695,23 @@
                     {% endfor %}
                 </select>
             </div>
+            <div>
+                <label class="block font-bold text-slate-600 mb-1">نقش و مسئولیت در مجموعه:</label>
+                <select name="role" id="editUserRole" class="w-full p-2.5 border rounded-xl bg-white font-medium text-xs">
+                    <option value="seller">فروشنده (پورسانت + حقوق ثابت)</option>
+                    <option value="logistics">پرسنل خدمات، تحویل بار و نظافت (فقط حقوق ثابت - بدون پورسانت)</option>
+                    <option value="cashier">صندوقدار / حسابدار</option>
+                </select>
+            </div>
+            <div class="bg-amber-50 p-3 rounded-2xl border border-amber-200">
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
+                    <input type="checkbox" name="can_manage_inventory" id="editUserCanManageInventory" value="1" class="w-4 h-4 text-indigo-600 rounded">
+                    <span>👑 ادمین انبار و کاتالوگ (تعریف، ویرایش، حذف کالاها و انبارگردانی)</span>
+                </label>
+                <p class="text-[10px] text-slate-500 mt-1.5 mr-6 leading-relaxed">
+                    با فعال‌سازی این تیک، این شخص فقط به بخش‌های انبار و کاتالوگ دسترسی خواهد داشت و دسترسی او به سایر قسمت‌های پنل مدیریت (سود، حقوق، تنظیمات و کاربران) کاملاً مسدود می‌ماند.
+                </p>
+            </div>
             <div class="flex gap-2 pt-2 border-t">
                 <button type="submit" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-bold transition">ذخیره تغییرات پرسنل</button>
                 <button type="button" onclick="document.getElementById('editUserModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold">انصراف</button>
@@ -727,9 +821,28 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-slate-600 mb-1">درصد پورسانت پایه (0.01 تا 5):</label>
-                <input type="number" step="0.01" min="0.01" max="5.0" name="commission_rate" value="1.0" class="w-full p-2.5 border rounded-2xl text-xs text-center font-bold">
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">نقش و مسئولیت پرسنل:</label>
+                <select name="role" id="addUserRoleSelect" class="w-full p-2.5 border rounded-2xl text-xs bg-white font-medium" onchange="toggleAddUserRoleFields(this.value)">
+                    <option value="seller">فروشنده (پورسانت + حقوق پایه)</option>
+                    <option value="logistics">پرسنل خدمات و تحویل بار (حقوق ثابت ماهانه - ۰٪ پورسانت)</option>
+                    <option value="cashier">صندوقدار / حسابدار</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-slate-600 mb-1">حقوق پایه ماهیانه (تومان):</label>
+                <input type="text" name="base_salary" onkeyup="formatNumber(this)" placeholder="مثال: 15,000,000" class="currency-input w-full p-2.5 border rounded-2xl text-xs font-bold text-emerald-700 text-left" dir="ltr">
+            </div>
+            <div class="mb-3" id="addUserCommissionContainer">
+                <label class="block text-xs font-bold text-slate-600 mb-1">درصد پورسانت پایه (0 تا 5):</label>
+                <input type="number" step="0.01" min="0" max="5.0" name="commission_rate" id="addUserCommissionInput" value="1.0" class="w-full p-2.5 border rounded-2xl text-xs text-center font-bold">
+            </div>
+            <div class="mb-4 bg-amber-50 p-3 rounded-2xl border border-amber-200">
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
+                    <input type="checkbox" name="can_manage_inventory" value="1" class="w-4 h-4 text-indigo-600 rounded">
+                    <span>👑 ادمین انبار و کاتالوگ</span>
+                </label>
+                <p class="text-[10px] text-slate-500 mt-1 mr-6">دسترسی مستقیم به تعریف کالاها و انبارگردانی بدون دسترسی به پنل مدیریت</p>
             </div>
             <div class="flex gap-2">
                 <button type="submit" class="flex-1 bg-slate-900 text-white py-2.5 rounded-2xl text-xs font-bold">ثبت پرسنل</button>
@@ -766,6 +879,33 @@
     </div>
 </div>
 
+<!-- Modal: Rent Settings -->
+<div id="rentSettingsModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        <div class="flex justify-between items-center mb-3 border-b pb-3">
+            <h3 class="text-base font-black text-slate-800 flex items-center gap-2">
+                <span>🏢</span> تنظیم اجاره ماهانه شعب طهماسبی
+            </h3>
+            <button onclick="document.getElementById('rentSettingsModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+        </div>
+        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+            مبالغ اجاره ماهانه شعب را وارد نمایید. این مبالغ به طور خودکار از سود ناخالص ماهانه کسر و سود خالص حقیقی را مشخص می‌سازند.
+        </p>
+        <form method="POST" action="{{ url_for('update_shops_rent') }}" onsubmit="unformatOnSubmit(this)">
+            {% for s in shops %}
+            <div class="bg-slate-50 p-3 rounded-2xl mb-3 border">
+                <label class="block text-xs font-black text-slate-700 mb-1">اجاره ماهانه {{ s.name }} (تومان):</label>
+                <input type="text" name="rent_shop_{{ s.id }}" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(s.rent_amount or 0) }}" class="currency-input w-full p-2.5 border rounded-xl text-xs font-black text-rose-700 text-left" dir="ltr" placeholder="مثال: 50,000,000">
+            </div>
+            {% endfor %}
+            <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-rose-700 hover:bg-rose-800 text-white py-2.5 rounded-2xl text-xs font-bold shadow transition">ذخیره و کسر از سود ماه</button>
+                <button type="button" onclick="document.getElementById('rentSettingsModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal: User Custom Password -->
 <div id="customPasswordModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
@@ -787,16 +927,34 @@
 
 {% block scripts %}
 <script>
-    function openEditUserModal(userId, fullName, username, phone, card, salary, comm, shopId) {
+    function openEditUserModal(userId, fullName, username, phone, card, salary, comm, shopId, canManageInv, role) {
         document.getElementById('editUserForm').action = '/admin/user/edit/' + userId;
         document.getElementById('editUserFullName').value = fullName || '';
         document.getElementById('editUserUsername').value = username || '';
         document.getElementById('editUserPhone').value = phone || '';
         document.getElementById('editUserCard').value = card || '';
         document.getElementById('editUserSalary').value = salary ? Number(salary).toLocaleString('en-US') : '';
-        document.getElementById('editUserCommission').value = comm || '1.0';
+        document.getElementById('editUserCommission').value = comm !== undefined ? comm : '1.0';
         document.getElementById('editUserShopId').value = shopId || 1;
+        if (document.getElementById('editUserRole')) {
+            document.getElementById('editUserRole').value = role || 'seller';
+        }
+        if (document.getElementById('editUserCanManageInventory')) {
+            document.getElementById('editUserCanManageInventory').checked = (canManageInv === true || canManageInv === 'true');
+        }
         document.getElementById('editUserModal').classList.remove('hidden');
+    }
+
+    function toggleAddUserRoleFields(role) {
+        var commContainer = document.getElementById('addUserCommissionContainer');
+        var commInput = document.getElementById('addUserCommissionInput');
+        if (role === 'logistics') {
+            if (commContainer) commContainer.style.display = 'none';
+            if (commInput) commInput.value = '0';
+        } else {
+            if (commContainer) commContainer.style.display = 'block';
+            if (commInput && commInput.value === '0') commInput.value = '1.0';
+        }
     }
 
     function openPasswordModal(userId, userName) {

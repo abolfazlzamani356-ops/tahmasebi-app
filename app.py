@@ -427,6 +427,35 @@ def initialize_database():
         db.session.rollback()
         app.logger.warning(f"Ilia Steel catalog auto-seed warning: {e}")
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی میلان برنز (Milan Bronze) - کلیه ۱۴۴ قلم با ۱۸٪ تخفیف
+    try:
+        from milan_catalog_data import generate_all_milan_items
+        milan_items = generate_all_milan_items(18.0)
+        existing_milan = ProductCatalog.query.filter_by(brand='میلان (Milan)').count()
+        if existing_milan < len(milan_items):
+            for itm in milan_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Milan catalog auto-seed warning: {e}")
+
+
 
 
 # اجرا در startup زمان import توسط gunicorn

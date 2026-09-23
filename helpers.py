@@ -94,7 +94,7 @@ def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, u
         stock_after=item.stock_quantity,
         reference_id=str(reference_id),
         description=description,
-        user_name=user_name,
+        user_name=user_name or 'سیستم / پرسنل',
         shamsi_date_time=now_str
     )
     db.session.add(log)
@@ -230,9 +230,9 @@ def get_or_create_customer(name, phone=None, address=None):
     if not name:
         return None
     name = name.strip()
+    phone = (phone or '').strip() or None
     customer = None
     if phone:
-        phone = phone.strip()
         customer = Customer.query.filter_by(phone=phone).first()
     if not customer:
         customer = Customer.query.filter_by(name=name).first()

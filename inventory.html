@@ -298,7 +298,133 @@
         </div>
     </div>
 
-    <!-- جدول موجودی فیزیکی شعب -->
+    <!-- ==================== میز کار فوق‌حرفه‌ای انبارگردانی و تعیین موجودی کاتالوگ شعب ==================== -->
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-5">
+        <!-- هدر بخش و انتخاب شعبه فعال -->
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-100 pb-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">⚡</span>
+                    <h3 class="text-base font-black text-slate-900">میز کار انبارگردانی و تعیین سریع موجودی کاتالوگ شعب</h3>
+                </div>
+                <p class="text-xs text-slate-500 font-medium mt-1">
+                    تعیین ردیف به ردیف موجودی فیزیکی تمامی {{ catalog_items|length if catalog_items else 0 }} قلم کالا برای هر شعبه با ثبت آنی، هشدار کسری و کسر خودکار در فاکتور
+                </p>
+            </div>
+
+            <!-- انتخابگر شعبه فعال -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                <button type="button" id="stockShopBtn1" onclick="switchStockShop(1)"
+                    class="px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md">
+                    <span>🏬</span> فروشگاه ۱ (مرکزی)
+                </button>
+                <button type="button" id="stockShopBtn2" onclick="switchStockShop(2)"
+                    class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200">
+                    <span>🏬</span> فروشگاه ۲
+                </button>
+            </div>
+        </div>
+
+        <!-- کارت‌های آمار زنده شعبه فعال -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <span class="text-emerald-700 font-bold block text-[11px]">کالاهای موجود در این شعبه:</span>
+                    <span id="statAvailableCount" class="text-lg font-black text-emerald-900 mt-0.5 block">۰ قلم</span>
+                </div>
+                <span class="text-2xl">🟢</span>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <span class="text-amber-700 font-bold block text-[11px]">کالاهای دارای هشدار کسری:</span>
+                    <span id="statLowCount" class="text-lg font-black text-amber-900 mt-0.5 block">۰ قلم</span>
+                </div>
+                <span class="text-2xl">🟡</span>
+            </div>
+            <div class="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-center justify-between">
+                <div>
+                    <span class="text-rose-700 font-bold block text-[11px]">کالاهای ناموجود (صفر):</span>
+                    <span id="statOutCount" class="text-lg font-black text-rose-900 mt-0.5 block">۰ قلم</span>
+                </div>
+                <span class="text-2xl">🔴</span>
+            </div>
+            <div class="bg-slate-900 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-sm">
+                <div>
+                    <span class="text-slate-400 font-bold block text-[11px]">ارزش خرید موجودی شعبه:</span>
+                    <span id="statTotalBuyValuation" class="text-sm font-black text-emerald-400 mt-0.5 block">۰ تومان</span>
+                </div>
+                <span class="text-2xl">💰</span>
+            </div>
+        </div>
+
+        <!-- نوار ابزار جستجو و فیلترها -->
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2.5 flex-1">
+                <!-- جستجوی زنده -->
+                <div class="relative min-w-[220px] flex-1">
+                    <input type="text" id="catalogStockSearch" oninput="onStockFilterChange()" placeholder="🔍 جستجوی مدل، نام، کد یا برند..." 
+                        class="w-full p-2.5 pr-8 border border-slate-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-600 outline-none">
+                    <button type="button" onclick="document.getElementById('catalogStockSearch').value=''; onStockFilterChange();" class="absolute left-2.5 top-2.5 text-slate-400 hover:text-slate-600 font-bold text-xs">✕</button>
+                </div>
+
+                <!-- فیلتر برند -->
+                <select id="catalogStockBrand" onchange="onStockFilterChange()" class="p-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-700">
+                    <option value="">🏷️ تمام برندها (همه ۱۱ برند)</option>
+                    {% for br in distinct_brands %}
+                    <option value="{{ br }}">{{ br }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- فیلتر وضعیت موجودی -->
+                <select id="catalogStockStatus" onchange="onStockFilterChange()" class="p-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-700">
+                    <option value="all">🔘 وضعیت: همه اقلام</option>
+                    <option value="available">🟢 فقط موجودها (> ۰)</option>
+                    <option value="low">🟡 رو به اتمام / زیر سقف هشدار</option>
+                    <option value="out">🔴 ناموجودها (۰ عدد)</option>
+                </select>
+            </div>
+
+            <!-- دکمه ذخیره گروهی صفحه -->
+            <button type="button" onclick="saveCurrentPageBatch()" 
+                class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow transition flex items-center gap-1.5">
+                <span>💾</span> ذخیره دسته‌جمعی تغییرات این صفحه
+            </button>
+        </div>
+
+        <!-- جدول ردیف به ردیف اقلام کاتالوگ با باکس تنظیم موجودی -->
+        <div class="overflow-x-auto rounded-2xl border border-slate-200">
+            <table class="w-full text-right text-xs">
+                <thead>
+                    <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                        <th class="p-3 w-12 text-center">ردیف</th>
+                        <th class="p-3">نام و مدل کالا</th>
+                        <th class="p-3">برند / دسته‌بندی</th>
+                        <th class="p-3 text-blue-700 font-black">قیمت خرید پایه</th>
+                        <th class="p-3 text-emerald-700 font-black">قیمت فروش مصوب</th>
+                        <th class="p-3 text-center">وضعیت در این شعبه</th>
+                        <th class="p-3 text-center w-52 bg-indigo-50/70 font-black text-indigo-950">تعداد موجودی فیزیکی</th>
+                        <th class="p-3 text-center w-28">حداقل هشدار</th>
+                        <th class="p-3 text-center w-28">عملیات ثبت</th>
+                    </tr>
+                </thead>
+                <tbody id="catalogStockTableBody" class="divide-y divide-slate-100 font-medium">
+                    <!-- ردیف‌ها توسط جاوااسکریپت با نهایت سرعت رندر می‌شوند -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- کنترل صفحه‌بندی (Pagination) -->
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 text-xs">
+            <span id="stockPaginationInfo" class="text-slate-500 font-medium">نمایش ۱ تا ۵۰ کالا</span>
+            <div class="flex items-center gap-1.5">
+                <button type="button" id="prevPageBtn" onclick="changeStockPage(-1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition">قبلی</button>
+                <span id="pageIndicator" class="px-3 py-1.5 bg-indigo-50 text-indigo-800 font-black rounded-xl">صفحه ۱</span>
+                <button type="button" id="nextPageBtn" onclick="changeStockPage(1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition">بعدی</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول موجودی فیزیکی ثبت‌شده شعب -->
     <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <div class="flex justify-between items-center mb-4 border-b pb-3">
             <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
@@ -996,5 +1122,373 @@
             input.value = input.value.replace(/,/g, '');
         });
     }
+
+    // ==================== اسکریپت پیشرفته میز کار انبارگردانی سریع کاتالوگ ====================
+    let currentStockShop = 1;
+    let currentStockPage = 1;
+    const stockPageSize = 50;
+    let filteredStockList = [];
+
+    const rawCatalogStockData = [
+        {% for c in catalog_items %}
+        {% set s1 = inventory_map.get((c.name, 1), {'stock': 0, 'min_alert': 2, 'id': 0}) %}
+        {% set s2 = inventory_map.get((c.name, 2), {'stock': 0, 'min_alert': 2, 'id': 0}) %}
+        {
+            id: {{ c.id }},
+            name: {{ c.name|tojson }},
+            category: {{ c.category|tojson }},
+            brand: {{ (c.brand or '')|tojson }},
+            code: {{ (c.code or '')|tojson }},
+            buy_price: {{ c.buy_price }},
+            sell_price: {{ c.sell_price }},
+            stock_1: {{ s1.stock }},
+            min_1: {{ s1.min_alert }},
+            stock_2: {{ s2.stock }},
+            min_2: {{ s2.min_alert }}
+        },
+        {% endfor %}
+    ];
+
+    function initStockWorkbench() {
+        switchStockShop(1);
+    }
+
+    function switchStockShop(shopId) {
+        currentStockShop = shopId;
+        const btn1 = document.getElementById('stockShopBtn1');
+        const btn2 = document.getElementById('stockShopBtn2');
+        if (shopId === 1) {
+            btn1.className = 'px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
+            btn2.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200';
+        } else {
+            btn2.className = 'px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
+            btn1.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200';
+        }
+        updateShopStats();
+        onStockFilterChange();
+    }
+
+    function updateShopStats() {
+        let availableCount = 0;
+        let lowCount = 0;
+        let outCount = 0;
+        let totalBuyVal = 0;
+
+        rawCatalogStockData.forEach(item => {
+            const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
+            const min = currentStockShop === 1 ? item.min_1 : item.min_2;
+
+            if (stock <= 0) {
+                outCount++;
+            } else if (stock <= min) {
+                lowCount++;
+                totalBuyVal += (stock * item.buy_price);
+            } else {
+                availableCount++;
+                totalBuyVal += (stock * item.buy_price);
+            }
+        });
+
+        const elAvail = document.getElementById('statAvailableCount');
+        const elLow = document.getElementById('statLowCount');
+        const elOut = document.getElementById('statOutCount');
+        const elVal = document.getElementById('statTotalBuyValuation');
+
+        if (elAvail) elAvail.innerText = availableCount.toLocaleString('fa-IR') + ' قلم';
+        if (elLow) elLow.innerText = lowCount.toLocaleString('fa-IR') + ' قلم';
+        if (elOut) elOut.innerText = outCount.toLocaleString('fa-IR') + ' قلم';
+        if (elVal) elVal.innerText = totalBuyVal.toLocaleString('fa-IR') + ' تومان';
+    }
+
+    function onStockFilterChange() {
+        const queryEl = document.getElementById('catalogStockSearch');
+        const brandEl = document.getElementById('catalogStockBrand');
+        const statusEl = document.getElementById('catalogStockStatus');
+
+        const query = (queryEl ? queryEl.value : '').trim().toLowerCase();
+        const brand = (brandEl ? brandEl.value : '').trim();
+        const status = statusEl ? statusEl.value : 'all';
+
+        filteredStockList = rawCatalogStockData.filter(item => {
+            if (brand && item.brand !== brand) return false;
+
+            if (query) {
+                const matchName = item.name.toLowerCase().includes(query);
+                const matchCat = item.category.toLowerCase().includes(query);
+                const matchBrand = (item.brand || '').toLowerCase().includes(query);
+                const matchCode = (item.code || '').toLowerCase().includes(query);
+                if (!matchName && !matchCat && !matchBrand && !matchCode) return false;
+            }
+
+            const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
+            const min = currentStockShop === 1 ? item.min_1 : item.min_2;
+
+            if (status === 'available') {
+                if (stock <= 0 || stock <= min) return false;
+            } else if (status === 'low') {
+                if (stock <= 0 || stock > min) return false;
+            } else if (status === 'out') {
+                if (stock > 0) return false;
+            }
+            return true;
+        });
+
+        currentStockPage = 1;
+        renderStockTable();
+    }
+
+    function renderStockTable() {
+        const tbody = document.getElementById('catalogStockTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        const total = filteredStockList.length;
+        const totalPages = Math.ceil(total / stockPageSize) || 1;
+        if (currentStockPage > totalPages) currentStockPage = totalPages;
+        if (currentStockPage < 1) currentStockPage = 1;
+
+        const startIdx = (currentStockPage - 1) * stockPageSize;
+        const endIdx = Math.min(startIdx + stockPageSize, total);
+        const pageItems = filteredStockList.slice(startIdx, endIdx);
+
+        const infoEl = document.getElementById('stockPaginationInfo');
+        const indEl = document.getElementById('pageIndicator');
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+
+        if (infoEl) infoEl.innerText = `نمایش ${total > 0 ? (startIdx + 1).toLocaleString('fa-IR') : 0} تا ${endIdx.toLocaleString('fa-IR')} از ${total.toLocaleString('fa-IR')} قلم کالا`;
+        if (indEl) indEl.innerText = `صفحه ${currentStockPage.toLocaleString('fa-IR')} از ${totalPages.toLocaleString('fa-IR')}`;
+        if (prevBtn) prevBtn.disabled = (currentStockPage <= 1);
+        if (nextBtn) nextBtn.disabled = (currentStockPage >= totalPages);
+
+        if (pageItems.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400 font-bold">هیچ کالایی با فیلترهای انتخابی یافت نشد.</td></tr>`;
+            return;
+        }
+
+        pageItems.forEach((item, index) => {
+            const rowNumber = startIdx + index + 1;
+            const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
+            const min = currentStockShop === 1 ? item.min_1 : item.min_2;
+
+            let badgeHtml = '';
+            if (stock <= 0) {
+                badgeHtml = `<span id="badge_${item.id}" class="bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🔴 ناموجود</span>`;
+            } else if (stock <= min) {
+                badgeHtml = `<span id="badge_${item.id}" class="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟡 کسری (${stock})</span>`;
+            } else {
+                badgeHtml = `<span id="badge_${item.id}" class="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟢 موجود (${stock})</span>`;
+            }
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition';
+            tr.innerHTML = `
+                <td class="p-3 text-center text-slate-400 font-bold text-[11px]">${rowNumber}</td>
+                <td class="p-3">
+                    <span class="font-black text-slate-800 text-xs block">${escapeHtml(item.name)}</span>
+                    ${item.code ? `<span class="text-[10px] font-mono text-slate-400">کد: ${escapeHtml(item.code)}</span>` : ''}
+                </td>
+                <td class="p-3">
+                    <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-bold block w-max mb-0.5">${escapeHtml(item.brand || 'عمومی')}</span>
+                    <span class="text-[10px] text-slate-500 font-medium">${escapeHtml(item.category)}</span>
+                </td>
+                <td class="p-3 font-bold text-blue-700 text-xs">${item.buy_price.toLocaleString('fa-IR')} ت</td>
+                <td class="p-3 font-black text-emerald-700 text-xs">${item.sell_price.toLocaleString('fa-IR')} ت</td>
+                <td class="p-3 text-center" id="badge_td_${item.id}">
+                    ${badgeHtml}
+                </td>
+                <td class="p-3 text-center bg-indigo-50/40">
+                    <div class="inline-flex items-center justify-center gap-1 bg-white p-1 rounded-xl border border-indigo-200 shadow-sm">
+                        <button type="button" onclick="stepStockQty(${item.id}, -1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-sm flex items-center justify-center transition">－</button>
+                        <input type="number" id="stock_input_${item.id}" value="${stock}" min="0" 
+                            class="w-16 p-1 text-center font-black text-xs text-slate-900 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500" 
+                            dir="ltr" oninput="markRowDirty(${item.id})">
+                        <button type="button" onclick="stepStockQty(${item.id}, 1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-sm flex items-center justify-center transition">＋</button>
+                    </div>
+                </td>
+                <td class="p-3 text-center">
+                    <input type="number" id="min_input_${item.id}" value="${min}" min="1" 
+                        class="w-14 p-1 text-center font-bold text-xs text-slate-600 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-slate-400" 
+                        dir="ltr" oninput="markRowDirty(${item.id})">
+                </td>
+                <td class="p-3 text-center">
+                    <button type="button" id="save_btn_${item.id}" onclick="quickSaveStockItem(${item.id}, this)"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1 mx-auto">
+                        <span>💾</span> ثبت
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function changeStockPage(delta) {
+        currentStockPage += delta;
+        renderStockTable();
+        const el = document.getElementById('catalogStockTableBody');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function stepStockQty(itemId, delta) {
+        const input = document.getElementById(`stock_input_${itemId}`);
+        if (!input) return;
+        let val = parseInt(input.value) || 0;
+        val = Math.max(0, val + delta);
+        input.value = val;
+        markRowDirty(itemId);
+    }
+
+    function markRowDirty(itemId) {
+        const btn = document.getElementById(`save_btn_${itemId}`);
+        if (btn) {
+            btn.className = 'bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1 mx-auto';
+            btn.innerHTML = '<span>⚡</span> ذخیره';
+        }
+    }
+
+    function quickSaveStockItem(itemId, btn) {
+        const item = rawCatalogStockData.find(x => x.id === itemId);
+        if (!item) return;
+
+        const qtyInput = document.getElementById(`stock_input_${itemId}`);
+        const minInput = document.getElementById(`min_input_${itemId}`);
+        const newStock = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+        const newMin = parseInt(minInput ? minInput.value : 2) || 2;
+
+        const originalBtnHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="inline-block animate-spin">⏳</span>`;
+
+        fetch('/api/inventory/quick_stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                catalog_id: item.id,
+                name: item.name,
+                shop_id: currentStockShop,
+                stock_quantity: newStock,
+                min_alert_stock: newMin
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            if (data.success) {
+                if (currentStockShop === 1) {
+                    item.stock_1 = newStock;
+                    item.min_1 = newMin;
+                } else {
+                    item.stock_2 = newStock;
+                    item.min_2 = newMin;
+                }
+
+                btn.className = 'bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-black text-xs shadow transition flex items-center justify-center gap-1 mx-auto';
+                btn.innerHTML = '<span>✅</span> ثبت شد';
+
+                setTimeout(() => {
+                    btn.className = 'bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1 mx-auto';
+                    btn.innerHTML = '<span>💾</span> ثبت';
+                }, 2000);
+
+                const badgeTd = document.getElementById(`badge_td_${itemId}`);
+                if (badgeTd) {
+                    if (newStock <= 0) {
+                        badgeTd.innerHTML = `<span id="badge_${item.id}" class="bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🔴 ناموجود</span>`;
+                    } else if (newStock <= newMin) {
+                        badgeTd.innerHTML = `<span id="badge_${item.id}" class="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟡 کسری (${newStock})</span>`;
+                    } else {
+                        badgeTd.innerHTML = `<span id="badge_${item.id}" class="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟢 موجود (${newStock})</span>`;
+                    }
+                }
+
+                updateShopStats();
+            } else {
+                alert(data.message || 'خطا در ثبت موجودی');
+                btn.className = 'bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1 mx-auto';
+                btn.innerHTML = '<span>✕</span> خطا';
+                setTimeout(() => {
+                    btn.className = 'bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1 mx-auto';
+                    btn.innerHTML = originalBtnHtml;
+                }, 2000);
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnHtml;
+            alert('خطای اتصال به سرور: ' + err);
+        });
+    }
+
+    function saveCurrentPageBatch() {
+        const total = filteredStockList.length;
+        const startIdx = (currentStockPage - 1) * stockPageSize;
+        const endIdx = Math.min(startIdx + stockPageSize, total);
+        const pageItems = filteredStockList.slice(startIdx, endIdx);
+
+        if (pageItems.length === 0) return;
+
+        const batchPayload = pageItems.map(item => {
+            const qtyInput = document.getElementById(`stock_input_${item.id}`);
+            const minInput = document.getElementById(`min_input_${item.id}`);
+            const newStock = parseInt(qtyInput ? qtyInput.value : 0) || 0;
+            const newMin = parseInt(minInput ? minInput.value : 2) || 2;
+            return {
+                catalog_id: item.id,
+                name: item.name,
+                stock_quantity: newStock,
+                min_alert_stock: newMin
+            };
+        });
+
+        if (!confirm(`آیا مایلید تغییرات موجودی ${batchPayload.length} قلم کالا برای شعبه ${currentStockShop} به طور یکجا ثبت شود؟`)) {
+            return;
+        }
+
+        fetch('/api/inventory/batch_quick_stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shop_id: currentStockShop,
+                items: batchPayload
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                batchPayload.forEach(b => {
+                    const item = rawCatalogStockData.find(x => x.id === b.catalog_id);
+                    if (item) {
+                        if (currentStockShop === 1) {
+                            item.stock_1 = b.stock_quantity;
+                            item.min_1 = b.min_alert_stock;
+                        } else {
+                            item.stock_2 = b.stock_quantity;
+                            item.min_2 = b.min_alert_stock;
+                        }
+                    }
+                });
+                renderStockTable();
+                updateShopStats();
+                alert(data.message);
+            } else {
+                alert(data.message || 'خطا در ثبت گروهی');
+            }
+        })
+        .catch(err => alert('خطای اتصال: ' + err));
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initStockWorkbench();
+    });
 </script>
 {% endblock %}

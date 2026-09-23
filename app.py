@@ -662,6 +662,10 @@ def add_invoice():
                     continue
                 name_val = 'تجهیزات بهداشتی'
             
+            # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
+            if not inv_item and name_val:
+                inv_item = InventoryItem.query.filter_by(name=name_val, shop_id=shop_id).first()
+            
             cat_val = inv_item.category if inv_item else (custom_cats[idx].strip() if idx < len(custom_cats) and custom_cats[idx].strip() else 'عمومی')
             if cat_val:
                 categories_used.add(cat_val)
@@ -999,6 +1003,10 @@ def edit_invoice(invoice_id):
                 if price <= 0 and not inv_item:
                     continue
                 name_val = 'تجهیزات بهداشتی'
+
+            # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
+            if not inv_item and name_val:
+                inv_item = InventoryItem.query.filter_by(name=name_val, shop_id=inv.shop_id).first()
 
             cat_val = inv_item.category if inv_item else (custom_cats[idx].strip() if idx < len(custom_cats) and custom_cats[idx].strip() else 'عمومی')
             if cat_val:
@@ -1370,7 +1378,25 @@ def inventory_view():
     all_categories = Category.query.all()
     transfers = StockTransfer.query.order_by(StockTransfer.id.desc()).limit(15).all()
     ai_insights = get_inventory_ai_insights()
-    catalog_items = ProductCatalog.query.order_by(ProductCatalog.category, ProductCatalog.name).all()
+    catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).all()
+
+    # نگاشت سریع موجودی برای هر شعبه: (item_name, shop_id) -> {'id': ..., 'stock': ..., 'min_alert': ...}
+    inventory_map = {}
+    for inv in all_inventory:
+        inventory_map[(inv.name, inv.shop_id)] = {
+            'id': inv.id,
+            'stock': inv.stock_quantity,
+            'min_alert': inv.min_alert_stock
+        }
+
+    # برندهای متمایز کاتالوگ برای فیلتر
+    distinct_brands = [
+        b[0] for b in db.session.query(ProductCatalog.brand)
+        .filter(ProductCatalog.brand != None, ProductCatalog.brand != '')
+        .distinct()
+        .order_by(ProductCatalog.brand)
+        .all()
+    ]
 
     return render_template(
         'inventory.html',
@@ -1379,7 +1405,9 @@ def inventory_view():
         all_categories=all_categories,
         transfers=transfers,
         ai_insights=ai_insights,
-        catalog_items=catalog_items
+        catalog_items=catalog_items,
+        inventory_map=inventory_map,
+        distinct_brands=distinct_brands
     )
 
 @app.route('/admin/inventory/add', methods=['POST'])
@@ -1469,6 +1497,146 @@ def stocktaking_adjust():
     log_activity(f"انبارگردانی کالای {item.name}: موجودی جدید {actual_stock} ({diff:+d})", session.get('full_name'), "انبار")
     flash(f'انبارگردانی کالای {item.name} با موفقیت ثبت شد.', 'success')
     return redirect(url_for('inventory_view'))
+
+@app.route('/api/inventory/quick_stock', methods=['POST'])
+def api_quick_stock():
+    """ثبت یا به‌روزرسانی آنی موجودی کالا در شعبه با کاتالوگ مرجع"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'تنها مدیریت سیستم مجاز به تغییر موجودی است.'}), 403
+
+    data = request.get_json(silent=True) or request.form
+    catalog_id = safe_int(data.get('catalog_id'), None)
+    name = (data.get('name') or '').strip()
+    shop_id = safe_int(data.get('shop_id'), 1)
+    new_stock = safe_int(data.get('stock_quantity'), 0)
+    min_alert = safe_int(data.get('min_alert_stock'), 2)
+
+    cat_p = ProductCatalog.query.get(catalog_id) if catalog_id else None
+    if not name and cat_p:
+        name = cat_p.name
+
+    if not name:
+        return jsonify({'success': False, 'message': 'نام کالا یافت نشد.'}), 400
+
+    inv_item = InventoryItem.query.filter_by(name=name, shop_id=shop_id).first()
+    if not cat_p:
+        cat_p = ProductCatalog.query.filter_by(name=name).first()
+
+    if not inv_item:
+        inv_item = InventoryItem(
+            name=name,
+            category=cat_p.category if cat_p else 'عمومی',
+            brand=cat_p.brand if cat_p else '',
+            shop_id=shop_id,
+            stock_quantity=0,
+            min_alert_stock=min_alert,
+            buy_price=cat_p.buy_price if cat_p else 0,
+            sell_price=cat_p.sell_price if cat_p else 0
+        )
+        db.session.add(inv_item)
+        db.session.commit()
+        record_stock_change(inv_item.id, shop_id, 'adjustment', new_stock, 'STOCKTAKING', session.get('full_name', 'مدیریت'), 'تعیین اولیه موجودی از کاتالوگ')
+    else:
+        diff = new_stock - inv_item.stock_quantity
+        inv_item.min_alert_stock = min_alert
+        if cat_p:
+            if inv_item.buy_price == 0 and cat_p.buy_price > 0:
+                inv_item.buy_price = cat_p.buy_price
+            if inv_item.sell_price == 0 and cat_p.sell_price > 0:
+                inv_item.sell_price = cat_p.sell_price
+            if not inv_item.brand and cat_p.brand:
+                inv_item.brand = cat_p.brand
+        db.session.commit()
+        if diff != 0:
+            record_stock_change(inv_item.id, shop_id, 'adjustment', diff, 'STOCKTAKING', session.get('full_name', 'مدیریت'), 'انبارگردانی سریع')
+
+    # تعیین برچسب وضعیت
+    if inv_item.stock_quantity <= 0:
+        status_badge = 'out'
+        status_text = 'ناموجود'
+        badge_class = 'bg-rose-100 text-rose-800 border-rose-300'
+    elif inv_item.stock_quantity <= inv_item.min_alert_stock:
+        status_badge = 'low'
+        status_text = f'هشدار کسری ({inv_item.stock_quantity})'
+        badge_class = 'bg-amber-100 text-amber-800 border-amber-300'
+    else:
+        status_badge = 'available'
+        status_text = f'موجود ({inv_item.stock_quantity})'
+        badge_class = 'bg-emerald-100 text-emerald-800 border-emerald-300'
+
+    return jsonify({
+        'success': True,
+        'item_id': inv_item.id,
+        'name': inv_item.name,
+        'shop_id': inv_item.shop_id,
+        'stock_quantity': inv_item.stock_quantity,
+        'min_alert_stock': inv_item.min_alert_stock,
+        'status_badge': status_badge,
+        'status_text': status_text,
+        'badge_class': badge_class,
+        'message': f'موجودی «{inv_item.name}» در شعبه {shop_id} با موفقیت {inv_item.stock_quantity} عدد ثبت شد.'
+    })
+
+@app.route('/api/inventory/batch_quick_stock', methods=['POST'])
+def api_batch_quick_stock():
+    """ذخیره گروهی موجودی‌های تغییر یافته در صفحه"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    data = request.get_json(silent=True) or {}
+    items_list = data.get('items', [])
+    shop_id = safe_int(data.get('shop_id'), 1)
+
+    if not items_list:
+        return jsonify({'success': False, 'message': 'هیچ ردیفی جهت ذخیره ارسال نشده است.'}), 400
+
+    updated_count = 0
+    for itm in items_list:
+        name = (itm.get('name') or '').strip()
+        new_stock = safe_int(itm.get('stock_quantity'), 0)
+        min_alert = safe_int(itm.get('min_alert_stock'), 2)
+        catalog_id = safe_int(itm.get('catalog_id'), None)
+
+        cat_p = ProductCatalog.query.get(catalog_id) if catalog_id else None
+        if not name and cat_p:
+            name = cat_p.name
+
+        if not name:
+            continue
+
+        inv_item = InventoryItem.query.filter_by(name=name, shop_id=shop_id).first()
+        if not cat_p:
+            cat_p = ProductCatalog.query.filter_by(name=name).first()
+
+        if not inv_item:
+            inv_item = InventoryItem(
+                name=name,
+                category=cat_p.category if cat_p else 'عمومی',
+                brand=cat_p.brand if cat_p else '',
+                shop_id=shop_id,
+                stock_quantity=0,
+                min_alert_stock=min_alert,
+                buy_price=cat_p.buy_price if cat_p else 0,
+                sell_price=cat_p.sell_price if cat_p else 0
+            )
+            db.session.add(inv_item)
+            db.session.commit()
+            record_stock_change(inv_item.id, shop_id, 'adjustment', new_stock, 'STOCKTAKING', session.get('full_name', 'مدیریت'), 'تعیین دسته‌جمعی موجودی')
+            updated_count += 1
+        else:
+            diff = new_stock - inv_item.stock_quantity
+            inv_item.min_alert_stock = min_alert
+            db.session.commit()
+            if diff != 0:
+                record_stock_change(inv_item.id, shop_id, 'adjustment', diff, 'STOCKTAKING', session.get('full_name', 'مدیریت'), 'انبارگردانی دسته‌جمعی')
+            updated_count += 1
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'updated_count': updated_count,
+        'message': f'موجودی {updated_count} قلم کالا با موفقیت در شعبه {shop_id} به‌روزرسانی و ثبت شد.'
+    })
 
 # ==================== کاتالوگ مرجع و لیست قیمت مصوب کالاها (بدون وابستگی به موجودی) ====================
 @app.route('/admin/catalog')

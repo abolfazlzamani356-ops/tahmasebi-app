@@ -231,315 +231,108 @@ def initialize_database():
     except Exception:
         db.session.rollback()
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی شیرآلات آس (ABS) - کلیه ۶ صفحه با ۲۸٪ تخفیف
+    # ==================== تابع کمکی برای بارگذاری سریع کاتالوگ ====================
+    def _seed_catalog(brand_filter, generate_func, discount, warning_tag, brand_names=None):
+        """بارگذاری سریع با bulk insert - فقط اگر تعداد کمتر از آستانه باشد seed می‌زند"""
+        try:
+            items = generate_func(discount)
+            if not items:
+                return
+            if brand_names:
+                existing_count = ProductCatalog.query.filter(
+                    ProductCatalog.brand.in_(brand_names)
+                ).count()
+            else:
+                existing_count = ProductCatalog.query.filter_by(brand=brand_filter).count()
+            # اگر تعداد موجود حداقل 90٪ آیتم‌ها را داشت، نیازی به seed نیست
+            if existing_count >= int(len(items) * 0.9):
+                return
+            # bulk insert فقط آیتم‌های جدید
+            existing_names = {
+                r[0] for r in db.session.query(ProductCatalog.name).filter(
+                    ProductCatalog.brand == (brand_filter or brand_names[0])
+                ).all()
+            }
+            new_items = [itm for itm in items if itm['name'] not in existing_names]
+            if new_items:
+                db.session.bulk_insert_mappings(ProductCatalog, [
+                    dict(name=i['name'], category=i['category'], brand=i['brand'],
+                         buy_price=i['buy_price'], sell_price=i['sell_price'],
+                         description=i['description'])
+                    for i in new_items
+                ])
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning(f"{warning_tag} catalog auto-seed warning: {e}")
+
+    # بارگذاری کاتالوگ‌های رسمی
     try:
         from abs_catalog_data import generate_all_abs_items
-        abs_items = generate_all_abs_items(28.0)
-        existing_abs = ProductCatalog.query.filter_by(brand='آس (ABS)').count()
-        if existing_abs < len(abs_items):
-            for itm in abs_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('آس (ABS)', generate_all_abs_items, 28.0, 'ABS')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"ABS catalog auto-seed warning: {e}")
+        app.logger.warning(f"ABS import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی شیرآلات زرشام (Zarsham) - کلیه ۵ صفحه با ۲۰٪ تخفیف
     try:
         from zarsham_catalog_data import generate_all_zarsham_items
-        zarsham_items = generate_all_zarsham_items(20.0)
-        existing_zarsham = ProductCatalog.query.filter_by(brand='زرشام (Zarsham)').count()
-        if existing_zarsham < len(zarsham_items):
-            for itm in zarsham_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('زرشام (Zarsham)', generate_all_zarsham_items, 20.0, 'Zarsham')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Zarsham catalog auto-seed warning: {e}")
+        app.logger.warning(f"Zarsham import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی شیرآلات کسرا (Kasra) و ایزی‌پایپ - کلیه ۱۱ صفحه با ۲۸٪ تخفیف
     try:
         from kasra_catalog_data import generate_all_kasra_items
-        kasra_items = generate_all_kasra_items(28.0)
-        existing_kasra = ProductCatalog.query.filter(
-            (ProductCatalog.brand == 'کسرا (Kasra)') | (ProductCatalog.brand == 'ایزی‌پایپ (Easy Pipe)')
-        ).count()
-        if existing_kasra < len(kasra_items):
-            for itm in kasra_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog(None, generate_all_kasra_items, 28.0, 'Kasra',
+                      brand_names=['کسرا (Kasra)', 'ایزی‌پایپ (Easy Pipe)'])
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Kasra catalog auto-seed warning: {e}")
+        app.logger.warning(f"Kasra import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی استیل البرز (Steel Alborz) - کلیه ۷ صفحه با ۲۱٪ تخفیف
     try:
         from steel_alborz_catalog_data import generate_all_steel_alborz_items
-        alborz_items = generate_all_steel_alborz_items(21.0)
-        existing_alborz = ProductCatalog.query.filter_by(brand='استیل البرز (Steel Alborz)').count()
-        if existing_alborz < len(alborz_items):
-            for itm in alborz_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('استیل البرز (Steel Alborz)', generate_all_steel_alborz_items, 21.0, 'Steel Alborz')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Steel Alborz catalog auto-seed warning: {e}")
+        app.logger.warning(f"Steel Alborz import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی اخوان (Akhavan) - کلیه ۱۰ صفحه با ۱۸٪ تخفیف
     try:
         from akhavan_catalog_data import generate_all_akhavan_items
-        akhavan_items = generate_all_akhavan_items(18.0)
-        existing_akhavan = ProductCatalog.query.filter_by(brand='اخوان (Akhavan)').count()
-        if existing_akhavan < len(akhavan_items):
-            for itm in akhavan_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('اخوان (Akhavan)', generate_all_akhavan_items, 18.0, 'Akhavan')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Akhavan catalog auto-seed warning: {e}")
+        app.logger.warning(f"Akhavan import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی نگین الماس (Negin Almas) - کلیه ۸۷ قلم با ۱۵٪ تخفیف
     try:
         from negin_almas_catalog_data import generate_all_negin_almas_items
-        negin_items = generate_all_negin_almas_items(15.0)
-        existing_negin = ProductCatalog.query.filter_by(brand='نگین الماس (Negin Almas)').count()
-        if existing_negin < len(negin_items):
-            for itm in negin_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('نگین الماس (Negin Almas)', generate_all_negin_almas_items, 15.0, 'Negin Almas')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Negin Almas catalog auto-seed warning: {e}")
+        app.logger.warning(f"Negin Almas import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی بیمکث (Bimax) - کلیه ۱۵۳ قلم با ۱۸٪ تخفیف
     try:
         from bimax_catalog_data import generate_all_bimax_items
-        bimax_items = generate_all_bimax_items(18.0)
-        existing_bimax = ProductCatalog.query.filter_by(brand='بیمکث (Bimax)').count()
-        if existing_bimax < len(bimax_items):
-            for itm in bimax_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('بیمکث (Bimax)', generate_all_bimax_items, 18.0, 'Bimax')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Bimax catalog auto-seed warning: {e}")
+        app.logger.warning(f"Bimax import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی ایلیا استیل (Ilia Steel) - کلیه ۹۸ قلم سینک با ۱۸٪ تخفیف
     try:
         from ilia_steel_catalog_data import generate_all_ilia_steel_items
-        ilia_items = generate_all_ilia_steel_items(18.0)
-        existing_ilia = ProductCatalog.query.filter_by(brand='ایلیا استیل (Ilia Steel)').count()
-        if existing_ilia < len(ilia_items):
-            for itm in ilia_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('ایلیا استیل (Ilia Steel)', generate_all_ilia_steel_items, 18.0, 'Ilia Steel')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Ilia Steel catalog auto-seed warning: {e}")
+        app.logger.warning(f"Ilia Steel import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی میلان برنز (Milan Bronze) - کلیه ۱۴۴ قلم با ۱۸٪ تخفیف
     try:
         from milan_catalog_data import generate_all_milan_items
-        milan_items = generate_all_milan_items(18.0)
-        existing_milan = ProductCatalog.query.filter_by(brand='میلان (Milan)').count()
-        if existing_milan < len(milan_items):
-            for itm in milan_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('میلان (Milan)', generate_all_milan_items, 18.0, 'Milan')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Milan catalog auto-seed warning: {e}")
+        app.logger.warning(f"Milan import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی گاتریا (چینی نام | Gatria) با ۱۵٪ تخفیف
     try:
         from gatria_catalog_data import generate_all_gatria_items
-        gatria_items = generate_all_gatria_items(15.0)
-        existing_gatria = ProductCatalog.query.filter_by(brand='گاتریا (Gatria)').count()
-        if existing_gatria < len(gatria_items):
-            for itm in gatria_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('گاتریا (Gatria)', generate_all_gatria_items, 15.0, 'Gatria')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"Gatria catalog auto-seed warning: {e}")
+        app.logger.warning(f"Gatria import warning: {e}")
 
-    # بارگذاری و همگام‌سازی کامل کاتالوگ کابین روشویی KRD (تولیدی خودمان) - کلیه ۱۲۵ قلم با ۳۲٪ تخفیف تولید
     try:
         from krd_catalog_data import generate_all_krd_items
-        krd_items = generate_all_krd_items(32.0)
-        existing_krd = ProductCatalog.query.filter_by(brand='KRD').count()
-        if existing_krd < len(krd_items):
-            for itm in krd_items:
-                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
-                if existing:
-                    existing.buy_price = itm['buy_price']
-                    existing.sell_price = itm['sell_price']
-                    existing.category = itm['category']
-                    existing.brand = itm['brand']
-                    existing.description = itm['description']
-                else:
-                    db.session.add(ProductCatalog(
-                        name=itm['name'],
-                        category=itm['category'],
-                        brand=itm['brand'],
-                        buy_price=itm['buy_price'],
-                        sell_price=itm['sell_price'],
-                        description=itm['description']
-                    ))
-            db.session.commit()
+        _seed_catalog('KRD', generate_all_krd_items, 32.0, 'KRD')
     except Exception as e:
-        db.session.rollback()
-        app.logger.warning(f"KRD catalog auto-seed warning: {e}")
+        app.logger.warning(f"KRD import warning: {e}")
 
 
 

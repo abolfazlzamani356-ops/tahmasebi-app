@@ -455,6 +455,34 @@ def initialize_database():
         db.session.rollback()
         app.logger.warning(f"Milan catalog auto-seed warning: {e}")
 
+    # بارگذاری و همگام‌سازی کامل کاتالوگ رسمی گاتریا (چینی نام | Gatria) با ۱۵٪ تخفیف
+    try:
+        from gatria_catalog_data import generate_all_gatria_items
+        gatria_items = generate_all_gatria_items(15.0)
+        existing_gatria = ProductCatalog.query.filter_by(brand='گاتریا (Gatria)').count()
+        if existing_gatria < len(gatria_items):
+            for itm in gatria_items:
+                existing = ProductCatalog.query.filter_by(name=itm['name']).first()
+                if existing:
+                    existing.buy_price = itm['buy_price']
+                    existing.sell_price = itm['sell_price']
+                    existing.category = itm['category']
+                    existing.brand = itm['brand']
+                    existing.description = itm['description']
+                else:
+                    db.session.add(ProductCatalog(
+                        name=itm['name'],
+                        category=itm['category'],
+                        brand=itm['brand'],
+                        buy_price=itm['buy_price'],
+                        sell_price=itm['sell_price'],
+                        description=itm['description']
+                    ))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Gatria catalog auto-seed warning: {e}")
+
 
 
 

@@ -139,7 +139,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 font-medium">
                     {% if catalog_items %}
-                        {% for item in catalog_items %}
+                        {% for item in catalog_items[:60] %}
                         <tr class="hover:bg-slate-50 transition">
                             <td class="p-4 font-mono text-slate-500">{{ item.code or '—' }}</td>
                             <td class="p-4 font-black text-slate-100 text-sm">{{ item.name }}</td>
@@ -189,6 +189,18 @@
                 </tbody>
             </table>
         </div>
+
+        {% if catalog_items|length > 60 %}
+        <div class="p-4 bg-slate-900/60 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <span class="text-slate-400 font-medium">
+                نمایش ۶۰ قلم اول از میان <b class="text-indigo-400 font-black">{{ catalog_items|length }}</b> کالای ثبت‌شده کاتالوگ.
+            </span>
+            <a href="{{ url_for('catalog_view') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md">
+                <span>مشاهده، فیلتر و مدیریت جامع کاتالوگ</span>
+                <span>←</span>
+            </a>
+        </div>
+        {% endif %}
     </div>
 
 </div>

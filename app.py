@@ -1810,6 +1810,8 @@ def catalog_view():
     search = request.args.get('search', '').strip()
     category_filter = request.args.get('category', '').strip()
     brand_filter = request.args.get('brand', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
     
     query = ProductCatalog.query
     if search:
@@ -1819,20 +1821,22 @@ def catalog_view():
     if brand_filter:
         query = query.filter_by(brand=brand_filter)
         
-    catalog_items = query.order_by(ProductCatalog.category, ProductCatalog.name).all()
+    total_products = query.count()
+    pagination = query.order_by(ProductCatalog.category, ProductCatalog.name).paginate(page=page, per_page=per_page, error_out=False)
+    catalog_items = pagination.items
+
     all_categories = Category.query.all()
     all_brands = [b[0] for b in db.session.query(ProductCatalog.brand).distinct().order_by(ProductCatalog.brand).all() if b[0]]
     
-    # آمارهای کلان کاتالوگ
-    total_products = len(catalog_items)
-    avg_profit_margin = 0
-    if total_products > 0:
-        total_margin = sum((item.sell_price - item.buy_price) for item in catalog_items)
-        avg_profit_margin = int(total_margin / total_products)
+    # آمارهای کلان کاتالوگ با کوئری مستقیم و بسیار سریع دیتابیس بدون سربار رم
+    avg_margin_val = query.with_entities(func.avg(ProductCatalog.sell_price - ProductCatalog.buy_price)).scalar() or 0
+    avg_profit_margin = int(avg_margin_val)
         
     return render_template(
         'catalog.html',
         catalog_items=catalog_items,
+        pagination=pagination,
+        page=page,
         all_categories=all_categories,
         all_brands=all_brands,
         total_products=total_products,
@@ -1840,7 +1844,8 @@ def catalog_view():
         search=search,
         category_filter=category_filter,
         brand_filter=brand_filter,
-        is_admin=is_admin()
+        is_admin=is_admin(),
+        can_manage_stock=can_manage_stock()
     )
 
 @app.route('/admin/catalog/add', methods=['POST'])

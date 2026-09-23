@@ -8,19 +8,33 @@
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     <style>
         *, *::before, *::after { box-sizing: border-box; }
-        body {
+        html, body {
             font-family: 'Vazirmatn', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
             background-color: #0b0f19;
             background-image: 
                 radial-gradient(at 15% 15%, rgba(99, 102, 241, 0.15) 0px, transparent 45%),
                 radial-gradient(at 85% 10%, rgba(139, 92, 246, 0.12) 0px, transparent 45%),
                 radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
             background-size: 100% 100%, 100% 100%, 32px 32px;
-            background-attachment: fixed;
-            color: #f1f5f9;
-            min-height: 100vh;
-            margin: 0;
-            padding: 0;
+            transform: translate3d(0, 0, 0);
+            -webkit-transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
         .bg-white, .glass-card {
             background-color: #111827 !important;
@@ -366,6 +380,56 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- صفحه‌بندی هوشمند کاتالوگ -->
+            {% if pagination and pagination.pages > 1 %}
+            <div class="p-4 bg-slate-900/60 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="text-xs text-slate-400 font-medium">
+                    نمایش صفحه <b class="text-indigo-400 font-black">{{ pagination.page }}</b> از <b class="text-indigo-400 font-black">{{ pagination.pages }}</b>
+                    <span class="mr-2 text-slate-500">(مجموعاً {{ total_products }} قلم کالا)</span>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap justify-center">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('catalog_view', page=pagination.prev_num, search=search, category=category_filter, brand=brand_filter) }}"
+                       class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                        <span>‹</span> قبلی
+                    </a>
+                    {% else %}
+                    <span class="px-3.5 py-1.5 bg-slate-900/40 text-slate-600 border border-white/5 rounded-xl text-xs font-bold cursor-not-allowed">
+                        <span>‹</span> قبلی
+                    </span>
+                    {% endif %}
+
+                    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                            {% if p == pagination.page %}
+                            <span class="w-8 h-8 flex items-center justify-center bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-600/30 border border-indigo-400/30">
+                                {{ p }}
+                            </span>
+                            {% else %}
+                            <a href="{{ url_for('catalog_view', page=p, search=search, category=category_filter, brand=brand_filter) }}"
+                               class="w-8 h-8 flex items-center justify-center bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-xs font-bold transition">
+                                {{ p }}
+                            </a>
+                            {% endif %}
+                        {% else %}
+                            <span class="w-8 h-8 flex items-center justify-center text-slate-500 text-xs font-bold">...</span>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('catalog_view', page=pagination.next_num, search=search, category=category_filter, brand=brand_filter) }}"
+                       class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                        بعدی <span>›</span>
+                    </a>
+                    {% else %}
+                    <span class="px-3.5 py-1.5 bg-slate-900/40 text-slate-600 border border-white/5 rounded-xl text-xs font-bold cursor-not-allowed">
+                        بعدی <span>›</span>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
 
     </div>

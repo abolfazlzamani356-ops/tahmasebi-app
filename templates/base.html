@@ -164,12 +164,30 @@
             background-color: rgba(255, 255, 255, 0.03) !important;
         }
 
-        /* ==================== 7. MODALS ==================== */
-        .fixed.inset-0.bg-slate-950\/60,
-        .fixed.inset-0.bg-black\/60,
-        .fixed.inset-0.bg-black\/50 {
-            background-color: rgba(0, 0, 0, 0.75) !important;
+        /* ==================== 7. MODALS (GUARANTEED SCROLLABLE & RESPONSIVE) ==================== */
+        .fixed.inset-0 {
+            overflow-y: auto !important;
+            padding: 1.5rem 1rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: rgba(0, 0, 0, 0.8) !important;
             backdrop-filter: blur(8px) !important;
+            -webkit-backdrop-filter: blur(8px) !important;
+        }
+        .fixed.inset-0.hidden {
+            display: none !important;
+        }
+        /* Modal Content Box */
+        .fixed.inset-0 > div {
+            max-height: 88vh !important;
+            overflow-y: auto !important;
+            margin: auto !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            background-color: #111827 !important;
+            color: #f8fafc !important;
+            border-radius: 1.5rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
         }
 
         /* ==================== 8. NAVBAR DESIGN ==================== */

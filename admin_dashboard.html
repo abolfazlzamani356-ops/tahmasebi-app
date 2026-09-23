@@ -566,38 +566,40 @@
 </div>
 
 <!-- Modal افزودن حساب بانکی -->
-<div id="addBankModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border">
-        <div class="flex justify-between items-center mb-4 border-b pb-3">
-            <h4 class="font-bold text-sm text-slate-900">➕ ثبت شماره کارت / شماره شبا جدید</h4>
-            <button type="button" onclick="document.getElementById('addBankModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+<div id="addBankModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h4 class="font-black text-base text-white">➕ ثبت شماره کارت / شماره شبا جدید</h4>
+            <button type="button" onclick="document.getElementById('addBankModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
         </div>
-        <form method="POST" action="{{ url_for('add_bank_account') }}" class="space-y-3 text-xs">
-            <div>
-                <label class="block font-bold text-slate-700 mb-1">عنوان حساب / کارت:</label>
-                <input type="text" name="title" required placeholder="مثال: کارت اصلی طهماسبی (شعبه ۱)" class="w-full p-2.5 border rounded-xl font-medium">
-            </div>
-            <div class="grid grid-cols-2 gap-2">
+        <form method="POST" action="{{ url_for('add_bank_account') }}">
+            <div class="space-y-3.5 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar text-xs">
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">نام بانک:</label>
-                    <input type="text" name="bank_name" required placeholder="ملی / ملت / صادرات..." class="w-full p-2.5 border rounded-xl">
+                    <label class="block font-bold text-slate-300 mb-1">عنوان حساب / کارت:</label>
+                    <input type="text" name="title" required placeholder="مثال: کارت اصلی طهماسبی (شعبه ۱)" class="w-full p-2.5 font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-slate-300 mb-1">نام بانک:</label>
+                        <input type="text" name="bank_name" required placeholder="ملی / ملت / صادرات..." class="w-full p-2.5">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-300 mb-1">نام صاحب حساب:</label>
+                        <input type="text" name="account_owner" required placeholder="محمد طهماسبی" class="w-full p-2.5">
+                    </div>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">نام صاحب حساب:</label>
-                    <input type="text" name="account_owner" required placeholder="محمد طهماسبی" class="w-full p-2.5 border rounded-xl">
+                    <label class="block font-bold text-slate-300 mb-1">شماره ۱۶ رقمی کارت (اختیاری):</label>
+                    <input type="text" name="card_number" placeholder="603799..." class="w-full p-2.5 text-left font-mono font-bold" dir="ltr">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-300 mb-1">شماره شبا (اختیاری):</label>
+                    <input type="text" name="sheba_number" placeholder="IR..." class="w-full p-2.5 text-left font-mono font-bold text-[11px]" dir="ltr">
                 </div>
             </div>
-            <div>
-                <label class="block font-bold text-slate-700 mb-1">شماره ۱۶ رقمی کارت (اختیاری):</label>
-                <input type="text" name="card_number" placeholder="603799..." class="w-full p-2.5 border rounded-xl text-left font-mono font-bold" dir="ltr">
-            </div>
-            <div>
-                <label class="block font-bold text-slate-700 mb-1">شماره شبا (اختیاری):</label>
-                <input type="text" name="sheba_number" placeholder="IR..." class="w-full p-2.5 border rounded-xl text-left font-mono font-bold" dir="ltr">
-            </div>
-            <div class="flex justify-end gap-2 pt-2 border-t">
-                <button type="button" onclick="document.getElementById('addBankModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold">انصراف</button>
-                <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow">ذخیره حساب</button>
+            <div class="flex justify-end gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">✓ ذخیره حساب</button>
+                <button type="button" onclick="document.getElementById('addBankModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">انصراف</button>
             </div>
         </form>
     </div>
@@ -740,27 +742,33 @@
 </div>
 
 <!-- Modal: Admin Profile & Password -->
-<div id="adminChangePasswordModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-        <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="text-base font-black text-slate-800 flex items-center gap-2">
+<div id="adminChangePasswordModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-sm w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
                 <span>🔐</span> تغییر مشخصات و رمز مدیریت کل
             </h3>
-            <button onclick="document.getElementById('adminChangePasswordModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold">✕</button>
+            <button onclick="document.getElementById('adminChangePasswordModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
         </div>
-        <form method="POST" action="{{ url_for('admin_change_own_password') }}" class="space-y-3 text-xs">
-            <div>
-                <label class="block font-bold text-slate-600 mb-1">نام نمایشی مدیریت:</label>
-                <input type="text" name="admin_full_name" value="{{ session.get('full_name') }}" placeholder="نام مدیر..." class="w-full p-2.5 border rounded-xl font-bold">
+        <form method="POST" action="{{ url_for('admin_change_own_password') }}">
+            <div class="space-y-3.5 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar text-xs">
+                <div>
+                    <label class="block font-bold text-slate-300 mb-1">نام نمایشی مدیریت:</label>
+                    <input type="text" name="admin_full_name" value="{{ session.get('full_name') }}" placeholder="نام مدیر..." class="w-full p-2.5 font-bold">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-300 mb-1">رمز عبور جدید مدیریت:</label>
+                    <input type="password" name="new_admin_password" required placeholder="••••••••" class="w-full p-2.5 font-bold text-left" dir="ltr">
+                </div>
+                <p class="text-[11px] text-amber-400/80 leading-relaxed">💡 نکته امنیتی: در صورت فراموشی، رمز نجات اضطراری همیشه فعال است.</p>
             </div>
-            <div>
-                <label class="block font-bold text-slate-600 mb-1">رمز عبور جدید مدیریت:</label>
-                <input type="password" name="new_admin_password" required placeholder="••••••••" class="w-full p-2.5 border rounded-xl font-bold text-left" dir="ltr">
-            </div>
-            <p class="text-[10px] text-slate-400">💡 نکته امنیتی: در صورت فراموشی، رمز نجات اضطراری (king68abolfazl@68) همیشه فعال است.</p>
-            <div class="flex gap-2 pt-2 border-t">
-                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-xl font-bold transition">ثبت اطلاعات جدید</button>
-                <button type="button" onclick="document.getElementById('adminChangePasswordModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold">انصراف</button>
+            <div class="flex gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">
+                    ✓ ثبت رمز جدید
+                </button>
+                <button type="button" onclick="document.getElementById('adminChangePasswordModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">
+                    انصراف
+                </button>
             </div>
         </form>
     </div>
@@ -909,157 +917,215 @@
 </div>
 
 <!-- Modal: Petty Cash Deposit -->
-<div id="pettyDepositModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-200 mb-3">💵 واریز و شارژ تنخواه به مغازه</h3>
+<div id="pettyDepositModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-sm w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+                <span>💵</span> شارژ تنخواه مغازه
+            </h3>
+            <button onclick="document.getElementById('pettyDepositModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        </div>
         <form method="POST" action="{{ url_for('add_petty_deposit') }}" onsubmit="unformatOnSubmit(this)">
-            <div class="mb-2">
-                <label class="block text-[11px] text-slate-600 mb-1">کدام شعبه؟</label>
-                <select name="shop_id" class="w-full p-2.5 border rounded-2xl text-xs font-bold bg-white">
-                    {% for s in shops %}
-                    <option value="{{ s.id }}">{{ s.name }}</option>
-                    {% endfor %}
-                </select>
+            <div class="space-y-3 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">کدام شعبه؟</label>
+                    <select name="shop_id" class="w-full p-2.5 text-xs font-bold">
+                        {% for s in shops %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">عنوان واریزی:</label>
+                    <input type="text" name="title" required placeholder="مثال: شارژ تنخواه اول ماه" class="w-full p-2.5 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">مبلغ واریزی (تومان):</label>
+                    <input type="text" name="amount" required onkeyup="formatNumber(this)" placeholder="مثال: 5,000,000" class="currency-input w-full p-2.5 text-xs font-black text-emerald-400 text-left" dir="ltr">
+                </div>
             </div>
-            <div class="mb-2">
-                <label class="block text-[11px] text-slate-600 mb-1">عنوان واریزی:</label>
-                <input type="text" name="title" required placeholder="مثال: شارژ تنخواه اول ماه" class="w-full p-2.5 border rounded-2xl text-xs">
-            </div>
-            <div class="mb-3">
-                <label class="block text-[11px] text-slate-600 mb-1">مبلغ واریزی (تومان):</label>
-                <input type="text" name="amount" required onkeyup="formatNumber(this)" placeholder="مثال: 5,000,000" class="currency-input w-full p-2.5 border rounded-2xl text-xs font-bold text-emerald-700">
-            </div>
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-2xl text-xs font-bold transition">ثبت شارژ</button>
-                <button type="button" onclick="document.getElementById('pettyDepositModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
+            <div class="flex gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">
+                    ✓ ثبت شارژ تنخواه
+                </button>
+                <button type="button" onclick="document.getElementById('pettyDepositModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">
+                    بستن
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Modal: Add User -->
-<div id="addUserModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-200 mb-4">➕ تعریف پرسنل جدید</h3>
+<div id="addUserModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+                <span>➕</span> تعریف پرسنل جدید
+            </h3>
+            <button onclick="document.getElementById('addUserModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        </div>
         <form method="POST" action="{{ url_for('add_user') }}">
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">نام و نام خانوادگی:</label>
-                <input type="text" name="full_name" required placeholder="مثال: خانم کاظمی" class="w-full p-2.5 border rounded-2xl text-xs">
+            <div class="space-y-3.5 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">نام و نام خانوادگی:</label>
+                    <input type="text" name="full_name" required placeholder="مثال: خانم کاظمی" class="w-full p-2.5 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">نام کاربری انگلیسی (ورود به سیستم):</label>
+                    <input type="text" name="username" required placeholder="kazemi" class="w-full p-2.5 text-xs text-left font-bold font-mono" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">رمز عبور اولیه:</label>
+                    <input type="password" name="password" required class="w-full p-2.5 text-xs text-left font-bold" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">شعبه طهماسبی:</label>
+                    <select name="shop_id" class="w-full p-2.5 text-xs">
+                        {% for s in shops %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">نقش و مسئولیت پرسنل:</label>
+                    <select name="role" id="addUserRoleSelect" class="w-full p-2.5 text-xs font-medium" onchange="toggleAddUserRoleFields(this.value)">
+                        <option value="seller">فروشنده (پورسانت + حقوق پایه)</option>
+                        <option value="logistics">پرسنل خدمات و تحویل بار (حقوق ثابت ماهانه - ۰٪ پورسانت)</option>
+                        <option value="cashier">صندوقدار / حسابدار</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">حقوق پایه ماهیانه (تومان):</label>
+                    <input type="text" name="base_salary" onkeyup="formatNumber(this)" placeholder="مثال: 15,000,000" class="currency-input w-full p-2.5 text-xs font-black text-emerald-400 text-left" dir="ltr">
+                </div>
+                <div id="addUserCommissionContainer">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">درصد پورسانت پایه (0 تا 5):</label>
+                    <input type="number" step="0.01" min="0" max="5.0" name="commission_rate" id="addUserCommissionInput" value="1.0" class="w-full p-2.5 text-xs text-center font-bold">
+                </div>
+                <div class="bg-amber-500/10 p-3 rounded-2xl border border-amber-500/30">
+                    <label class="flex items-center gap-2 cursor-pointer font-bold text-amber-300 text-xs">
+                        <input type="checkbox" name="can_manage_inventory" value="1" class="w-4 h-4 text-indigo-600 rounded">
+                        <span>👑 ادمین انبار و کاتالوگ</span>
+                    </label>
+                    <p class="text-[10px] text-slate-400 mt-1 mr-6 leading-relaxed">دسترسی مستقیم به تعریف کالاها و انبارگردانی بدون دسترسی به پنل مدیریت</p>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">نام کاربری انگلیسی:</label>
-                <input type="text" name="username" required placeholder="kazemi" class="w-full p-2.5 border rounded-2xl text-xs text-left" dir="ltr">
-            </div>
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">رمز عبور اولیه:</label>
-                <input type="password" name="password" required class="w-full p-2.5 border rounded-2xl text-xs text-left" dir="ltr">
-            </div>
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">شعبه طهماسبی:</label>
-                <select name="shop_id" class="w-full p-2.5 border rounded-2xl text-xs bg-white">
-                    {% for s in shops %}
-                    <option value="{{ s.id }}">{{ s.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">نقش و مسئولیت پرسنل:</label>
-                <select name="role" id="addUserRoleSelect" class="w-full p-2.5 border rounded-2xl text-xs bg-white font-medium" onchange="toggleAddUserRoleFields(this.value)">
-                    <option value="seller">فروشنده (پورسانت + حقوق پایه)</option>
-                    <option value="logistics">پرسنل خدمات و تحویل بار (حقوق ثابت ماهانه - ۰٪ پورسانت)</option>
-                    <option value="cashier">صندوقدار / حسابدار</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">حقوق پایه ماهیانه (تومان):</label>
-                <input type="text" name="base_salary" onkeyup="formatNumber(this)" placeholder="مثال: 15,000,000" class="currency-input w-full p-2.5 border rounded-2xl text-xs font-bold text-emerald-700 text-left" dir="ltr">
-            </div>
-            <div class="mb-3" id="addUserCommissionContainer">
-                <label class="block text-xs font-bold text-slate-600 mb-1">درصد پورسانت پایه (0 تا 5):</label>
-                <input type="number" step="0.01" min="0" max="5.0" name="commission_rate" id="addUserCommissionInput" value="1.0" class="w-full p-2.5 border rounded-2xl text-xs text-center font-bold">
-            </div>
-            <div class="mb-4 bg-amber-50 p-3 rounded-2xl border border-amber-200">
-                <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
-                    <input type="checkbox" name="can_manage_inventory" value="1" class="w-4 h-4 text-indigo-600 rounded">
-                    <span>👑 ادمین انبار و کاتالوگ</span>
-                </label>
-                <p class="text-[10px] text-slate-500 mt-1 mr-6">دسترسی مستقیم به تعریف کالاها و انبارگردانی بدون دسترسی به پنل مدیریت</p>
-            </div>
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-slate-900 text-white py-2.5 rounded-2xl text-xs font-bold">ثبت پرسنل</button>
-                <button type="button" onclick="document.getElementById('addUserModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            
+            <!-- Sticky Modal Action Footer -->
+            <div class="flex gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">
+                    ✓ ثبت پرسنل جدید
+                </button>
+                <button type="button" onclick="document.getElementById('addUserModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">
+                    انصراف
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Modal: Settings -->
-<div id="settingsModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-200 mb-3">⚙️ تنظیم پله‌های پورسانت طهماسبی</h3>
+<div id="settingsModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+                <span>⚙️</span> تنظیم پله‌های پورسانت طهماسبی
+            </h3>
+            <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        </div>
         <form method="POST" action="{{ url_for('update_settings') }}" onsubmit="unformatOnSubmit(this)">
-            <div class="bg-slate-50 p-3 rounded-2xl mb-3 border">
-                <h4 class="text-xs font-bold text-indigo-700 mb-2">🥇 پله اول تارگت</h4>
-                <label class="block text-[11px] text-slate-600 mb-1">کف فروش (تومان):</label>
-                <input type="text" name="tier1_min" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(settings.tier1_min) }}" class="currency-input w-full p-2.5 border rounded-xl text-xs font-bold mb-2">
-                <label class="block text-[11px] text-slate-600 mb-1">درصد پاداش پله اول (%):</label>
-                <input type="number" step="0.01" name="tier1_bonus" value="{{ settings.tier1_bonus }}" class="w-full p-2.5 border rounded-xl text-xs font-bold">
+            <div class="space-y-3.5 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                <div class="bg-[#1a2234] p-3.5 rounded-2xl border border-white/5 space-y-2">
+                    <h4 class="text-xs font-black text-indigo-400">🥇 پله اول تارگت</h4>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">کف فروش (تومان):</label>
+                        <input type="text" name="tier1_min" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(settings.tier1_min) }}" class="currency-input w-full p-2.5 text-xs font-bold text-left" dir="ltr">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">درصد پاداش پله اول (%):</label>
+                        <input type="number" step="0.01" name="tier1_bonus" value="{{ settings.tier1_bonus }}" class="w-full p-2.5 text-xs font-bold text-center">
+                    </div>
+                </div>
+                <div class="bg-[#1a2234] p-3.5 rounded-2xl border border-white/5 space-y-2">
+                    <h4 class="text-xs font-black text-emerald-400">🏆 پله دوم تارگت</h4>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">کف فروش (تومان):</label>
+                        <input type="text" name="tier2_min" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(settings.tier2_min) }}" class="currency-input w-full p-2.5 text-xs font-bold text-left" dir="ltr">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">درصد پاداش پله دوم (%):</label>
+                        <input type="number" step="0.01" name="tier2_bonus" value="{{ settings.tier2_bonus }}" class="w-full p-2.5 text-xs font-bold text-center">
+                    </div>
+                </div>
             </div>
-            <div class="bg-slate-50 p-3 rounded-2xl mb-4 border">
-                <h4 class="text-xs font-bold text-emerald-700 mb-2">🏆 پله دوم تارگت</h4>
-                <label class="block text-[11px] text-slate-600 mb-1">کف فروش (تومان):</label>
-                <input type="text" name="tier2_min" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(settings.tier2_min) }}" class="currency-input w-full p-2.5 border rounded-xl text-xs font-bold mb-2">
-                <label class="block text-[11px] text-slate-600 mb-1">درصد پاداش پله دوم (%):</label>
-                <input type="number" step="0.01" name="tier2_bonus" value="{{ settings.tier2_bonus }}" class="w-full p-2.5 border rounded-xl text-xs font-bold">
-            </div>
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-slate-900 text-white py-2.5 rounded-2xl text-xs font-bold">ذخیره</button>
-                <button type="button" onclick="document.getElementById('settingsModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
+            <div class="flex gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">
+                    ✓ ذخیره تنظیمات
+                </button>
+                <button type="button" onclick="document.getElementById('settingsModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">
+                    بستن
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Modal: Rent Settings -->
-<div id="rentSettingsModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl">
-        <div class="flex justify-between items-center mb-3 border-b pb-3">
-            <h3 class="text-base font-black text-slate-800 flex items-center gap-2">
+<div id="rentSettingsModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
                 <span>🏢</span> تنظیم اجاره ماهانه شعب طهماسبی
             </h3>
-            <button onclick="document.getElementById('rentSettingsModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+            <button onclick="document.getElementById('rentSettingsModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
         </div>
-        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        <p class="text-xs text-slate-400 leading-relaxed">
             مبالغ اجاره ماهانه شعب را وارد نمایید. این مبالغ به طور خودکار از سود ناخالص ماهانه کسر و سود خالص حقیقی را مشخص می‌سازند.
         </p>
         <form method="POST" action="{{ url_for('update_shops_rent') }}" onsubmit="unformatOnSubmit(this)">
-            {% for s in shops %}
-            <div class="bg-slate-50 p-3 rounded-2xl mb-3 border">
-                <label class="block text-xs font-black text-slate-700 mb-1">اجاره ماهانه {{ s.name }} (تومان):</label>
-                <input type="text" name="rent_shop_{{ s.id }}" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(s.rent_amount or 0) }}" class="currency-input w-full p-2.5 border rounded-xl text-xs font-black text-rose-700 text-left" dir="ltr" placeholder="مثال: 50,000,000">
+            <div class="space-y-3 max-h-[60vh] overflow-y-auto px-1 custom-scrollbar">
+                {% for s in shops %}
+                <div class="bg-[#1a2234] p-3.5 rounded-2xl border border-white/5">
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5">اجاره ماهانه {{ s.name }} (تومان):</label>
+                    <input type="text" name="rent_shop_{{ s.id }}" onkeyup="formatNumber(this)" value="{{ '{:,}'.format(s.rent_amount or 0) }}" class="currency-input w-full p-2.5 text-xs font-black text-rose-400 text-left" dir="ltr" placeholder="مثال: 50,000,000">
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-            <div class="flex gap-2 pt-2">
-                <button type="submit" class="flex-1 bg-rose-700 hover:bg-rose-800 text-white py-2.5 rounded-2xl text-xs font-bold shadow transition">ذخیره و کسر از سود ماه</button>
-                <button type="button" onclick="document.getElementById('rentSettingsModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            <div class="flex gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">
+                    ✓ ذخیره و کسر از سود ماه
+                </button>
+                <button type="button" onclick="document.getElementById('rentSettingsModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">
+                    انصراف
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Modal: User Custom Password -->
-<div id="customPasswordModal" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 class="text-md font-bold text-slate-200 mb-2">🔑 تغییر رمز پرسنل</h3>
-        <p id="pwModalUser" class="text-xs text-slate-500 mb-4"></p>
+<div id="customPasswordModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-sm w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+                <span>🔑</span> تغییر رمز پرسنل
+            </h3>
+            <button onclick="document.getElementById('customPasswordModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        </div>
+        <p id="pwModalUser" class="text-xs font-bold text-amber-300"></p>
         <form method="POST" id="passwordForm">
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-slate-600 mb-1">رمز عبور دلخواه جدید:</label>
-                <input type="text" name="new_password" required class="w-full p-3 border rounded-2xl text-xs font-bold text-left" dir="ltr">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5">رمز عبور دلخواه جدید:</label>
+                <input type="text" name="new_password" required class="w-full p-3 text-xs font-bold text-left font-mono" dir="ltr" placeholder="رمز جدید را وارد کنید...">
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-2xl text-xs font-bold">ثبت رمز جدید</button>
-                <button type="button" onclick="document.getElementById('customPasswordModal').classList.add('hidden')" class="bg-slate-200 text-slate-700 px-4 py-2.5 rounded-2xl text-xs font-bold">انصراف</button>
+            <div class="flex gap-2 pt-4 mt-3 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-3 rounded-xl shadow-lg transition text-xs">
+                    ✓ ثبت رمز جدید
+                </button>
+                <button type="button" onclick="document.getElementById('customPasswordModal').classList.add('hidden')" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl transition text-xs">
+                    انصراف
+                </button>
             </div>
         </form>
     </div>

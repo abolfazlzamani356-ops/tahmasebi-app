@@ -208,46 +208,46 @@
 </div>
 
 <!-- ==================== مودال کراپ و برش هوشمند تصویر چهره (Cropper.js) ==================== -->
-<div id="cropModal" class="hidden fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
-        <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+<div id="cropModal" class="hidden fixed inset-0 z-50">
+    <div class="glass-card max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
                 <span>✂️</span> تنظیم کادر و برش عکس پرسنلی
             </h3>
-            <button type="button" onclick="closeCropModal()" class="text-slate-400 hover:text-slate-700 text-lg font-bold">✕</button>
+            <button type="button" onclick="closeCropModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
         </div>
 
-        <p class="text-xs text-slate-500 leading-relaxed">
+        <p class="text-xs text-slate-400 leading-relaxed">
             کادر مربعی را روی چهره خود تنظیم فرمایید. می‌توانید با اسکرول ماوس یا لمس، تصویر را زوم و جابجا کنید.
         </p>
 
         <!-- کانتینر تصویر کراپ -->
-        <div class="w-full h-80 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center">
+        <div class="w-full h-80 bg-[#090d16] rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
             <img id="imageToCrop" src="" alt="برای کراپ" class="max-w-full max-h-full block">
         </div>
 
         <!-- دکمه‌های کنترل کراپ (زوم و چرخش) -->
-        <div class="flex items-center justify-center gap-2 pt-1">
-            <button type="button" onclick="zoomCropper(0.1)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+        <div class="flex items-center justify-center gap-2 pt-1 flex-wrap">
+            <button type="button" onclick="zoomCropper(0.1)" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
                 ➕ بزرگ‌نمایی
             </button>
-            <button type="button" onclick="zoomCropper(-0.1)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+            <button type="button" onclick="zoomCropper(-0.1)" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
                 ➖ کوچک‌نمایی
             </button>
-            <button type="button" onclick="rotateCropper(90)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+            <button type="button" onclick="rotateCropper(90)" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
                 🔄 چرخش ۹۰°
             </button>
-            <button type="button" onclick="resetCropper()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
+            <button type="button" onclick="resetCropper()" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1">
                 ↺ بازنشانی
             </button>
         </div>
 
-        <div class="flex justify-end gap-2 pt-3 border-t">
-            <button type="button" onclick="closeCropModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-2xl text-xs font-bold transition">
-                انصراف
-            </button>
-            <button type="button" id="saveCroppedAvatarBtn" onclick="saveCroppedAvatar()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-2xl text-xs font-bold shadow-md transition flex items-center gap-2">
+        <div class="flex justify-end gap-2 pt-4 border-t border-white/10 sticky bottom-0 bg-[#111827]">
+            <button type="button" id="saveCroppedAvatarBtn" onclick="saveCroppedAvatar()" class="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3 rounded-xl text-xs font-black shadow-lg transition flex items-center justify-center gap-2">
                 <span>✅</span> تایید و ذخیره عکس چهره
+            </button>
+            <button type="button" onclick="closeCropModal()" class="px-5 py-3 bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-300 font-bold rounded-xl text-xs transition">
+                انصراف
             </button>
         </div>
     </div>

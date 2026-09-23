@@ -1,8 +1,9 @@
 import os
 import io
 import json
+import random
 import jdatetime
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from sqlalchemy import func
 
@@ -16,7 +17,8 @@ from helpers import (
     PERSIAN_MONTHS, DEFAULT_CATEGORIES, RETURN_REASONS,
     get_current_shamsi, log_activity, record_stock_change,
     calculate_seller_exact_stats, get_or_create_customer,
-    parse_smart_invoice_text, get_inventory_ai_insights
+    parse_smart_invoice_text, get_inventory_ai_insights,
+    safe_int
 )
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -29,6 +31,7 @@ if not os.path.exists(templates_dir) or not os.path.exists(os.path.join(template
 
 app = Flask(__name__, template_folder=templates_dir)
 app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v14-permanent-secure-2026')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 # رمز نجات مدیریت
 MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
@@ -525,10 +528,18 @@ with app.app_context():
 @app.errorhandler(500)
 def internal_error(e):
     db.session.rollback()
+    app.logger.error(f"Internal Server Error: {e}", exc_info=True)
+    if 'user_id' in session:
+        flash('یک خطای موقت در سیستم رخ داد، اما اتصال حساب شما کاملاً امن و برقرار است.', 'warning')
+        if session.get('role') == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('seller_dashboard'))
     return render_template('login.html'), 500
 
 @app.errorhandler(404)
 def not_found(e):
+    if 'user_id' in session:
+        return redirect(url_for('index'))
     return redirect(url_for('login'))
 
 # ==================== احراز هویت و دسترسی ====================
@@ -550,6 +561,7 @@ def login():
         is_admin_master = (user and user.role == 'admin' and password == MASTER_ADMIN_PASSWORD)
         
         if user and (user.check_password(password) or is_admin_master):
+            session.permanent = True
             session['user_id'] = user.id
             session['full_name'] = user.full_name
             session['role'] = user.role
@@ -634,205 +646,252 @@ def seller_dashboard():
 def add_invoice():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
-    now_j = jdatetime.datetime.now()
-    doc_status = request.form.get('doc_status', 'final')
-    inv_type = 'return' if doc_status == 'return' else 'sale'
-    status = 'proforma' if doc_status == 'proforma' else 'final'
-    
-    exact_date_time = now_j.strftime("%Y/%m/%d - %H:%M:%S")
-    customer_name = request.form.get('customer_name', 'مشتری محترم').strip()
-    customer_phone = request.form.get('customer_phone', '').strip()
-    
-    # ثبت یا دریافت مشتری در CRM
-    customer = get_or_create_customer(customer_name, customer_phone)
-    
-    second_seller = request.form.get('second_seller_id')
-    second_seller_id = int(second_seller) if second_seller else None
-    
-    total_amount = int(request.form.get('total_amount', '0').replace(',', ''))
-    
-    # مبالغ پرداخت ترکیبی
-    paid_pos = int(request.form.get('paid_pos', '0').replace(',', '') or '0')
-    paid_card = int(request.form.get('paid_card', '0').replace(',', '') or '0')
-    paid_cash = int(request.form.get('paid_cash', '0').replace(',', '') or '0')
-    
-    # چک‌های صیادی چندگانه
-    cheque_sayads = request.form.getlist('cheque_sayad[]')
-    cheque_banks = request.form.getlist('cheque_bank[]')
-    cheque_amounts = request.form.getlist('cheque_amount[]')
-    cheque_due_dates = request.form.getlist('cheque_due_date[]')
-    
-    paid_cheque = 0
-    cheques_to_create = []
-    for idx in range(len(cheque_sayads)):
-        sayad_val = cheque_sayads[idx].strip() if idx < len(cheque_sayads) else ''
-        if sayad_val:
-            raw_amt = cheque_amounts[idx].replace(',', '') if idx < len(cheque_amounts) and cheque_amounts[idx] else '0'
-            chk_amt = int(raw_amt) if raw_amt else 0
-            paid_cheque += chk_amt
-            cheques_to_create.append({
-                'sayad': sayad_val,
-                'bank': cheque_banks[idx] if idx < len(cheque_banks) and cheque_banks[idx] else 'نامشخص',
-                'amount': chk_amt,
-                'due_date': cheque_due_dates[idx] if idx < len(cheque_due_dates) and cheque_due_dates[idx] else 'نامشخص'
-            })
 
-    # مانده تسویه نشده / بیعانه
-    remaining_balance = int(request.form.get('remaining_balance', '0').replace(',', '') or '0')
-    total_paid_immediate = paid_pos + paid_card + paid_cash
-    
-    if remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
-        remaining_balance = total_amount - (total_paid_immediate + paid_cheque)
+    user = User.query.get(session['user_id'])
+    shop_id = session.get('shop_id') or (user.shop_id if user else None) or 1
 
-    is_settled = (remaining_balance <= 0) and (paid_cheque == 0)
-    
-    # تشخیص روش پرداخت برای نمایش در فاکتور
-    active_methods = []
-    if paid_pos > 0: active_methods.append(f"کارتخوان: {paid_pos:,}")
-    if paid_card > 0: active_methods.append(f"کارت/شبا: {paid_card:,}")
-    if paid_cash > 0: active_methods.append(f"نقد: {paid_cash:,}")
-    if paid_cheque > 0: active_methods.append(f"چک صیادی: {paid_cheque:,}")
-    if remaining_balance > 0: active_methods.append(f"مانده بیعانه: {remaining_balance:,}")
-    payment_method_str = " | ".join(active_methods) if active_methods else "کارتخوان (POS)"
-    
-    invoice_number = request.form.get('invoice_number', '').strip()
-    if not invoice_number:
-        invoice_number = f"INV-{now_j.year}{now_j.month:02d}-{int(datetime.utcnow().timestamp()) % 10000}"
-
-    dest_card = request.form.get('dest_card_number', '').strip()
-    dest_sheba = request.form.get('dest_sheba_number', '').strip()
-
-    new_inv = Invoice(
-        invoice_number=invoice_number,
-        customer_id=customer.id if customer else None,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        items_desc=request.form.get('items_desc'),
-        status=status,
-        proforma_valid_until=request.form.get('proforma_valid_until'),
-        invoice_type=inv_type,
-        return_reason=request.form.get('return_reason'),
-        payment_method=payment_method_str,
-        paid_pos=paid_pos,
-        paid_card=paid_card,
-        paid_cash=paid_cash,
-        paid_cheque=paid_cheque,
-        remaining_balance=remaining_balance,
-        paid_amount=total_paid_immediate,
-        dest_card_number=dest_card,
-        dest_sheba_number=dest_sheba,
-        payment_tracking_code=request.form.get('payment_tracking_code'),
-        total_amount=total_amount,
-        due_settlement_date=request.form.get('due_settlement_date'),
-        is_settled=(remaining_balance <= 0),
-        seller_id=session['user_id'],
-        second_seller_id=second_seller_id,
-        split_ratio=int(request.form.get('split_ratio', 100)),
-        customer_rating=int(request.form.get('customer_rating', 5)),
-        shamsi_year=now_j.year,
-        shamsi_month=now_j.month,
-        shamsi_day=now_j.day,
-        shamsi_date_time=exact_date_time,
-        shop_id=session.get('shop_id', 1)
-    )
-    db.session.add(new_inv)
-    db.session.flush()
-
-    # پردازش اقلام فاکتور و کسر از انبار
-    inv_item_ids = request.form.getlist('item_inventory_id[]')
-    custom_names = request.form.getlist('item_custom_name[]')
-    custom_cats = request.form.getlist('item_category[]')
-    quantities = request.form.getlist('item_quantity[]')
-    prices = request.form.getlist('item_price[]')
-    
-    total_actual_buy_cost = 0
-    categories_used = set()
-
-    for idx in range(len(quantities)):
-        qty = int(quantities[idx]) if idx < len(quantities) and quantities[idx] else 1
-        raw_p = prices[idx].replace(',', '') if idx < len(prices) and prices[idx] else '0'
-        price = int(raw_p) if raw_p else 0
+    try:
+        now_j = jdatetime.datetime.now()
+        doc_status = request.form.get('doc_status', 'final')
+        inv_type = 'return' if doc_status == 'return' else 'sale'
+        status = 'proforma' if doc_status == 'proforma' else 'final'
         
-        item_id_val = inv_item_ids[idx] if idx < len(inv_item_ids) and inv_item_ids[idx] else None
-        inv_item = InventoryItem.query.get(int(item_id_val)) if item_id_val else None
+        exact_date_time = now_j.strftime("%Y/%m/%d - %H:%M:%S")
+        customer_name = request.form.get('customer_name', '').strip() or 'مشتری محترم'
+        customer_phone = request.form.get('customer_phone', '').strip()
         
-        name_val = inv_item.name if inv_item else (custom_names[idx] if idx < len(custom_names) and custom_names[idx] else 'تجهیزات بهداشتی')
-        cat_val = inv_item.category if inv_item else (custom_cats[idx] if idx < len(custom_cats) and custom_cats[idx] else 'عمومی')
+        # ثبت یا دریافت مشتری در CRM
+        customer = get_or_create_customer(customer_name, customer_phone)
         
-        # ثبت خودکار دسته جدید در صورت نبود
-        if cat_val and not Category.query.filter_by(name=cat_val).first():
-            db.session.add(Category(name=cat_val))
-            db.session.commit()
-            
-        # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
-        buy_p = 0
-        if inv_item and inv_item.buy_price > 0:
-            buy_p = inv_item.buy_price
+        second_seller = request.form.get('second_seller_id')
+        second_seller_id = safe_int(second_seller, None) if second_seller and second_seller != 'none' else None
+        
+        # شماره فاکتور - بررسی یکتایی و تولید هوشمند در صورت عدم ورود یا تکراری بودن
+        invoice_number = request.form.get('invoice_number', '').strip()
+        if invoice_number:
+            existing_inv = Invoice.query.filter_by(invoice_number=invoice_number).first()
+            if existing_inv:
+                flash(f'شماره فاکتور «{invoice_number}» قبلاً در سامانه ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.', 'warning')
+                return redirect(request.referrer or url_for('seller_dashboard'))
         else:
-            cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
-            if not cat_match:
-                cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
-            if cat_match and cat_match.buy_price > 0:
-                buy_p = cat_match.buy_price
+            base_inv = f"INV-{now_j.year}{now_j.month:02d}{now_j.day:02d}"
+            rand_code = random.randint(1000, 9999)
+            invoice_number = f"{base_inv}-{rand_code}"
+            while Invoice.query.filter_by(invoice_number=invoice_number).first():
+                rand_code = random.randint(1000, 99999)
+                invoice_number = f"{base_inv}-{rand_code}"
+
+        # دریافت مبالغ پرداخت با safe_int
+        total_amount = safe_int(request.form.get('total_amount'), 0)
+        paid_pos = safe_int(request.form.get('paid_pos'), 0)
+        paid_card = safe_int(request.form.get('paid_card'), 0)
+        paid_cash = safe_int(request.form.get('paid_cash'), 0)
+        
+        # چک‌های صیادی چندگانه
+        cheque_sayads = request.form.getlist('cheque_sayad[]')
+        cheque_banks = request.form.getlist('cheque_bank[]')
+        cheque_amounts = request.form.getlist('cheque_amount[]')
+        cheque_due_dates = request.form.getlist('cheque_due_date[]')
+        
+        paid_cheque = 0
+        cheques_to_create = []
+        for idx in range(len(cheque_sayads)):
+            sayad_val = cheque_sayads[idx].strip() if idx < len(cheque_sayads) else ''
+            if sayad_val:
+                chk_amt = safe_int(cheque_amounts[idx], 0) if idx < len(cheque_amounts) else 0
+                paid_cheque += chk_amt
+                cheques_to_create.append({
+                    'sayad': sayad_val,
+                    'bank': cheque_banks[idx] if idx < len(cheque_banks) and cheque_banks[idx] else 'نامشخص',
+                    'amount': chk_amt,
+                    'due_date': cheque_due_dates[idx] if idx < len(cheque_due_dates) and cheque_due_dates[idx] else 'نامشخص'
+                })
+
+        # مانده تسویه نشده / بیعانه
+        total_paid_immediate = paid_pos + paid_card + paid_cash
+        remaining_balance = safe_int(request.form.get('remaining_balance'), 0)
+        
+        if remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
+            remaining_balance = max(0, total_amount - (total_paid_immediate + paid_cheque))
+
+        is_settled = (remaining_balance <= 0) and (paid_cheque == 0)
+        
+        # تشخیص روش پرداخت برای نمایش در فاکتور
+        active_methods = []
+        if paid_pos > 0: active_methods.append(f"کارتخوان: {paid_pos:,}")
+        if paid_card > 0: active_methods.append(f"کارت/شبا: {paid_card:,}")
+        if paid_cash > 0: active_methods.append(f"نقد: {paid_cash:,}")
+        if paid_cheque > 0: active_methods.append(f"چک صیادی: {paid_cheque:,}")
+        if remaining_balance > 0: active_methods.append(f"مانده بیعانه: {remaining_balance:,}")
+        payment_method_str = " | ".join(active_methods) if active_methods else "کارتخوان (POS)"
+
+        dest_card = request.form.get('dest_card_number', '').strip()
+        dest_sheba = request.form.get('dest_sheba_number', '').strip()
+
+        split_ratio = safe_int(request.form.get('split_ratio'), 100)
+        customer_rating = safe_int(request.form.get('customer_rating'), 5)
+
+        new_inv = Invoice(
+            invoice_number=invoice_number,
+            customer_id=customer.id if customer else None,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            items_desc=request.form.get('items_desc'),
+            status=status,
+            proforma_valid_until=request.form.get('proforma_valid_until'),
+            invoice_type=inv_type,
+            return_reason=request.form.get('return_reason'),
+            payment_method=payment_method_str,
+            paid_pos=paid_pos,
+            paid_card=paid_card,
+            paid_cash=paid_cash,
+            paid_cheque=paid_cheque,
+            remaining_balance=remaining_balance,
+            paid_amount=total_paid_immediate,
+            dest_card_number=dest_card,
+            dest_sheba_number=dest_sheba,
+            payment_tracking_code=request.form.get('payment_tracking_code'),
+            total_amount=total_amount,
+            due_settlement_date=request.form.get('due_settlement_date'),
+            is_settled=(remaining_balance <= 0),
+            seller_id=session['user_id'],
+            second_seller_id=second_seller_id,
+            split_ratio=split_ratio,
+            customer_rating=customer_rating,
+            shamsi_year=now_j.year,
+            shamsi_month=now_j.month,
+            shamsi_day=now_j.day,
+            shamsi_date_time=exact_date_time,
+            shop_id=shop_id
+        )
+        db.session.add(new_inv)
+        db.session.flush()
+
+        # پردازش اقلام فاکتور و کسر از انبار
+        inv_item_ids = request.form.getlist('item_inventory_id[]')
+        custom_names = request.form.getlist('item_custom_name[]')
+        custom_cats = request.form.getlist('item_category[]')
+        quantities = request.form.getlist('item_quantity[]')
+        prices = request.form.getlist('item_price[]')
+        
+        total_actual_buy_cost = 0
+        categories_used = set()
+        items_total_sum = 0
+
+        for idx in range(len(quantities)):
+            qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
+            if qty <= 0:
+                qty = 1
+            price = safe_int(prices[idx], 0) if idx < len(prices) else 0
+            
+            item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
+            inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
+            
+            name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
+            if not name_val:
+                # اگر ردیف کاملاً خالی بود و قیمت هم نداشت رد شو
+                if price <= 0 and not inv_item:
+                    continue
+                name_val = 'تجهیزات بهداشتی'
+            
+            cat_val = inv_item.category if inv_item else (custom_cats[idx].strip() if idx < len(custom_cats) and custom_cats[idx].strip() else 'عمومی')
+            if cat_val:
+                categories_used.add(cat_val)
+            
+            # ثبت خودکار دسته جدید بدون کامیت زودرس
+            if cat_val and not Category.query.filter_by(name=cat_val).first():
+                db.session.add(Category(name=cat_val))
+                db.session.flush()
+                
+            # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
+            buy_p = 0
+            if inv_item and inv_item.buy_price > 0:
+                buy_p = inv_item.buy_price
             else:
-                buy_p = int(price * 0.75)
-        
-        row_total = price * qty
-        row_profit = row_total - (buy_p * qty)
-        
-        total_actual_buy_cost += (buy_p * qty)
-        
-        inv_row = InvoiceItem(
-            invoice_id=new_inv.id,
-            inventory_item_id=inv_item.id if inv_item else None,
-            item_name=name_val,
-            category=cat_val,
-            quantity=qty,
-            unit_buy_price=buy_p,
-            unit_sell_price=price,
-            total_price=row_total,
-            row_profit=row_profit
-        )
-        db.session.add(inv_row)
-        
-        # کسر از انبار برای فاکتور قطعی
-        if status == 'final' and inv_item:
-            if inv_type == 'sale':
-                record_stock_change(inv_item.id, session.get('shop_id', 1), 'sale', -qty, new_inv.invoice_number, session.get('full_name'), f"فروش در فاکتور {new_inv.invoice_number}")
-            elif inv_type == 'return':
-                record_stock_change(inv_item.id, session.get('shop_id', 1), 'return', qty, new_inv.invoice_number, session.get('full_name'), f"مرجوعی فاکتور {new_inv.invoice_number}")
+                cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
+                if not cat_match and len(name_val) >= 5:
+                    cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
+                if cat_match and cat_match.buy_price > 0:
+                    buy_p = cat_match.buy_price
+                else:
+                    buy_p = int(price * 0.75)
+            
+            row_total = price * qty
+            row_profit = row_total - (buy_p * qty)
+            items_total_sum += row_total
+            total_actual_buy_cost += (buy_p * qty)
+            
+            inv_row = InvoiceItem(
+                invoice_id=new_inv.id,
+                inventory_item_id=inv_item.id if inv_item else None,
+                item_name=name_val,
+                category=cat_val,
+                quantity=qty,
+                unit_buy_price=buy_p,
+                unit_sell_price=price,
+                total_price=row_total,
+                row_profit=row_profit
+            )
+            db.session.add(inv_row)
+            
+            # کسر از انبار برای فاکتور قطعی
+            if status == 'final' and inv_item:
+                if inv_type == 'sale':
+                    record_stock_change(inv_item.id, shop_id, 'sale', -qty, new_inv.invoice_number, session.get('full_name'), f"فروش در فاکتور {new_inv.invoice_number}")
+                elif inv_type == 'return':
+                    record_stock_change(inv_item.id, shop_id, 'return', qty, new_inv.invoice_number, session.get('full_name'), f"مرجوعی فاکتور {new_inv.invoice_number}")
 
-    new_inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
-    new_inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
-    new_inv.real_profit = total_amount - new_inv.actual_buy_cost
+        # اگر مبلغ کل فاکتور در فیلد وارد نشده بود اما اقلام قیمت داشتند
+        if new_inv.total_amount <= 0 and items_total_sum > 0:
+            new_inv.total_amount = items_total_sum
+            total_amount = items_total_sum
+            if remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
+                remaining_balance = max(0, total_amount - (total_paid_immediate + paid_cheque))
+                new_inv.remaining_balance = remaining_balance
+                new_inv.is_settled = (remaining_balance <= 0)
 
-    # ثبت چک‌های صیادی ایجاد شده
-    for chk_data in cheques_to_create:
-        chk = Cheque(
-            invoice_id=new_inv.id,
-            sayad_number=chk_data['sayad'],
-            bank_name=chk_data['bank'],
-            customer_name=new_inv.customer_name,
-            customer_phone=new_inv.customer_phone,
-            amount=chk_data['amount'],
-            due_shamsi_date=chk_data['due_date'],
-            shop_id=session.get('shop_id', 1),
-            status='pending'
-        )
-        db.session.add(chk)
+        # اعتبارسنجی نهایی مبلغ فاکتور
+        if new_inv.total_amount <= 0:
+            db.session.rollback()
+            flash('مبلغ کل فاکتور نمی‌تواند صفر یا خالی باشد. لطفاً اقلام یا مبلغ فاکتور را وارد فرمایید.', 'warning')
+            return redirect(request.referrer or url_for('seller_dashboard'))
 
-    # ثبت در CRM مشتری
-    if customer:
-        customer.total_purchases += total_amount
-        if remaining_balance > 0:
-            customer.outstanding_balance += remaining_balance
+        new_inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
+        new_inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
+        new_inv.real_profit = total_amount - new_inv.actual_buy_cost
 
-    db.session.commit()
-    
-    log_activity(f"ثبت سند {new_inv.invoice_number} ({status}) به مبلغ {total_amount:,} تومان با پرداخت ترکیبی", session.get('full_name'), "فروش")
-    flash('فاکتور با پرداخت ترکیبی و کسر دقیق از انبار ثبت گردید.', 'success')
-    return redirect(url_for('seller_dashboard'))
+        # ثبت چک‌های صیادی ایجاد شده
+        for chk_data in cheques_to_create:
+            chk = Cheque(
+                invoice_id=new_inv.id,
+                sayad_number=chk_data['sayad'],
+                bank_name=chk_data['bank'],
+                customer_name=new_inv.customer_name,
+                customer_phone=new_inv.customer_phone,
+                amount=chk_data['amount'],
+                due_shamsi_date=chk_data['due_date'],
+                shop_id=shop_id,
+                status='pending'
+            )
+            db.session.add(chk)
+
+        # ثبت در CRM مشتری
+        if customer:
+            customer.total_purchases += total_amount
+            if remaining_balance > 0:
+                customer.outstanding_balance += remaining_balance
+
+        db.session.commit()
+        
+        log_activity(f"ثبت سند {new_inv.invoice_number} ({status}) به مبلغ {total_amount:,} تومان با پرداخت ترکیبی", session.get('full_name'), "فروش")
+        flash(f'فاکتور {new_inv.invoice_number} با موفقیت در سامانه ثبت شد و تغییرات انبار و حسابداری اعمال گردید.', 'success')
+        return redirect(url_for('seller_dashboard'))
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating invoice: {e}", exc_info=True)
+        flash(f'خطا در ثبت فاکتور: {str(e)}', 'error')
+        return redirect(request.referrer or url_for('seller_dashboard'))
 
 @app.route('/invoice/convert/<int:invoice_id>', methods=['POST'])
 def convert_proforma(invoice_id):
@@ -865,8 +924,7 @@ def settle_deposit(invoice_id):
         return redirect(url_for('seller_dashboard'))
 
     # دریافت مبلغ تسویه از فرم (پیش‌فرض: کل مانده)
-    raw_settle = request.form.get('settle_amount', '').replace(',', '').strip()
-    settle_amount = int(raw_settle) if raw_settle else (inv.remaining_balance or 0)
+    settle_amount = safe_int(request.form.get('settle_amount'), inv.remaining_balance or 0)
     settle_method = request.form.get('settle_method', 'pos')  # روش پرداخت تسویه
 
     if settle_amount <= 0:
@@ -942,216 +1000,232 @@ def edit_invoice(invoice_id):
         )
         
     # POST: ذخیره تغییرات
-    old_total = inv.total_amount
-    old_remaining = inv.remaining_balance
-    old_status = inv.status
-    old_inv_type = inv.invoice_type
-    
-    # ۱. بازگرداندن تغییرات انبار فاکتور قبلی (در صورت قطعی بودن)
-    if old_status == 'final':
-        for row in inv.items:
-            if row.inventory_item_id:
-                if old_inv_type == 'sale':
-                    record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش فاکتور {inv.invoice_number}")
-                elif old_inv_type == 'return':
-                    record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', -row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش مرجوعی {inv.invoice_number}")
-
-    # ۲. اصلاح حساب مشتری قبلی
-    if inv.customer:
-        inv.customer.total_purchases = max(0, inv.customer.total_purchases - old_total)
-        inv.customer.outstanding_balance = max(0, inv.customer.outstanding_balance - old_remaining)
-
-    # ۳. دریافت مقادیر جدید
-    customer_name = request.form.get('customer_name', '').strip() or 'مشتری حضوری'
-    customer_phone = request.form.get('customer_phone', '').strip()
-    customer = get_or_create_customer(customer_name, customer_phone, inv.shop_id) if customer_phone else None
-
-    raw_pos = request.form.get('paid_pos', '0').replace(',', '')
-    paid_pos = int(raw_pos) if raw_pos else 0
-
-    raw_card = request.form.get('paid_card', '0').replace(',', '')
-    paid_card = int(raw_card) if raw_card else 0
-
-    raw_cash = request.form.get('paid_cash', '0').replace(',', '')
-    paid_cash = int(raw_cash) if raw_cash else 0
-
-    sayad_list = request.form.getlist('cheque_sayad[]')
-    bank_list = request.form.getlist('cheque_bank[]')
-    amount_list = request.form.getlist('cheque_amount[]')
-    due_list = request.form.getlist('cheque_due_date[]')
-
-    paid_cheque = 0
-    cheques_to_create = []
-    for c_idx in range(len(sayad_list)):
-        c_sayad = sayad_list[c_idx].strip() if c_idx < len(sayad_list) else ''
-        c_bank = bank_list[c_idx].strip() if c_idx < len(bank_list) else 'نامشخص'
-        raw_c_amt = amount_list[c_idx].replace(',', '').strip() if c_idx < len(amount_list) else '0'
-        c_amt = int(raw_c_amt) if raw_c_amt else 0
-        c_due = due_list[c_idx].strip() if c_idx < len(due_list) else ''
+    try:
+        old_total = inv.total_amount
+        old_remaining = inv.remaining_balance
+        old_status = inv.status
+        old_inv_type = inv.invoice_type
         
-        if c_amt > 0:
-            paid_cheque += c_amt
-            cheques_to_create.append({
-                'sayad': c_sayad,
-                'bank': c_bank,
-                'amount': c_amt,
-                'due_date': c_due
-            })
+        # ۱. بازگرداندن تغییرات انبار فاکتور قبلی (در صورت قطعی بودن)
+        if old_status == 'final':
+            for row in inv.items:
+                if row.inventory_item_id:
+                    if old_inv_type == 'sale':
+                        record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش فاکتور {inv.invoice_number}")
+                    elif old_inv_type == 'return':
+                        record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', -row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش مرجوعی {inv.invoice_number}")
 
-    raw_total = request.form.get('total_amount', '0').replace(',', '')
-    total_amount = int(raw_total) if raw_total else 0
-    
-    total_paid_immediate = paid_pos + paid_card + paid_cash
-    total_covered = total_paid_immediate + paid_cheque
-    remaining_balance = max(0, total_amount - total_covered)
+        # ۲. اصلاح حساب مشتری قبلی
+        if inv.customer:
+            inv.customer.total_purchases = max(0, inv.customer.total_purchases - old_total)
+            inv.customer.outstanding_balance = max(0, inv.customer.outstanding_balance - old_remaining)
 
-    method_parts = []
-    if paid_pos > 0:
-        method_parts.append(f"کارتخوان: {paid_pos:,}")
-    if paid_card > 0:
-        method_parts.append(f"کارت/شبا: {paid_card:,}")
-    if paid_cash > 0:
-        method_parts.append(f"نقد: {paid_cash:,}")
-    if paid_cheque > 0:
-        method_parts.append(f"{len(cheques_to_create)} فقره چک: {paid_cheque:,}")
-    if remaining_balance > 0:
-        method_parts.append(f"مانده نسیه: {remaining_balance:,}")
+        # ۳. دریافت مقادیر جدید
+        customer_name = request.form.get('customer_name', '').strip() or 'مشتری حضوری'
+        customer_phone = request.form.get('customer_phone', '').strip()
+        customer = get_or_create_customer(customer_name, customer_phone, inv.shop_id) if customer_phone else None
 
-    payment_method_str = " | ".join(method_parts) if method_parts else "تسویه کامل"
+        paid_pos = safe_int(request.form.get('paid_pos'), 0)
+        paid_card = safe_int(request.form.get('paid_card'), 0)
+        paid_cash = safe_int(request.form.get('paid_cash'), 0)
 
-    status = request.form.get('status', 'final')
-    inv_type = request.form.get('invoice_type', 'sale')
-    second_seller_id = request.form.get('second_seller_id')
-    second_seller_id = int(second_seller_id) if second_seller_id and second_seller_id != 'none' else None
+        sayad_list = request.form.getlist('cheque_sayad[]')
+        bank_list = request.form.getlist('cheque_bank[]')
+        amount_list = request.form.getlist('cheque_amount[]')
+        due_list = request.form.getlist('cheque_due_date[]')
 
-    # بروزرسانی مقادیر هدر فاکتور
-    inv.customer_id = customer.id if customer else None
-    inv.customer_name = customer_name
-    inv.customer_phone = customer_phone
-    inv.items_desc = request.form.get('items_desc')
-    inv.status = status
-    inv.proforma_valid_until = request.form.get('proforma_valid_until')
-    inv.invoice_type = inv_type
-    inv.return_reason = request.form.get('return_reason')
-    inv.payment_method = payment_method_str
-    inv.paid_pos = paid_pos
-    inv.paid_card = paid_card
-    inv.paid_cash = paid_cash
-    inv.paid_cheque = paid_cheque
-    inv.remaining_balance = remaining_balance
-    inv.paid_amount = total_paid_immediate
-    inv.dest_card_number = request.form.get('dest_card_number', '').strip()
-    inv.dest_sheba_number = request.form.get('dest_sheba_number', '').strip()
-    inv.payment_tracking_code = request.form.get('payment_tracking_code')
-    inv.total_amount = total_amount
-    inv.due_settlement_date = request.form.get('due_settlement_date')
-    inv.is_settled = (remaining_balance <= 0)
-    inv.second_seller_id = second_seller_id
-    inv.split_ratio = int(request.form.get('split_ratio', 100))
-    inv.customer_rating = int(request.form.get('customer_rating', 5))
-
-    # ۴. پاکسازی اقلام و چک‌های قبلی
-    InvoiceItem.query.filter_by(invoice_id=inv.id).delete()
-    Cheque.query.filter_by(invoice_id=inv.id).delete()
-
-    # ۵. ایجاد اقلام جدید و کسر از انبار
-    inv_item_ids = request.form.getlist('item_inventory_id[]')
-    custom_names = request.form.getlist('item_custom_name[]')
-    custom_cats = request.form.getlist('item_category[]')
-    quantities = request.form.getlist('item_quantity[]')
-    prices = request.form.getlist('item_price[]')
-
-    total_actual_buy_cost = 0
-    categories_used = set()
-
-    for idx in range(len(quantities)):
-        qty = int(quantities[idx]) if idx < len(quantities) and quantities[idx] else 1
-        raw_p = prices[idx].replace(',', '') if idx < len(prices) and prices[idx] else '0'
-        price = int(raw_p) if raw_p else 0
-        
-        item_id_val = inv_item_ids[idx] if idx < len(inv_item_ids) and inv_item_ids[idx] else None
-        inv_item = InventoryItem.query.get(int(item_id_val)) if item_id_val else None
-        
-        name_val = inv_item.name if inv_item else (custom_names[idx] if idx < len(custom_names) and custom_names[idx] else 'تجهیزات بهداشتی')
-        cat_val = inv_item.category if inv_item else (custom_cats[idx] if idx < len(custom_cats) and custom_cats[idx] else 'عمومی')
-        
-        if cat_val and not Category.query.filter_by(name=cat_val).first():
-            db.session.add(Category(name=cat_val))
-            db.session.commit()
+        paid_cheque = 0
+        cheques_to_create = []
+        for c_idx in range(len(sayad_list)):
+            c_sayad = sayad_list[c_idx].strip() if c_idx < len(sayad_list) else ''
+            c_bank = bank_list[c_idx].strip() if c_idx < len(bank_list) else 'نامشخص'
+            c_amt = safe_int(amount_list[c_idx], 0) if c_idx < len(amount_list) else 0
+            c_due = due_list[c_idx].strip() if c_idx < len(due_list) else ''
             
-        categories_used.add(cat_val)
-        # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
-        buy_p = 0
-        if inv_item and inv_item.buy_price > 0:
-            buy_p = inv_item.buy_price
-        else:
-            cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
-            if not cat_match:
-                cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
-            if cat_match and cat_match.buy_price > 0:
-                buy_p = cat_match.buy_price
-            else:
-                buy_p = int(price * 0.75)
-        row_total = price * qty
-        row_profit = row_total - (buy_p * qty)
-        total_actual_buy_cost += (buy_p * qty)
+            if c_amt > 0:
+                paid_cheque += c_amt
+                cheques_to_create.append({
+                    'sayad': c_sayad,
+                    'bank': c_bank,
+                    'amount': c_amt,
+                    'due_date': c_due
+                })
 
-        inv_row = InvoiceItem(
-            invoice_id=inv.id,
-            inventory_item_id=inv_item.id if inv_item else None,
-            item_name=name_val,
-            category=cat_val,
-            quantity=qty,
-            unit_buy_price=buy_p,
-            unit_sell_price=price,
-            total_price=row_total,
-            row_profit=row_profit
-        )
-        db.session.add(inv_row)
+        total_amount = safe_int(request.form.get('total_amount'), 0)
+        
+        total_paid_immediate = paid_pos + paid_card + paid_cash
+        total_covered = total_paid_immediate + paid_cheque
+        remaining_balance = max(0, total_amount - total_covered)
 
-        if status == 'final' and inv_item:
-            if inv_type == 'sale':
-                record_stock_change(inv_item.id, inv.shop_id, 'sale', -qty, inv.invoice_number, session.get('full_name'), f"فروش پس از ویرایش فاکتور {inv.invoice_number}")
-            elif inv_type == 'return':
-                record_stock_change(inv_item.id, inv.shop_id, 'return', qty, inv.invoice_number, session.get('full_name'), f"مرجوعی پس از ویرایش فاکتور {inv.invoice_number}")
-
-    inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
-    inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
-    inv.real_profit = total_amount - inv.actual_buy_cost
-
-    # ایجاد چک‌های جدید
-    for chk_data in cheques_to_create:
-        chk = Cheque(
-            invoice_id=inv.id,
-            sayad_number=chk_data['sayad'],
-            bank_name=chk_data['bank'],
-            customer_name=inv.customer_name,
-            customer_phone=inv.customer_phone,
-            amount=chk_data['amount'],
-            due_shamsi_date=chk_data['due_date'],
-            shop_id=inv.shop_id,
-            status='pending'
-        )
-        db.session.add(chk)
-
-    # بروزرسانی حساب مشتری
-    if customer:
-        customer.total_purchases += total_amount
+        method_parts = []
+        if paid_pos > 0:
+            method_parts.append(f"کارتخوان: {paid_pos:,}")
+        if paid_card > 0:
+            method_parts.append(f"کارت/شبا: {paid_card:,}")
+        if paid_cash > 0:
+            method_parts.append(f"نقد: {paid_cash:,}")
+        if paid_cheque > 0:
+            method_parts.append(f"{len(cheques_to_create)} فقره چک: {paid_cheque:,}")
         if remaining_balance > 0:
-            customer.outstanding_balance += remaining_balance
+            method_parts.append(f"مانده نسیه: {remaining_balance:,}")
 
-    db.session.commit()
+        payment_method_str = " | ".join(method_parts) if method_parts else "تسویه کامل"
 
-    log_activity(
-        f"ویرایش فاکتور {inv.invoice_number} توسط {session.get('full_name')} (مبلغ قدیم: {old_total:,} ت | جدید: {total_amount:,} ت)",
-        session.get('full_name'),
-        "فروش / امنیت"
-    )
-    flash(f'فاکتور {inv.invoice_number} با موفقیت ویرایش شد و تغییرات انبار و حساب اعمال گردید.', 'success')
+        status = request.form.get('status', 'final')
+        inv_type = request.form.get('invoice_type', 'sale')
+        second_seller_id = request.form.get('second_seller_id')
+        second_seller_id = safe_int(second_seller_id, None) if second_seller_id and second_seller_id != 'none' else None
 
-    if user.role == 'admin':
-        return redirect(url_for('admin_dashboard'))
-    return redirect(url_for('seller_dashboard'))
+        # بروزرسانی مقادیر هدر فاکتور
+        inv.customer_id = customer.id if customer else None
+        inv.customer_name = customer_name
+        inv.customer_phone = customer_phone
+        inv.items_desc = request.form.get('items_desc')
+        inv.status = status
+        inv.proforma_valid_until = request.form.get('proforma_valid_until')
+        inv.invoice_type = inv_type
+        inv.return_reason = request.form.get('return_reason')
+        inv.payment_method = payment_method_str
+        inv.paid_pos = paid_pos
+        inv.paid_card = paid_card
+        inv.paid_cash = paid_cash
+        inv.paid_cheque = paid_cheque
+        inv.remaining_balance = remaining_balance
+        inv.paid_amount = total_paid_immediate
+        inv.dest_card_number = request.form.get('dest_card_number', '').strip()
+        inv.dest_sheba_number = request.form.get('dest_sheba_number', '').strip()
+        inv.payment_tracking_code = request.form.get('payment_tracking_code')
+        inv.total_amount = total_amount
+        inv.due_settlement_date = request.form.get('due_settlement_date')
+        inv.is_settled = (remaining_balance <= 0)
+        inv.second_seller_id = second_seller_id
+        inv.split_ratio = safe_int(request.form.get('split_ratio'), 100)
+        inv.customer_rating = safe_int(request.form.get('customer_rating'), 5)
+
+        # ۴. پاکسازی اقلام و چک‌های قبلی
+        InvoiceItem.query.filter_by(invoice_id=inv.id).delete()
+        Cheque.query.filter_by(invoice_id=inv.id).delete()
+
+        # ۵. ایجاد اقلام جدید و کسر از انبار
+        inv_item_ids = request.form.getlist('item_inventory_id[]')
+        custom_names = request.form.getlist('item_custom_name[]')
+        custom_cats = request.form.getlist('item_category[]')
+        quantities = request.form.getlist('item_quantity[]')
+        prices = request.form.getlist('item_price[]')
+
+        total_actual_buy_cost = 0
+        categories_used = set()
+        items_total_sum = 0
+
+        for idx in range(len(quantities)):
+            qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
+            if qty <= 0:
+                qty = 1
+            price = safe_int(prices[idx], 0) if idx < len(prices) else 0
+            
+            item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
+            inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
+            
+            name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
+            if not name_val:
+                if price <= 0 and not inv_item:
+                    continue
+                name_val = 'تجهیزات بهداشتی'
+
+            cat_val = inv_item.category if inv_item else (custom_cats[idx].strip() if idx < len(custom_cats) and custom_cats[idx].strip() else 'عمومی')
+            if cat_val:
+                categories_used.add(cat_val)
+            
+            if cat_val and not Category.query.filter_by(name=cat_val).first():
+                db.session.add(Category(name=cat_val))
+                db.session.flush()
+                
+            # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
+            buy_p = 0
+            if inv_item and inv_item.buy_price > 0:
+                buy_p = inv_item.buy_price
+            else:
+                cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
+                if not cat_match and len(name_val) >= 5:
+                    cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
+                if cat_match and cat_match.buy_price > 0:
+                    buy_p = cat_match.buy_price
+                else:
+                    buy_p = int(price * 0.75)
+            row_total = price * qty
+            row_profit = row_total - (buy_p * qty)
+            items_total_sum += row_total
+            total_actual_buy_cost += (buy_p * qty)
+
+            inv_row = InvoiceItem(
+                invoice_id=inv.id,
+                inventory_item_id=inv_item.id if inv_item else None,
+                item_name=name_val,
+                category=cat_val,
+                quantity=qty,
+                unit_buy_price=buy_p,
+                unit_sell_price=price,
+                total_price=row_total,
+                row_profit=row_profit
+            )
+            db.session.add(inv_row)
+
+            if status == 'final' and inv_item:
+                if inv_type == 'sale':
+                    record_stock_change(inv_item.id, inv.shop_id, 'sale', -qty, inv.invoice_number, session.get('full_name'), f"فروش پس از ویرایش فاکتور {inv.invoice_number}")
+                elif inv_type == 'return':
+                    record_stock_change(inv_item.id, inv.shop_id, 'return', qty, inv.invoice_number, session.get('full_name'), f"مرجوعی پس از ویرایش فاکتور {inv.invoice_number}")
+
+        if inv.total_amount <= 0 and items_total_sum > 0:
+            inv.total_amount = items_total_sum
+            total_amount = items_total_sum
+            remaining_balance = max(0, total_amount - total_covered)
+            inv.remaining_balance = remaining_balance
+            inv.is_settled = (remaining_balance <= 0)
+
+        inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
+        inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
+        inv.real_profit = total_amount - inv.actual_buy_cost
+
+        # ایجاد چک‌های جدید
+        for chk_data in cheques_to_create:
+            chk = Cheque(
+                invoice_id=inv.id,
+                sayad_number=chk_data['sayad'],
+                bank_name=chk_data['bank'],
+                customer_name=inv.customer_name,
+                customer_phone=inv.customer_phone,
+                amount=chk_data['amount'],
+                due_shamsi_date=chk_data['due_date'],
+                shop_id=inv.shop_id,
+                status='pending'
+            )
+            db.session.add(chk)
+
+        # بروزرسانی حساب مشتری
+        if customer:
+            customer.total_purchases += total_amount
+            if remaining_balance > 0:
+                customer.outstanding_balance += remaining_balance
+
+        db.session.commit()
+
+        log_activity(
+            f"ویرایش فاکتور {inv.invoice_number} توسط {session.get('full_name')} (مبلغ قدیم: {old_total:,} ت | جدید: {total_amount:,} ت)",
+            session.get('full_name'),
+            "فروش / امنیت"
+        )
+        flash(f'فاکتور {inv.invoice_number} با موفقیت ویرایش شد و تغییرات انبار و حساب اعمال گردید.', 'success')
+
+        if user.role == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('seller_dashboard'))
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error editing invoice {invoice_id}: {e}", exc_info=True)
+        flash(f'خطا در ویرایش فاکتور: {str(e)}', 'error')
+        return redirect(request.referrer or url_for('seller_dashboard'))
 
 # ==================== چاپ فاکتورها (A4 و فیش پرینتر) ====================
 @app.route('/invoice/print/a4/<int:invoice_id>')

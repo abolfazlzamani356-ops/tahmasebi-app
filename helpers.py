@@ -26,6 +26,39 @@ RETURN_REASONS = [
     'سایر موارد'
 ]
 
+def safe_int(val, default=0):
+    """
+    تبدیل کاملاً ایمن هرگونه ورودی (فارسی، عربی، کامادار، خالی، اعشاری یا نامعتبر) به عدد صحیح بدون خطا
+    """
+    if val is None:
+        return default
+    if isinstance(val, (int, float)):
+        try:
+            return int(val)
+        except Exception:
+            return default
+    
+    s = str(val).strip()
+    if not s:
+        return default
+    
+    # تبدیل ارقام فارسی و عربی به انگلیسی
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+    for i in range(10):
+        s = s.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+    
+    # استخراج فقط ارقام و در صورت وجود علامت منفی اول رشته
+    is_neg = s.startswith('-')
+    cleaned = re.sub(r'[^\d]', '', s)
+    if not cleaned:
+        return default
+    try:
+        num = int(cleaned)
+        return -num if is_neg else num
+    except Exception:
+        return default
+
 def get_current_shamsi():
     now_j = jdatetime.datetime.now()
     return {

@@ -7,9 +7,9 @@
 <div class="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-3xl border border-slate-200 mb-6 gap-4 shadow-sm">
     <div class="flex items-center gap-3.5">
         <a href="{{ url_for('user_profile') }}" class="relative group block flex-shrink-0" title="مشاهده و ویرایش پروفایل و عکس مدیریت کل">
-            {% if current_user and current_user.avatar %}
-                <img src="{{ url_for('serve_avatar', filename=current_user.avatar) }}" 
-                     onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + current_user.avatar) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+            {% if current_user and (current_user.avatar_data or current_user.avatar) %}
+                <img src="{{ current_user.avatar_data if current_user.avatar_data else url_for('serve_avatar', filename=current_user.avatar) }}" 
+                     onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (current_user.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
                      alt="مدیریت کل" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500 shadow-md group-hover:scale-105 transition">
                 <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-700 flex items-center justify-center text-2xl text-white shadow-md group-hover:scale-105 transition hidden">
                     👑
@@ -230,9 +230,9 @@
             <tr class="border-b hover:bg-slate-50 transition">
                 <td class="p-3 font-bold text-slate-900">
                     <div class="flex items-center gap-2.5">
-                        {% if item.user.avatar %}
-                            <img src="{{ url_for('serve_avatar', filename=item.user.avatar) }}" 
-                                 onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + item.user.avatar) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+                        {% if item.user.avatar_data or item.user.avatar %}
+                            <img src="{{ item.user.avatar_data if item.user.avatar_data else url_for('serve_avatar', filename=item.user.avatar) }}" 
+                                 onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (item.user.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
                                  class="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm flex-shrink-0">
                             <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
                                 {{ item.user.full_name[0] }}
@@ -314,9 +314,9 @@
             <tr class="border-b hover:bg-slate-50 transition">
                 <td class="p-3 font-bold text-slate-900">
                     <div class="flex items-center gap-2.5">
-                        {% if u.avatar %}
-                            <img src="{{ url_for('serve_avatar', filename=u.avatar) }}" 
-                                 onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + u.avatar) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
+                        {% if u.avatar_data or u.avatar %}
+                            <img src="{{ u.avatar_data if u.avatar_data else url_for('serve_avatar', filename=u.avatar) }}" 
+                                 onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (u.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
                                  class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500 shadow-sm flex-shrink-0">
                             <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
                                 🚚

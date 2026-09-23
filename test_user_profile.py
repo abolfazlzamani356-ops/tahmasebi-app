@@ -83,6 +83,8 @@ def test_user_profile_crud_and_avatar(client):
     with app.app_context():
         u = db.session.get(User, user_id)
         assert u.avatar is not None
+        assert u.avatar_data is not None
+        assert u.avatar_data.startswith('data:image')
         avatar_path = os.path.join(AVATARS_DIR, u.avatar)
         assert os.path.exists(avatar_path)
         stat_avatar_path = os.path.join(STATIC_AVATARS_DIR, u.avatar)

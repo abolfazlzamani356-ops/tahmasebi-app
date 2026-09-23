@@ -31,10 +31,10 @@
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 text-center relative overflow-hidden">
             <div class="relative inline-block mx-auto mb-4 group">
                 <div id="avatarContainer" class="w-36 h-36 rounded-full overflow-hidden ring-4 ring-indigo-500/30 shadow-xl bg-slate-100 mx-auto flex items-center justify-center relative">
-                    {% if user.avatar %}
+                    {% if user.avatar_data or user.avatar %}
                         <img id="profileAvatarImg" 
-                             src="{{ url_for('serve_avatar', filename=user.avatar) }}" 
-                             onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + user.avatar) }}'; } else { this.style.display='none'; document.getElementById('profileAvatarPlaceholder').classList.remove('hidden'); }" 
+                             src="{{ user.avatar_data if user.avatar_data else url_for('serve_avatar', filename=user.avatar) }}" 
+                             onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (user.avatar or '')) }}'; } else { this.style.display='none'; document.getElementById('profileAvatarPlaceholder').classList.remove('hidden'); }" 
                              alt="{{ user.full_name }}" 
                              class="w-full h-full object-cover">
                         <div id="profileAvatarPlaceholder" class="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white flex items-center justify-center text-5xl font-black hidden">
@@ -374,11 +374,11 @@ if (typeof Cropper === 'undefined') {
                     const avatarImg = document.getElementById('profileAvatarImg');
                     const placeholder = document.getElementById('profileAvatarPlaceholder');
                     
-                    const newUrl = (data.avatar_url || data.static_url) + '?t=' + new Date().getTime();
+                    const imgSource = data.avatar_data || base64Data;
                     if (avatarImg) {
                         avatarImg.style.display = '';
                         avatarImg.classList.remove('hidden');
-                        avatarImg.src = newUrl;
+                        avatarImg.src = imgSource;
                     }
                     if (placeholder) {
                         placeholder.classList.add('hidden');

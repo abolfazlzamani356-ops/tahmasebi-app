@@ -8,7 +8,7 @@ import jdatetime
 from datetime import datetime, timedelta
 import time
 import base64
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, Response
 from sqlalchemy import func
 
 from models import (
@@ -134,6 +134,7 @@ def initialize_database():
             ("users", "can_manage_inventory", "BOOLEAN DEFAULT 0"),
             ("shops", "rent_amount", "BIGINT DEFAULT 0"),
             ("users", "avatar", "TEXT"),
+            ("users", "avatar_data", "TEXT"),
             ("users", "national_id", "TEXT"),
             ("users", "birth_date", "TEXT"),
             ("users", "start_date", "TEXT"),
@@ -415,6 +416,8 @@ def internal_error(e):
 
 @app.errorhandler(404)
 def not_found(e):
+    if request.path.startswith('/uploads/') or request.path.startswith('/static/') or request.path.startswith('/api/') or request.path.startswith('/avatar/'):
+        return ('Not Found', 404)
     if 'user_id' in session:
         return redirect(url_for('index'))
     return redirect(url_for('login'))
@@ -448,6 +451,27 @@ def inject_permissions():
 @app.route('/uploads/avatars/<path:filename>')
 def serve_avatar(filename):
     safe_name = os.path.basename(filename)
+    ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else 'jpg'
+    mimetypes = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp'}
+    mimetype = mimetypes.get(ext, 'image/jpeg')
+
+    # ۱. جستجو و استخراج مستقیم از دیتابیس (سریع‌ترین و مطمئن‌ترین حالت در کلاود بدون نیاز به دیسک)
+    try:
+        user = User.query.filter((User.avatar == safe_name) | (User.avatar == filename)).first()
+        if not user and safe_name.startswith('avatar_'):
+            parts = safe_name.split('_')
+            if len(parts) >= 2 and parts[1].isdigit():
+                user = db.session.get(User, int(parts[1]))
+        if user and getattr(user, 'avatar_data', None) and user.avatar_data.startswith('data:image'):
+            _, encoded = user.avatar_data.split(',', 1)
+            img_bytes = base64.b64decode(encoded)
+            resp = Response(img_bytes, mimetype=mimetype)
+            resp.headers['Cache-Control'] = 'public, max-age=86400'
+            return resp
+    except Exception as e:
+        app.logger.warning(f"Error serving avatar from database: {e}")
+
+    # ۲. خواندن مستقیم بایت‌های تصویر از دیسک
     candidates = [
         os.path.join(STATIC_AVATARS_DIR, safe_name),
         os.path.join(AVATARS_DIR, safe_name),
@@ -457,14 +481,14 @@ def serve_avatar(filename):
     for path in candidates:
         if os.path.isfile(path):
             try:
-                stat_target = os.path.join(STATIC_AVATARS_DIR, safe_name)
-                if not os.path.exists(stat_target) and os.path.abspath(path) != os.path.abspath(stat_target):
-                    shutil.copy2(path, stat_target)
+                with open(path, 'rb') as f:
+                    file_bytes = f.read()
+                resp = Response(file_bytes, mimetype=mimetype)
+                resp.headers['Cache-Control'] = 'public, max-age=86400'
+                return resp
             except Exception:
                 pass
-            ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else 'jpg'
-            mimetypes = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp'}
-            return send_file(os.path.abspath(path), mimetype=mimetypes.get(ext, 'image/jpeg'), max_age=86400)
+
     return ('تصویر پرسنلی یافت نشد', 404)
 
 @app.route('/')
@@ -2378,13 +2402,21 @@ def api_upload_avatar():
             if ext not in ['jpg', 'jpeg', 'png', 'webp']:
                 ext = 'jpg'
             filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
+            file_bytes = f.read()
+            b64_str = f"data:image/{ext};base64," + base64.b64encode(file_bytes).decode('utf-8')
+
             file_path = os.path.join(AVATARS_DIR, filename)
-            f.save(file_path)
+            try:
+                with open(file_path, 'wb') as out_f:
+                    out_f.write(file_bytes)
+            except Exception as e:
+                app.logger.warning(f"Failed to save avatar to disk: {e}")
             
             try:
                 stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
                 if os.path.abspath(file_path) != os.path.abspath(stat_path):
-                    shutil.copy2(file_path, stat_path)
+                    with open(stat_path, 'wb') as out_f:
+                        out_f.write(file_bytes)
             except Exception as e:
                 app.logger.warning(f"Failed to copy avatar to static: {e}")
             
@@ -2397,12 +2429,15 @@ def api_upload_avatar():
                         except: pass
                     
             user.avatar = filename
+            user.avatar_data = b64_str
             session['avatar'] = filename
+            session['avatar_data'] = b64_str
             db.session.commit()
             return jsonify({
                 'success': True,
                 'avatar_url': url_for('serve_avatar', filename=filename),
                 'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
+                'avatar_data': b64_str,
                 'message': 'تصویر با موفقیت ذخیره شد.'
             })
 
@@ -2413,12 +2448,16 @@ def api_upload_avatar():
                 header, encoded = base64_data.split(',', 1)
             else:
                 encoded = base64_data
+                base64_data = 'data:image/jpeg;base64,' + encoded
             img_bytes = base64.b64decode(encoded)
             
             filename = f"avatar_{user.id}_{int(time.time())}.jpg"
             file_path = os.path.join(AVATARS_DIR, filename)
-            with open(file_path, 'wb') as f:
-                f.write(img_bytes)
+            try:
+                with open(file_path, 'wb') as f:
+                    f.write(img_bytes)
+            except Exception as e:
+                app.logger.warning(f"Failed to write avatar to AVATARS_DIR: {e}")
                 
             try:
                 stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
@@ -2437,13 +2476,16 @@ def api_upload_avatar():
                         except: pass
                     
             user.avatar = filename
+            user.avatar_data = base64_data
             session['avatar'] = filename
+            session['avatar_data'] = base64_data
             db.session.commit()
             log_activity("بروزرسانی عکس پرسنلی (کراپ شده)", user.full_name, "پرسنل")
             return jsonify({
                 'success': True,
                 'avatar_url': url_for('serve_avatar', filename=filename),
                 'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
+                'avatar_data': base64_data,
                 'message': 'عکس پرسنلی با موفقیت ذخیره شد.'
             })
         except Exception as e:

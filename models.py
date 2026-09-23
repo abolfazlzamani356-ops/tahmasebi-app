@@ -73,6 +73,7 @@ class User(db.Model):
     card_number = db.Column(db.String(30), nullable=True)
     can_manage_inventory = db.Column(db.Boolean, default=False) # دسترسی ویژه ادمین انبار و کاتالوگ
     avatar = db.Column(db.String(255), nullable=True) # نام فایل عکس پرسنلی در uploads/avatars
+    avatar_data = db.Column(db.Text, nullable=True) # ذخیره مستقیم بیس۶۴ تصویر در دیتابیس جهت تضمین قطعی نمایش ابری
     national_id = db.Column(db.String(20), nullable=True) # کد ملی ۱۰ رقمی
     birth_date = db.Column(db.String(30), nullable=True) # تاریخ تولد شمسی
     start_date = db.Column(db.String(30), nullable=True) # تاریخ شروع به کار / استخدام

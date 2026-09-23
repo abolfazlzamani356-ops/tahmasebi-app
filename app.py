@@ -37,7 +37,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # رمز نجات مدیریت
-MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'admin1234')
+MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
 
 # ==================== مسیر دیتابیس سازگار با دیسک دائمی لیارا، Railway و محلی ====================
 LIARA_VOLUME = os.environ.get('LIARA_VOLUME_PATH', '')
@@ -180,7 +180,7 @@ def initialize_database():
             db.session.commit()
 
             admin = User(username='admin', full_name='محمد طهماسبی', role='admin', base_salary=0)
-            admin.set_password('admin1234')
+            admin.set_password('admin123')
             db.session.add(admin)
 
             u1 = User(username='naqdi', full_name='خانم نقدی', role='seller', shop_id=shop1.id, commission_rate=1.0, base_salary=15000000)
@@ -217,8 +217,8 @@ def initialize_database():
             if admin_user.username != 'admin':
                 admin_user.username = 'admin'
                 adm_changed = True
-            if not admin_user.check_password('admin1234'):
-                admin_user.set_password('admin1234')
+            if not admin_user.check_password('admin123'):
+                admin_user.set_password('admin123')
                 adm_changed = True
             if admin_user.shop_id is None:
                 admin_user.shop_id = 1

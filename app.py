@@ -426,6 +426,103 @@ def not_found(e):
         return redirect(url_for('index'))
     return redirect(url_for('login'))
 
+# ==================== توابع کمکی تبدیل اعداد و آواتار پرسنل ====================
+def to_english_digits(text):
+    """تبدیل خودکار ارقام فارسی و عربی به ارقام استاندارد انگلیسی و حذف فاصله‌های اضافی"""
+    if not text:
+        return ''
+    text = str(text).strip()
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+    for i in range(10):
+        text = text.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+    return text.strip()
+
+def save_user_avatar(user, base64_data=None, file_obj=None):
+    """ذخیره پایدار و قطعی عکس پرسنلی (بیس۶۴ کراپ‌شده یا فایل آپلودی)"""
+    try:
+        filename = None
+        b64_str = None
+        
+        # ۱. در صورتی که فایل خام ارسال شده باشد
+        if file_obj and hasattr(file_obj, 'filename') and file_obj.filename:
+            ext = file_obj.filename.rsplit('.', 1)[-1].lower() if '.' in file_obj.filename else 'jpg'
+            if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+                ext = 'jpg'
+            filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
+            file_bytes = file_obj.read()
+            if not file_bytes:
+                return False, None, None, "فایل ارسالی خالی است"
+            b64_str = f"data:image/{ext};base64," + base64.b64encode(file_bytes).decode('utf-8')
+
+            file_path = os.path.join(AVATARS_DIR, filename)
+            try:
+                with open(file_path, 'wb') as out_f:
+                    out_f.write(file_bytes)
+            except Exception as disk_err:
+                app.logger.warning(f"Failed to save avatar to disk: {disk_err}")
+
+            try:
+                stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
+                if os.path.abspath(file_path) != os.path.abspath(stat_path):
+                    with open(stat_path, 'wb') as out_f:
+                        out_f.write(file_bytes)
+            except Exception as stat_err:
+                app.logger.warning(f"Failed to copy avatar to static: {stat_err}")
+
+        # ۲. در صورتی که رشته Base64 ارسال شده باشد (کراپ Canvas)
+        elif base64_data:
+            if ',' in base64_data:
+                header, encoded = base64_data.split(',', 1)
+                mime_type = header.split(':')[1].split(';')[0] if ':' in header else 'image/jpeg'
+            else:
+                encoded = base64_data
+                mime_type = 'image/jpeg'
+                base64_data = 'data:image/jpeg;base64,' + encoded
+            
+            img_bytes = base64.b64decode(encoded)
+            ext = mime_type.split('/')[-1].replace('jpeg', 'jpg')
+            if ext not in ['jpg', 'png', 'webp']:
+                ext = 'jpg'
+            filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
+            b64_str = base64_data
+
+            file_path = os.path.join(AVATARS_DIR, filename)
+            try:
+                with open(file_path, 'wb') as out_f:
+                    out_f.write(img_bytes)
+            except Exception as disk_err:
+                app.logger.warning(f"Failed to write avatar to AVATARS_DIR: {disk_err}")
+                
+            try:
+                stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
+                if os.path.abspath(file_path) != os.path.abspath(stat_path):
+                    with open(stat_path, 'wb') as out_f:
+                        out_f.write(img_bytes)
+            except Exception as stat_err:
+                app.logger.warning(f"Failed to copy base64 avatar to static: {stat_err}")
+
+        if filename:
+            # پاک‌سازی فایل قبلی در صورت تغییر
+            if user.avatar and user.avatar != filename:
+                old_name = os.path.basename(user.avatar)
+                for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
+                    old_path = os.path.join(folder, old_name)
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except Exception:
+                            pass
+
+            user.avatar = filename
+            user.avatar_data = b64_str
+            session['avatar'] = filename
+            return True, filename, b64_str, "تصویر با موفقیت ذخیره شد."
+        return False, None, None, "داده تصویری نامعتبر است"
+    except Exception as e:
+        app.logger.error(f"Error in save_user_avatar: {e}", exc_info=True)
+        return False, None, None, str(e)
+
 # ==================== احراز هویت و دسترسی ====================
 def is_admin():
     return session.get('role') == 'admin'
@@ -2417,14 +2514,14 @@ def user_profile():
     if request.method == 'POST':
         action = request.form.get('action', 'update_info')
         if action == 'update_info':
-            user.national_id = request.form.get('national_id', '').strip()
-            user.phone = request.form.get('phone', '').strip()
-            user.emergency_phone = request.form.get('emergency_phone', '').strip()
-            user.birth_date = request.form.get('birth_date', '').strip()
-            user.card_number = request.form.get('card_number', '').strip()
+            user.national_id = to_english_digits(request.form.get('national_id', ''))
+            user.phone = to_english_digits(request.form.get('phone', ''))
+            user.emergency_phone = to_english_digits(request.form.get('emergency_phone', ''))
+            user.birth_date = to_english_digits(request.form.get('birth_date', ''))
+            user.card_number = to_english_digits(request.form.get('card_number', ''))
             
-            sheba = request.form.get('sheba_number', '').strip()
-            if sheba and not sheba.upper().startswith('IR'):
+            sheba = to_english_digits(request.form.get('sheba_number', '')).replace(' ', '').replace('-', '').upper()
+            if sheba and not sheba.startswith('IR'):
                 sheba = 'IR' + sheba
             user.sheba_number = sheba
             
@@ -2435,6 +2532,14 @@ def user_profile():
             if full_name:
                 user.full_name = full_name
                 session['full_name'] = full_name
+
+            # ذخیره عکس پرسنلی در صورت ارسال همزمان با فرم (چه بیس۶۴ کراپ‌شده و چه فایل مستقیم)
+            avatar_b64 = request.form.get('avatar_data', '').strip()
+            avatar_f = request.files.get('avatar_file')
+            if avatar_b64 and avatar_b64.startswith('data:image'):
+                save_user_avatar(user, base64_data=avatar_b64)
+            elif avatar_f and avatar_f.filename:
+                save_user_avatar(user, file_obj=avatar_f)
                 
             db.session.commit()
             log_activity("بروزرسانی مشخصات پرونده پرسنلی", user.full_name, "پرسنل")
@@ -2477,109 +2582,21 @@ def api_upload_avatar():
             
         data = request.get_json(silent=True) or {}
         base64_data = data.get('image_data', '')
+        avatar_file = request.files.get('avatar_file')
         
-        # آپلود مستقیم فایل معمولی
-        if not base64_data and 'avatar_file' in request.files:
-            f = request.files['avatar_file']
-            if f and f.filename:
-                ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else 'jpg'
-                if ext not in ['jpg', 'jpeg', 'png', 'webp']:
-                    ext = 'jpg'
-                filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
-                file_bytes = f.read()
-                b64_str = f"data:image/{ext};base64," + base64.b64encode(file_bytes).decode('utf-8')
-
-                file_path = os.path.join(AVATARS_DIR, filename)
-                try:
-                    with open(file_path, 'wb') as out_f:
-                        out_f.write(file_bytes)
-                except Exception as disk_err:
-                    app.logger.warning(f"Failed to save avatar to disk: {disk_err}")
-                
-                try:
-                    stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
-                    if os.path.abspath(file_path) != os.path.abspath(stat_path):
-                        with open(stat_path, 'wb') as out_f:
-                            out_f.write(file_bytes)
-                except Exception as stat_err:
-                    app.logger.warning(f"Failed to copy avatar to static: {stat_err}")
-                
-                if user.avatar:
-                    old_name = os.path.basename(user.avatar)
-                    for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
-                        old_path = os.path.join(folder, old_name)
-                        if os.path.exists(old_path):
-                            try: os.remove(old_path)
-                            except: pass
-                        
-                user.avatar = filename
-                user.avatar_data = b64_str
-                session['avatar'] = filename
-                # avatar_data را در session ذخیره نمیکنیم - باعث overflow cookie می‌شود
-                db.session.commit()
-                return jsonify({
-                    'success': True,
-                    'avatar_url': url_for('serve_avatar', filename=filename),
-                    'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
-                    'avatar_data': b64_str,
-                    'message': 'تصویر با موفقیت ذخیره شد.'
-                })
-
-        # آپلود تصویر برش داده شده (Cropped Canvas به فرمت Base64)
-        if base64_data:
-            if ',' in base64_data:
-                header, encoded = base64_data.split(',', 1)
-                mime_type = header.split(':')[1].split(';')[0] if ':' in header else 'image/jpeg'
-            else:
-                encoded = base64_data
-                base64_data = 'data:image/jpeg;base64,' + encoded
-                mime_type = 'image/jpeg'
-            
-            img_bytes = base64.b64decode(encoded)
-            ext = mime_type.split('/')[-1].replace('jpeg', 'jpg')
-            if ext not in ['jpg', 'png', 'webp']:
-                ext = 'jpg'
-            
-            filename = f"avatar_{user.id}_{int(time.time())}.{ext}"
-            
-            file_path = os.path.join(AVATARS_DIR, filename)
-            try:
-                with open(file_path, 'wb') as out_f:
-                    out_f.write(img_bytes)
-            except Exception as disk_err:
-                app.logger.warning(f"Failed to write avatar to AVATARS_DIR: {disk_err}")
-                
-            try:
-                stat_path = os.path.join(STATIC_AVATARS_DIR, filename)
-                if os.path.abspath(file_path) != os.path.abspath(stat_path):
-                    with open(stat_path, 'wb') as out_f:
-                        out_f.write(img_bytes)
-            except Exception as stat_err:
-                app.logger.warning(f"Failed to copy base64 avatar to static: {stat_err}")
-                
-            if user.avatar:
-                old_name = os.path.basename(user.avatar)
-                for folder in [AVATARS_DIR, STATIC_AVATARS_DIR]:
-                    old_path = os.path.join(folder, old_name)
-                    if os.path.exists(old_path):
-                        try: os.remove(old_path)
-                        except: pass
-                
-            user.avatar = filename
-            user.avatar_data = base64_data
-            session['avatar'] = filename
-            # avatar_data را در session ذخیره نمیکنیم - باعث overflow cookie می‌شود
+        success, filename, b64_str, msg = save_user_avatar(user, base64_data=base64_data, file_obj=avatar_file)
+        if success:
             db.session.commit()
-            log_activity("بروزرسانی عکس پرسنلی (کراپ شده)", user.full_name, "پرسنل")
+            log_activity("بروزرسانی عکس پرسنلی", user.full_name, "پرسنل")
             return jsonify({
                 'success': True,
                 'avatar_url': url_for('serve_avatar', filename=filename),
                 'static_url': url_for('static', filename=f'uploads/avatars/{filename}'),
-                'avatar_data': base64_data,
+                'avatar_data': b64_str,
                 'message': 'عکس پرسنلی با موفقیت ذخیره شد.'
             })
-
-        return jsonify({'success': False, 'message': 'تصویری دریافت نشد'}), 400
+        else:
+            return jsonify({'success': False, 'message': msg}), 400
 
     except Exception as e:
         import traceback
@@ -2664,13 +2681,13 @@ def edit_user(user_id):
             return redirect(url_for('admin_dashboard'))
         user.username = new_username
 
-    user.phone = request.form.get('phone', '').strip()
-    user.card_number = request.form.get('card_number', '').strip()
-    user.national_id = request.form.get('national_id', '').strip()
-    user.birth_date = request.form.get('birth_date', '').strip()
-    user.emergency_phone = request.form.get('emergency_phone', '').strip()
-    sheba = request.form.get('sheba_number', '').strip()
-    if sheba and not sheba.upper().startswith('IR'):
+    user.phone = to_english_digits(request.form.get('phone', ''))
+    user.card_number = to_english_digits(request.form.get('card_number', ''))
+    user.national_id = to_english_digits(request.form.get('national_id', ''))
+    user.birth_date = to_english_digits(request.form.get('birth_date', ''))
+    user.emergency_phone = to_english_digits(request.form.get('emergency_phone', ''))
+    sheba = to_english_digits(request.form.get('sheba_number', '')).replace(' ', '').replace('-', '').upper()
+    if sheba and not sheba.startswith('IR'):
         sheba = 'IR' + sheba
     user.sheba_number = sheba
     user.address = request.form.get('address', '').strip()

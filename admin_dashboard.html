@@ -303,10 +303,12 @@
                             </div>
                         {% endif %}
                         <div>
-                            <span>{{ item.user.full_name }}</span>
-                            {% if item.user.national_id %}
-                                <span class="block text-[10px] text-slate-400 font-mono font-normal">کد ملی: {{ item.user.national_id }}</span>
-                            {% endif %}
+                            <span class="text-white font-bold">{{ item.user.full_name }}</span>
+                            <div class="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-400 font-mono mt-0.5">
+                                {% if item.user.national_id %}<span title="کد ملی">🪪 {{ item.user.national_id }}</span>{% endif %}
+                                {% if item.user.phone %}<span title="شماره تماس">📱 {{ item.user.phone }}</span>{% endif %}
+                                {% if item.user.sheba_number %}<span class="text-emerald-400 font-bold" title="شماره شبا">💳 {{ item.user.sheba_number }}</span>{% endif %}
+                            </div>
                         </div>
                         {% if item.user.can_manage_inventory %}
                             <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
@@ -333,8 +335,7 @@
                 <td class="p-3 font-black text-emerald-600 text-sm">{{ "{:,}".format(item.stats.settled_commission) }}</td>
                 <td class="p-3 text-amber-500 font-bold">★ {{ item.stats.avg_rating }}</td>
                 <td class="p-3 text-center">
-                    <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}', '{{ item.user.national_id or '' }}', '{{ item.user.birth_date or '' }}', '{{ item.user.emergency_phone or '' }}', '{{ item.user.sheba_number or '' }}', '{{ item.user.address or '' }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" data-address="{{ item.user.address or '' }}" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}', '{{ item.user.national_id or '' }}', '{{ item.user.birth_date or '' }}', '{{ item.user.emergency_phone or '' }}', '{{ item.user.sheba_number or '' }}', this.getAttribute('data-address'))" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
                         <button type="button" onclick="openPasswordModal({{ item.user.id }}, '{{ item.user.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=item.user.id) }}" onsubmit="return confirm('پرسنل ({{ item.user.full_name }}) حذف شود؟ سوابق فاکتورهای گذشته محفوظ می‌ماند.')">
                             <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
@@ -387,10 +388,12 @@
                             </div>
                         {% endif %}
                         <div>
-                            <span>{{ u.full_name }}</span>
-                            {% if u.national_id %}
-                                <span class="block text-[10px] text-slate-400 font-mono font-normal">کد ملی: {{ u.national_id }}</span>
-                            {% endif %}
+                            <span class="text-white font-bold">{{ u.full_name }}</span>
+                            <div class="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-400 font-mono mt-0.5">
+                                {% if u.national_id %}<span title="کد ملی">🪪 {{ u.national_id }}</span>{% endif %}
+                                {% if u.phone %}<span title="شماره تماس">📱 {{ u.phone }}</span>{% endif %}
+                                {% if u.sheba_number %}<span class="text-emerald-400 font-bold" title="شماره شبا">💳 {{ u.sheba_number }}</span>{% endif %}
+                            </div>
                         </div>
                         {% if u.can_manage_inventory %}
                             <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
@@ -403,7 +406,7 @@
                 <td class="p-3 text-slate-600 font-mono text-[11px]">{{ u.phone or '-' }} {% if u.card_number %}| {{ u.card_number }}{% endif %}</td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}', '{{ u.national_id or '' }}', '{{ u.birth_date or '' }}', '{{ u.emergency_phone or '' }}', '{{ u.sheba_number or '' }}', '{{ u.address or '' }}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" data-address="{{ u.address or '' }}" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}', '{{ u.national_id or '' }}', '{{ u.birth_date or '' }}', '{{ u.emergency_phone or '' }}', '{{ u.sheba_number or '' }}', this.getAttribute('data-address'))" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
                         <button type="button" onclick="openPasswordModal({{ u.id }}, '{{ u.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}" onsubmit="return confirm('پرسنل ({{ u.full_name }}) حذف شود؟')">
                             <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>

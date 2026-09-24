@@ -131,3 +131,78 @@ def test_admin_avatar_and_payroll_profile_rendering(client):
     res = client.get('/admin/payroll')
     assert res.status_code == 200
     assert 'سامانه حقوق، دستمزد و فیش پرسنل'.encode('utf-8') in res.data
+
+def test_warehouse_admin_profile_save_with_persian_digits_and_avatar(client):
+    """تست اختصاصی ذخیره مشخصات پرونده ادمین انبار با ارقام فارسی و عکس در یک فرم"""
+    tiny_jpeg_b64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+    
+    with app.app_context():
+        # ساخت یا بازیابی کاربر ادمین انبار
+        wh_user = User.query.filter_by(username='wh_profile_seller').first()
+        if not wh_user:
+            wh_user = User(
+                username='wh_profile_seller',
+                full_name='خانم احمدی (ادمین انبار)',
+                role='seller',
+                can_manage_inventory=True,
+                shop_id=1,
+                commission_rate=1.2,
+                base_salary=20_000_000
+            )
+            wh_user.set_password('wh123456')
+            db.session.add(wh_user)
+        else:
+            wh_user.can_manage_inventory = True
+            wh_user.set_password('wh123456')
+        db.session.commit()
+        wh_id = wh_user.id
+
+    # ۱. ورود ادمین انبار
+    res = client.post('/login', data={'username': 'wh_profile_seller', 'password': 'wh123456'}, follow_redirects=True)
+    assert res.status_code == 200
+
+    # ۲. مشاهده پروفایل و بررسی برچسب ادمین انبار
+    res = client.get('/profile')
+    assert res.status_code == 200
+    assert 'ادمین انبار و کاتالوگ'.encode('utf-8') in res.data
+
+    # ۳. ارسال اطلاعات پرونده با ارقام فارسی و عکس در فیلد پنهان
+    profile_payload = {
+        'action': 'update_info',
+        'full_name': 'خانم مهسا احمدی',
+        'national_id': '۰۰۹۸۷۶۵۴۳۲',       # ارقام فارسی
+        'birth_date': '۱۳۷۲/۰۸/۲۲',        # تاریخ شمسی با ارقام فارسی
+        'phone': '۰۹۱۲۵۵۵۴۴۳۳',            # موبایل با ارقام فارسی
+        'emergency_phone': '۰۲۱۲۲۳۳۴۴۵۵',   # تلفن اضطراری فارسی
+        'card_number': '۶۰۳۷-۹۹۱۱-۸۸۲۲-۳۳۴۴',
+        'sheba_number': 'ir 9801 7000 0000 1234 5678 9999',  # با حروف کوچک و فاصله
+        'address': 'تهران، خیابان شریعتی، بن‌بست کاوه\nپلاک ۴ واحد ۲',  # چندخطی با اینتر
+        'avatar_data': tiny_jpeg_b64
+    }
+    res = client.post('/profile', data=profile_payload, follow_redirects=True)
+    assert res.status_code == 200
+    assert 'اطلاعات پرونده پرسنلی با موفقیت ذخیره شد'.encode('utf-8') in res.data
+
+    # ۴. اعتبارسنجی مقادیر ذخیره شده در دیتابیس
+    with app.app_context():
+        u = db.session.get(User, wh_id)
+        assert u.full_name == 'خانم مهسا احمدی'
+        assert u.national_id == '0098765432'      # ارقام تبدیل به انگلیسی شدند
+        assert u.birth_date == '1372/08/22'
+        assert u.phone == '09125554433'
+        assert u.emergency_phone == '02122334455'
+        assert u.sheba_number == 'IR980170000000123456789999'  # شبا استاندارد و حروف بزرگ
+        assert 'پلاک ۴' in u.address
+        assert u.avatar is not None
+        assert u.avatar_data is not None
+
+    # ۵. ورود مدیر کل و مشاهده مشخصات در پنل مدیریت
+    client.get('/logout')
+    client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+    res_admin = client.get('/admin')
+    assert res_admin.status_code == 200
+    assert 'خانم مهسا احمدی'.encode('utf-8') in res_admin.data
+    assert '0098765432'.encode('utf-8') in res_admin.data
+    assert '09125554433'.encode('utf-8') in res_admin.data
+    assert 'IR980170000000123456789999'.encode('utf-8') in res_admin.data
+

@@ -1827,7 +1827,19 @@ def catalog_view():
 
     all_categories = Category.query.all()
     all_brands = [b[0] for b in db.session.query(ProductCatalog.brand).distinct().order_by(ProductCatalog.brand).all() if b[0]]
+    shops = Shop.query.all()
     
+    # نگاشت سریع موجودی اقلام صفحه جاری برای هر شعبه جهت نمایش و تنظیم آنی
+    item_names = [it.name for it in catalog_items]
+    inv_records = InventoryItem.query.filter(InventoryItem.name.in_(item_names)).all() if item_names else []
+    inventory_map = {}
+    for inv in inv_records:
+        inventory_map[(inv.name, inv.shop_id)] = {
+            'id': inv.id,
+            'stock': inv.stock_quantity,
+            'min_alert': inv.min_alert_stock
+        }
+
     # آمارهای کلان کاتالوگ با کوئری مستقیم و بسیار سریع دیتابیس بدون سربار رم
     avg_margin_val = query.with_entities(func.avg(ProductCatalog.sell_price - ProductCatalog.buy_price)).scalar() or 0
     avg_profit_margin = int(avg_margin_val)
@@ -1839,6 +1851,8 @@ def catalog_view():
         page=page,
         all_categories=all_categories,
         all_brands=all_brands,
+        shops=shops,
+        inventory_map=inventory_map,
         total_products=total_products,
         avg_profit_margin=avg_profit_margin,
         search=search,
@@ -1850,7 +1864,7 @@ def catalog_view():
 
 @app.route('/admin/catalog/add', methods=['POST'])
 def add_catalog_item():
-    """افزودن کالای مرجع به کاتالوگ با قیمت خرید و فروش"""
+    """افزودن کالای مرجع به کاتالوگ با قیمت خرید و فروش و موجودی اولیه شعب"""
     if not can_manage_stock():
         return redirect(url_for('login'))
         
@@ -1862,6 +1876,9 @@ def add_catalog_item():
     buy_p = int(request.form.get('buy_price', '0').replace(',', '') or '0') if (is_admin() or can_manage_stock()) else 0
     sell_p = int(request.form.get('sell_price', '0').replace(',', '') or '0')
     description = request.form.get('description', '').strip()
+
+    stock_shop1 = safe_int(request.form.get('stock_quantity_1'), 0)
+    stock_shop2 = safe_int(request.form.get('stock_quantity_2'), 0)
     
     if not name:
         flash('نام کالا الزامی است.', 'error')
@@ -1884,17 +1901,39 @@ def add_catalog_item():
     db.session.add(new_prod)
     db.session.commit()
     
+    # ثبت خودکار موجودی اولیه در شعب در صورت ورود بار
+    for s_id, s_qty in [(1, stock_shop1), (2, stock_shop2)]:
+        if s_qty > 0:
+            inv_it = InventoryItem.query.filter_by(name=name, shop_id=s_id).first()
+            if not inv_it:
+                inv_it = InventoryItem(
+                    name=name,
+                    category=category,
+                    brand=brand,
+                    shop_id=s_id,
+                    stock_quantity=0,
+                    min_alert_stock=2,
+                    buy_price=buy_p,
+                    sell_price=sell_p
+                )
+                db.session.add(inv_it)
+                db.session.commit()
+                record_stock_change(inv_it.id, s_id, 'purchase_in', s_qty, 'CATALOG_INIT', session.get('full_name', 'مدیریت'), 'ورود اولیه بار از کاتالوگ')
+            else:
+                record_stock_change(inv_it.id, s_id, 'purchase_in', s_qty, 'CATALOG_ADD', session.get('full_name', 'مدیریت'), 'افزایش موجودی اولیه از کاتالوگ')
+
     log_activity(f"ثبت کالای {name} در لیست قیمت مرجع (فروش: {sell_p:,})", session.get('full_name'), "کاتالوگ")
-    flash(f'کالای «{name}» به لیست قیمت مرجع اضافه شد.', 'success')
+    flash(f'کالای «{name}» به لیست قیمت مرجع و انبار اضافه شد.', 'success')
     return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/admin/catalog/edit/<int:item_id>', methods=['POST'])
 def edit_catalog_item(item_id):
-    """ویرایش مشخصات و قیمت خرید/فروش کالا در کاتالوگ"""
+    """ویرایش مشخصات، قیمت‌ها و اصلاح دقیق موجودی کالا در شعب"""
     if not can_manage_stock():
         return redirect(url_for('login'))
         
     item = ProductCatalog.query.get_or_404(item_id)
+    old_name = item.name
     item.name = request.form.get('name', item.name).strip()
     item.category = request.form.get('category', item.category).strip()
     item.brand = request.form.get('brand', '').strip()
@@ -1906,10 +1945,45 @@ def edit_catalog_item(item_id):
     sell_p = request.form.get('sell_price', '').replace(',', '').strip()
     if sell_p: item.sell_price = int(sell_p)
     item.description = request.form.get('description', '').strip()
+
+    # اگر نام کالا تغییر کرد، نام آن در اقلام انبار نیز همگام‌سازی شود
+    if item.name != old_name:
+        InventoryItem.query.filter_by(name=old_name).update({'name': item.name})
+
+    # بروزرسانی و اصلاح موجودی شعب در صورت ارسال از فرم
+    for s_id in [1, 2]:
+        field_name = f'stock_quantity_{s_id}'
+        if field_name in request.form and request.form.get(field_name).strip() != '':
+            new_qty = safe_int(request.form.get(field_name), 0)
+            inv_it = InventoryItem.query.filter_by(name=item.name, shop_id=s_id).first()
+            if not inv_it:
+                inv_it = InventoryItem(
+                    name=item.name,
+                    category=item.category,
+                    brand=item.brand or '',
+                    shop_id=s_id,
+                    stock_quantity=0,
+                    min_alert_stock=2,
+                    buy_price=item.buy_price,
+                    sell_price=item.sell_price
+                )
+                db.session.add(inv_it)
+                db.session.commit()
+                if new_qty > 0:
+                    record_stock_change(inv_it.id, s_id, 'adjustment', new_qty, 'MANUAL_EDIT', session.get('full_name', 'مدیریت'), 'تعیین اولیه موجودی از ویرایش کاتالوگ')
+            else:
+                diff = new_qty - inv_it.stock_quantity
+                inv_it.buy_price = item.buy_price
+                inv_it.sell_price = item.sell_price
+                inv_it.category = item.category
+                inv_it.brand = item.brand or ''
+                db.session.commit()
+                if diff != 0:
+                    record_stock_change(inv_it.id, s_id, 'adjustment', diff, 'MANUAL_EDIT', session.get('full_name', 'مدیریت'), 'اصلاح و ویرایش دستی موجودی از کاتالوگ')
     
     db.session.commit()
-    log_activity(f"بروزرسانی قیمت مرجع {item.name}", session.get('full_name'), "کاتالوگ")
-    flash(f'قیمت و اطلاعات «{item.name}» بروزرسانی گردید.', 'success')
+    log_activity(f"بروزرسانی مشخصات و موجودی {item.name}", session.get('full_name'), "کاتالوگ")
+    flash(f'اطلاعات و موجودی «{item.name}» با موفقیت بروزرسانی شد.', 'success')
     return redirect(request.referrer or url_for('inventory_view'))
 
 @app.route('/admin/catalog/delete/<int:item_id>', methods=['POST'])

@@ -132,6 +132,7 @@
                         {% if is_admin %}
                         <th class="p-4 text-purple-700 font-black">سود پایه هر عدد</th>
                         {% endif %}
+                        <th class="p-4 text-center font-black text-indigo-400">موجودی شعب (۱ / ۲)</th>
                         {% if can_manage_stock %}
                         <th class="p-4 text-center">عملیات</th>
                         {% endif %}
@@ -140,6 +141,8 @@
                 <tbody class="divide-y divide-slate-100 font-medium">
                     {% if catalog_items %}
                         {% for item in catalog_items[:60] %}
+                        {% set s1 = inventory_map.get((item.name, 1), {'stock': 0, 'min_alert': 2}) %}
+                        {% set s2 = inventory_map.get((item.name, 2), {'stock': 0, 'min_alert': 2}) %}
                         <tr class="hover:bg-slate-50 transition">
                             <td class="p-4 font-mono text-slate-500">{{ item.code or '—' }}</td>
                             <td class="p-4 font-black text-slate-100 text-sm">{{ item.name }}</td>
@@ -162,12 +165,18 @@
                                 {% endif %}
                             </td>
                             {% endif %}
+                            <td class="p-4 text-center">
+                                <div class="flex items-center justify-center gap-1.5 text-xs">
+                                    <span class="px-2 py-0.5 rounded-lg bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 font-bold" title="فروشگاه ۱">ش۱: <b class="text-white">{{ s1.stock }}</b></span>
+                                    <span class="px-2 py-0.5 rounded-lg bg-slate-800 border border-white/10 text-slate-300 font-bold" title="فروشگاه ۲">ش۲: <b class="text-white">{{ s2.stock }}</b></span>
+                                </div>
+                            </td>
                             {% if can_manage_stock %}
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openCatalogEditModal({{ item.id }}, '{{ item.name }}', '{{ item.category }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}')"
+                                    <button onclick="openCatalogEditModal({{ item.id }}, '{{ item.name|escape }}', '{{ item.category|escape }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}', {{ s1.stock }}, {{ s2.stock }})"
                                         class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-xl font-bold transition">
-                                        ✏️ ویرایش قیمت
+                                        ✏️ ویرایش و اصلاح
                                     </button>
                                     <form method="POST" action="{{ url_for('delete_catalog_item', item_id=item.id) }}" onsubmit="return confirm('کالای «{{ item.name }}» از لیست قیمت حذف شود؟');" class="inline">
                                         <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl font-bold transition">
@@ -664,9 +673,24 @@
                 <input type="text" name="code" id="catEditCode"
                     class="w-full bg-slate-800/80 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-purple-500">
             </div>
+            <div class="border-t border-white/10 pt-3">
+                <label class="block text-xs font-bold text-indigo-300 mb-2">📦 اصلاح و تنظیم مستقیم موجودی فیزیکی شعب:</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">موجودی شعبه ۱ (مرکزی):</label>
+                        <input type="number" name="stock_quantity_1" id="catEditStock1" min="0" placeholder="0"
+                            class="w-full bg-slate-800/80 border border-white/10 rounded-xl p-2.5 text-xs font-black text-emerald-400 outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-300 mb-1">موجودی شعبه ۲:</label>
+                        <input type="number" name="stock_quantity_2" id="catEditStock2" min="0" placeholder="0"
+                            class="w-full bg-slate-800/80 border border-white/10 rounded-xl p-2.5 text-xs font-black text-emerald-400 outline-none focus:border-purple-500">
+                    </div>
+                </div>
+            </div>
             <div class="flex gap-2 pt-2">
                 <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-2.5 rounded-xl text-xs transition shadow">
-                    ذخیره تغییرات قیمت
+                    ذخیره تغییرات قیمت و موجودی
                 </button>
                 <button type="button" onclick="closeCatalogEditModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 rounded-xl text-xs transition">
                     انصراف
@@ -1144,7 +1168,7 @@
         }
     }
 
-    function openCatalogEditModal(id, name, cat, brand, code, buy, sell, desc) {
+    function openCatalogEditModal(id, name, cat, brand, code, buy, sell, desc, stock_1, stock_2) {
         document.getElementById('catalogEditForm').action = '/admin/catalog/edit/' + id;
         document.getElementById('catEditName').value = name;
         document.getElementById('catEditCategory').value = cat;
@@ -1153,6 +1177,10 @@
         const buyInput = document.getElementById('catEditBuyPrice');
         if (buyInput) buyInput.value = buy;
         document.getElementById('catEditSellPrice').value = sell;
+        const s1El = document.getElementById('catEditStock1');
+        if (s1El) s1El.value = (stock_1 !== undefined && stock_1 !== null) ? stock_1 : 0;
+        const s2El = document.getElementById('catEditStock2');
+        if (s2El) s2El.value = (stock_2 !== undefined && stock_2 !== null) ? stock_2 : 0;
         document.getElementById('catalogEditModal').classList.remove('hidden');
     }
     function closeCatalogEditModal() {

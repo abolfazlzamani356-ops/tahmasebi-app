@@ -108,3 +108,64 @@ class CatalogInventorySyncTest(unittest.TestCase):
         db.session.expire_all()
         inv1_batch = InventoryItem.query.filter_by(name=test_cat_name, shop_id=1).first()
         self.assertEqual(inv1_batch.stock_quantity, 8)
+
+    def test_catalog_add_and_edit_with_stock(self):
+        admin = User.query.filter_by(role='admin').first()
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = admin.id
+            sess['role'] = 'admin'
+            sess['full_name'] = 'محمد طهماسبی'
+            sess['shop_id'] = 1
+
+        test_prod_name = 'هود تستی ورودی بار کارخانه طهماسبی'
+        InventoryItem.query.filter_by(name=test_prod_name).delete()
+        ProductCatalog.query.filter_by(name=test_prod_name).delete()
+        db.session.commit()
+
+        # ۱. افزودن کالا همراه با موجودی اولیه شعب ۱ و ۲
+        res_add = self.client.post('/admin/catalog/add', data={
+            'name': test_prod_name,
+            'category': 'هود',
+            'brand': 'داتیس (Datees)',
+            'buy_price': '2,000,000',
+            'sell_price': '3,500,000',
+            'code': 'DT-TEST-HOOD',
+            'stock_quantity_1': '4',
+            'stock_quantity_2': '6'
+        }, follow_redirects=True)
+        self.assertEqual(res_add.status_code, 200)
+
+        cat_prod = ProductCatalog.query.filter_by(name=test_prod_name).first()
+        self.assertIsNotNone(cat_prod)
+
+        db.session.expire_all()
+        inv_s1 = InventoryItem.query.filter_by(name=test_prod_name, shop_id=1).first()
+        inv_s2 = InventoryItem.query.filter_by(name=test_prod_name, shop_id=2).first()
+        self.assertIsNotNone(inv_s1)
+        self.assertEqual(inv_s1.stock_quantity, 4)
+        self.assertIsNotNone(inv_s2)
+        self.assertEqual(inv_s2.stock_quantity, 6)
+
+        # ۲. ویرایش و اصلاح موجودی کالا از طریق مودال ویرایش کاتالوگ
+        res_edit = self.client.post(f'/admin/catalog/edit/{cat_prod.id}', data={
+            'name': test_prod_name,
+            'category': 'هود',
+            'brand': 'داتیس (Datees)',
+            'buy_price': '2,100,000',
+            'sell_price': '3,600,000',
+            'code': 'DT-TEST-HOOD',
+            'stock_quantity_1': '10',  # افزایش از ۴ به ۱۰
+            'stock_quantity_2': '2'    # کاهش از ۶ به ۲ (اصلاح اشتباه)
+        }, follow_redirects=True)
+        self.assertEqual(res_edit.status_code, 200)
+
+        db.session.expire_all()
+        inv_s1_after = InventoryItem.query.filter_by(name=test_prod_name, shop_id=1).first()
+        inv_s2_after = InventoryItem.query.filter_by(name=test_prod_name, shop_id=2).first()
+        self.assertEqual(inv_s1_after.stock_quantity, 10)
+        self.assertEqual(inv_s2_after.stock_quantity, 2)
+
+        # بررسی لاگ انبار
+        logs = StockLog.query.filter_by(inventory_item_id=inv_s1.id).all()
+        self.assertTrue(len(logs) >= 2)
+

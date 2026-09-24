@@ -308,8 +308,31 @@
             </form>
         </div>
 
-        <!-- جدول محصولات کاتالوگ -->
+        <!-- جدول محصولات کاتالوگ و مدیریت موجودی -->
         <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- نوار انتخاب شعبه فعال و کنترل موجودی انبار -->
+            <div class="p-4 bg-slate-900/90 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🏬</span>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-100">لیست کالاها و مدیریت موجودی فیزیکی</h3>
+                        <p class="text-[11px] text-slate-400">تنظیم موجودی، افزایش (+) یا کاهش (-) تعداد و اصلاح ورودی‌های شرکت</p>
+                    </div>
+                </div>
+                <!-- دکمه‌های سوئیچ شعبه فعال -->
+                <div class="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-white/10">
+                    <span class="text-[11px] text-slate-400 px-2 font-bold">شعبه انتخابی:</span>
+                    <button type="button" id="catalogShopBtn1" onclick="switchCatalogActiveShop(1)"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md">
+                        <span>🏬</span> فروشگاه ۱ (مرکزی)
+                    </button>
+                    <button type="button" id="catalogShopBtn2" onclick="switchCatalogActiveShop(2)"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800">
+                        <span>🏬</span> فروشگاه ۲
+                    </button>
+                </div>
+            </div>
+
             <div class="overflow-x-auto">
                 <table class="table-glass w-full text-right text-xs">
                     <thead>
@@ -319,12 +342,15 @@
                             <th class="p-4">دسته‌بندی</th>
                             <th class="p-4">برند</th>
                             {% if is_admin %}
-                            <th class="p-4 text-blue-700">قیمت خرید مرجع (پایه)</th>
+                            <th class="p-4 text-blue-700">قیمت خرید مرجع</th>
                             {% endif %}
                             <th class="p-4 text-emerald-700">قیمت فروش مصوب</th>
                             {% if is_admin %}
                             <th class="p-4 text-purple-700">سود هر عدد</th>
                             {% endif %}
+                            <th class="p-4 text-center font-black text-indigo-400 min-w-[170px]">
+                                <span>تعداد موجودی (<span id="headerShopName">فروشگاه ۱</span>)</span>
+                            </th>
                             {% if can_manage_stock %}
                             <th class="p-4 text-center">عملیات</th>
                             {% endif %}
@@ -332,6 +358,8 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 font-medium">
                         {% for item in catalog_items %}
+                        {% set s1 = inventory_map.get((item.name, 1), {'stock': 0, 'min_alert': 2}) %}
+                        {% set s2 = inventory_map.get((item.name, 2), {'stock': 0, 'min_alert': 2}) %}
                         <tr class="hover:bg-slate-50 transition">
                             <td class="p-4 font-mono text-slate-500">{{ item.code or '—' }}</td>
                             <td class="p-4 font-black text-slate-100 text-sm">{{ item.name }}</td>
@@ -354,10 +382,47 @@
                                 {% endif %}
                             </td>
                             {% endif %}
+
+                            <!-- ستون تنظیم سریع و اصلاح موجودی -->
+                            <td class="p-3 text-center">
+                                {% if can_manage_stock %}
+                                <div class="inline-flex items-center justify-center gap-1 bg-slate-950/90 p-1 rounded-xl border border-white/10 shadow-inner">
+                                    <button type="button" onclick="stepCatalogRowStock({{ item.id }}, -1)" 
+                                            class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-rose-600 text-rose-400 hover:text-white font-black text-sm flex items-center justify-center transition" title="کاهش ۱ عدد">－</button>
+                                    <input type="number" id="cat_stock_input_{{ item.id }}" 
+                                           value="{{ s1.stock }}" min="0" 
+                                           data-stock-1="{{ s1.stock }}" data-stock-2="{{ s2.stock }}"
+                                           data-item-name="{{ item.name }}"
+                                           data-catalog-id="{{ item.id }}"
+                                           class="cat-stock-input w-12 text-center font-black text-xs text-white bg-slate-900 border border-white/10 rounded-lg py-1 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                           oninput="markCatalogRowDirty({{ item.id }})"
+                                           onkeydown="if(event.key === 'Enter') saveCatalogRowStock({{ item.id }})">
+                                    <button type="button" onclick="stepCatalogRowStock({{ item.id }}, 1)" 
+                                            class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white font-black text-sm flex items-center justify-center transition" title="افزایش ۱ عدد">＋</button>
+                                    <button type="button" id="cat_save_btn_{{ item.id }}" onclick="saveCatalogRowStock({{ item.id }})" 
+                                            title="ذخیره این تغییر" 
+                                            class="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center transition shadow">
+                                        💾
+                                    </button>
+                                </div>
+                                <div class="mt-1" id="cat_badge_{{ item.id }}">
+                                    {% if s1.stock > s1.min_alert %}
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">موجود ({{ s1.stock }})</span>
+                                    {% elif s1.stock > 0 %}
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">کسری ({{ s1.stock }})</span>
+                                    {% else %}
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">ناموجود</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <span class="font-black text-sm text-indigo-300">{{ s1.stock }} عدد</span>
+                                {% endif %}
+                            </td>
+
                             {% if can_manage_stock %}
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openEditModal({{ item.id }}, '{{ item.name }}', '{{ item.category }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}')"
+                                    <button onclick="openEditModal({{ item.id }}, '{{ item.name|escape }}', '{{ item.category|escape }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}', {{ s1.stock }}, {{ s2.stock }})"
                                         class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl font-bold transition">
                                         ✏️ ویرایش
                                     </button>
@@ -372,7 +437,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{{ 8 if is_admin else (6 if can_manage_stock else 5) }}" class="p-8 text-center text-slate-400">
+                            <td colspan="{{ 9 if is_admin else 7 }}" class="p-8 text-center text-slate-400">
                                 هنوز محصولی در کاتالوگ ثبت نشده است. روی «افزودن محصول» کلیک کنید.
                             </td>
                         </tr>
@@ -488,6 +553,21 @@
                     <textarea name="description" rows="2" placeholder="مشخصات فنی یا توضیحات..."
                         class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2 text-xs font-medium text-white outline-none focus:border-indigo-500"></textarea>
                 </div>
+                <div class="border-t border-white/10 pt-3">
+                    <label class="block text-xs font-bold text-indigo-300 mb-2">📦 ثبت موجودی فیزیکی اولیه در شعب (اختیاری):</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-300 mb-1">تعداد ورودی به شعبه ۱ (مرکزی):</label>
+                            <input type="number" name="stock_quantity_1" value="0" min="0"
+                                class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-black text-emerald-400 outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-300 mb-1">تعداد ورودی به شعبه ۲:</label>
+                            <input type="number" name="stock_quantity_2" value="0" min="0"
+                                class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-black text-emerald-400 outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                </div>
                 <div class="flex gap-2 pt-2">
                     <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs transition">
                         ثبت در کاتالوگ
@@ -548,6 +628,21 @@
                     <label class="block text-xs font-bold text-slate-300 mb-1">توضیحات</label>
                     <textarea name="description" id="edit_description" rows="2"
                         class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2 text-xs font-medium text-white outline-none focus:border-indigo-500"></textarea>
+                </div>
+                <div class="border-t border-white/10 pt-3">
+                    <label class="block text-xs font-bold text-indigo-300 mb-2">📦 اصلاح و تنظیم مستقیم موجودی فیزیکی شعب:</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-300 mb-1">موجودی شعبه ۱ (مرکزی):</label>
+                            <input type="number" name="stock_quantity_1" id="edit_stock_1" min="0" placeholder="0"
+                                class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-black text-emerald-400 outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-300 mb-1">موجودی شعبه ۲:</label>
+                            <input type="number" name="stock_quantity_2" id="edit_stock_2" min="0" placeholder="0"
+                                class="w-full bg-slate-800/90 border border-white/10 rounded-xl p-2.5 text-xs font-black text-emerald-400 outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
                 </div>
                 <div class="flex gap-2 pt-2">
                     <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-2.5 rounded-xl text-xs transition">
@@ -810,7 +905,136 @@
             document.getElementById('addModal').classList.add('hidden');
         }
 
-        function openEditModal(id, name, cat, brand, code, buy, sell, desc) {
+        let currentActiveCatalogShop = 1;
+
+        function switchCatalogActiveShop(shopId) {
+            currentActiveCatalogShop = shopId;
+            const btn1 = document.getElementById('catalogShopBtn1');
+            const btn2 = document.getElementById('catalogShopBtn2');
+            const headerShopName = document.getElementById('headerShopName');
+            
+            if (shopId === 1) {
+                if (btn1) btn1.className = 'px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
+                if (btn2) btn2.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800';
+                if (headerShopName) headerShopName.innerText = 'فروشگاه ۱';
+            } else {
+                if (btn2) btn2.className = 'px-3.5 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
+                if (btn1) btn1.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800';
+                if (headerShopName) headerShopName.innerText = 'فروشگاه ۲';
+            }
+
+            document.querySelectorAll('.cat-stock-input').forEach(input => {
+                const id = input.getAttribute('data-catalog-id');
+                const sVal = shopId === 1 ? parseInt(input.getAttribute('data-stock-1') || '0') : parseInt(input.getAttribute('data-stock-2') || '0');
+                input.value = sVal;
+                updateCatalogBadge(id, sVal);
+            });
+        }
+
+        function stepCatalogRowStock(itemId, delta) {
+            const input = document.getElementById(`cat_stock_input_${itemId}`);
+            if (!input) return;
+            let val = parseInt(input.value) || 0;
+            val = Math.max(0, val + delta);
+            input.value = val;
+            markCatalogRowDirty(itemId);
+        }
+
+        function markCatalogRowDirty(itemId) {
+            const btn = document.getElementById(`cat_save_btn_${itemId}`);
+            if (btn) {
+                btn.classList.remove('bg-indigo-600');
+                btn.classList.add('bg-amber-600', 'animate-pulse');
+            }
+        }
+
+        function saveCatalogRowStock(itemId) {
+            const input = document.getElementById(`cat_stock_input_${itemId}`);
+            const btn = document.getElementById(`cat_save_btn_${itemId}`);
+            if (!input) return;
+
+            const newStock = parseInt(input.value) || 0;
+            const itemName = input.getAttribute('data-item-name');
+            
+            if (btn) {
+                btn.innerText = '⏳';
+                btn.disabled = true;
+            }
+
+            fetch('/api/inventory/quick_stock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    catalog_id: itemId,
+                    name: itemName,
+                    shop_id: currentActiveCatalogShop,
+                    stock_quantity: newStock
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '✓';
+                    btn.classList.remove('bg-amber-600', 'animate-pulse');
+                    btn.classList.add('bg-emerald-600');
+                    setTimeout(() => {
+                        btn.innerText = '💾';
+                        btn.classList.remove('bg-emerald-600');
+                        btn.classList.add('bg-indigo-600');
+                    }, 1800);
+                }
+
+                if (data.success) {
+                    if (currentActiveCatalogShop === 1) {
+                        input.setAttribute('data-stock-1', newStock);
+                    } else {
+                        input.setAttribute('data-stock-2', newStock);
+                    }
+                    updateCatalogBadge(itemId, newStock);
+                    showToastNotification(`موجودی «${itemName}» در شعبه ${currentActiveCatalogShop} با موفقیت ${newStock} عدد ثبت شد.`);
+                } else {
+                    alert(data.message || 'خطا در ثبت موجودی');
+                }
+            })
+            .catch(err => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '💾';
+                }
+                alert('خطای اتصال به سرور: ' + err);
+            });
+        }
+
+        function updateCatalogBadge(itemId, stock) {
+            const badgeEl = document.getElementById(`cat_badge_${itemId}`);
+            if (!badgeEl) return;
+            if (stock > 2) {
+                badgeEl.innerHTML = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">موجود (${stock})</span>`;
+            } else if (stock > 0) {
+                badgeEl.innerHTML = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">کسری (${stock})</span>`;
+            } else {
+                badgeEl.innerHTML = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">ناموجود</span>`;
+            }
+        }
+
+        function showToastNotification(msg) {
+            let toast = document.getElementById('catalogToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'catalogToast';
+                toast.className = 'fixed bottom-5 left-5 bg-emerald-600 text-white text-xs font-black px-4 py-3 rounded-2xl shadow-2xl z-50 transition-opacity duration-300 pointer-events-none flex items-center gap-2';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `<span>✓</span><span>${msg}</span>`;
+            toast.style.opacity = '1';
+            clearTimeout(window._toastTimeout);
+            window._toastTimeout = setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 2500);
+        }
+
+        function openEditModal(id, name, cat, brand, code, buy, sell, desc, stock_1, stock_2) {
             document.getElementById('editForm').action = '/admin/catalog/edit/' + id;
             document.getElementById('edit_name').value = name;
             document.getElementById('edit_category').value = cat;
@@ -820,6 +1044,10 @@
             if (buyEl) buyEl.value = buy;
             document.getElementById('edit_sell_price').value = sell;
             document.getElementById('edit_description').value = desc;
+            const s1El = document.getElementById('edit_stock_1');
+            if (s1El) s1El.value = (stock_1 !== undefined && stock_1 !== null) ? stock_1 : 0;
+            const s2El = document.getElementById('edit_stock_2');
+            if (s2El) s2El.value = (stock_2 !== undefined && stock_2 !== null) ? stock_2 : 0;
             document.getElementById('editModal').classList.remove('hidden');
         }
         function closeEditModal() {

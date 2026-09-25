@@ -69,9 +69,30 @@
             <span>📋</span> لیست قیمت و کاتالوگ ({{ total_catalog_products }})
         </a>
 
-        <a href="{{ url_for('export_excel', month=selected_month) }}" class="bg-[#1a2234] hover:bg-[#243048] border border-emerald-500/30 text-emerald-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
-            <span>📥</span> خروجی اکسل
-        </a>
+        <!-- منوی بازشونده جامع خروجی‌های اکسل -->
+        <div class="relative inline-block text-right" id="excelDropdownContainer">
+            <button type="button" onclick="toggleExcelDropdown()" class="bg-[#1a2234] hover:bg-[#243048] border border-emerald-500/40 text-emerald-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                <span>📊</span> خروجی‌های اکسل
+                <span class="text-[9px]">▼</span>
+            </button>
+            <div id="excelDropdownMenu" class="hidden absolute left-0 mt-2 w-56 rounded-2xl bg-slate-900 border border-white/10 shadow-2xl z-50 py-2 divide-y divide-white/5">
+                <a href="{{ url_for('export_invoices_excel', month=selected_month) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-indigo-600/30 hover:text-white transition">
+                    <span>🧾</span> فاکتورها و پرداخت‌ها (ماه {{ selected_month_name }})
+                </a>
+                <a href="{{ url_for('export_excel', month=selected_month) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-indigo-600/30 hover:text-white transition">
+                    <span>💰</span> گزارش پورسانت ماهانه پرسنل
+                </a>
+                <a href="{{ url_for('export_inventory_excel') }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-indigo-600/30 hover:text-white transition">
+                    <span>📦</span> موجودی انبارها و ارزش‌گذاری
+                </a>
+                <a href="{{ url_for('export_debtors_excel') }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900/40 hover:text-white transition">
+                    <span>💳</span> بدهکاران و مطالبات معوقه
+                </a>
+                <a href="{{ url_for('export_payroll_excel', month=selected_month) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-600/30 hover:text-white transition">
+                    <span>💼</span> فیش حقوق و شماره شبا
+                </a>
+            </div>
+        </div>
 
         <a href="{{ url_for('download_backup') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-blue-500/30 text-blue-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
             <span>🛡️</span> بکاپ دیتابیس
@@ -1544,6 +1565,18 @@
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    function toggleExcelDropdown() {
+        const el = document.getElementById('excelDropdownMenu');
+        if (el) el.classList.toggle('hidden');
+    }
+    document.addEventListener('click', function(e) {
+        const container = document.getElementById('excelDropdownContainer');
+        const menu = document.getElementById('excelDropdownMenu');
+        if (container && menu && !container.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
     });
 </script>
 {% endblock %}

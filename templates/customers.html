@@ -1,68 +1,383 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
-{% block title %}مدیریت مشتریان و باشگاه وفاداری (CRM) • طهماسبی{% endblock %}
+{% block title %}مدیریت هوشمند مشتریان، حساب دفتری و باشگاه وفاداری (CRM) • طهماسبی{% endblock %}
 
 {% block content %}
-<!-- Top Bar -->
-<div class="glass-card flex flex-col md:flex-row justify-between items-center p-5 mb-6 gap-4">
-    <div class="flex items-center gap-3">
-        <span class="text-3xl">👥</span>
-        <div>
-            <h2 class="font-black text-white text-lg">مدیریت مشتریان، سابقه خرید و باشگاه وفاداری (CRM)</h2>
-            <p class="text-xs text-slate-400 font-medium">سوابق خریداران، مانده بدهی‌های دفتری، سقف اعتبار و شماره‌های تماس</p>
+<!-- Top Bar & KPI Summary -->
+<div class="glass-card p-6 mb-6">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-5 border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-indigo-500/30 flex-shrink-0">
+                👥
+            </div>
+            <div>
+                <h2 class="font-black text-white text-lg">باشگاه مشتریان و مدیریت اعتباری (CRM طهماسبی)</h2>
+                <p class="text-xs text-slate-400 font-medium">سوابق خریداران، مانده بدهی‌های دفتری، سقف اعتبار اقساطی و تاریخچه فاکتورها</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="openAddCustomerModal()" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-1.5">
+                <span>➕</span> تعریف مشتری جدید
+            </button>
+            <a href="{{ url_for('export_debtors_excel') }}" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5">
+                <span>📑</span> خروجی اکسل بدهکاران
+            </a>
+        </div>
+    </div>
+
+    <!-- 4 Key CRM Metric Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-5">
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] text-slate-400 font-bold block">کل خریداران ثبت‌شده:</span>
+                <span class="text-lg font-black text-white mt-1 block">{{ total_customers or (customers|length) }} نفر</span>
+            </div>
+            <span class="text-2xl p-2.5 bg-indigo-500/10 rounded-xl text-indigo-400">👤</span>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-rose-500/20 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] text-rose-400 font-bold block">مشتریان دارای مانده بدهی:</span>
+                <span class="text-lg font-black text-rose-300 mt-1 block">{{ total_debtors or 0 }} نفر</span>
+            </div>
+            <span class="text-2xl p-2.5 bg-rose-500/10 rounded-xl text-rose-400">⚠️</span>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-rose-500/20 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] text-rose-300 font-bold block">جمع مطالبات معوقه دفتری:</span>
+                <span class="text-lg font-black text-rose-400 mt-1 block">{{ "{:,}".format(total_debt_amount or 0) }} تومان</span>
+            </div>
+            <span class="text-2xl p-2.5 bg-rose-500/10 rounded-xl text-rose-400">💳</span>
+        </div>
+
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-emerald-500/20 flex items-center justify-between">
+            <div>
+                <span class="text-[11px] text-emerald-400 font-bold block">مجموع کل خریدهای ثبت‌شده:</span>
+                <span class="text-lg font-black text-emerald-300 mt-1 block">{{ "{:,}".format(total_purchases_all or 0) }} تومان</span>
+            </div>
+            <span class="text-2xl p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400">📈</span>
         </div>
     </div>
 </div>
 
+<!-- Search & Filtering Toolbar -->
+<div class="glass-card p-4 mb-6">
+    <form method="GET" action="{{ url_for('customers_view') }}" class="flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div class="relative w-full md:w-80">
+            <input type="text" name="search" value="{{ search_q or '' }}" placeholder="🔍 جستجوی نام، تلفن یا آدرس مشتری..."
+                class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-indigo-500">
+            {% if search_q %}
+            <a href="{{ url_for('customers_view', type=filter_type) }}" class="absolute left-2.5 top-2 text-slate-400 hover:text-white font-black text-xs">✕</a>
+            {% endif %}
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+            <a href="{{ url_for('customers_view', search=search_q, type='all') }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if not filter_type or filter_type == 'all' %}bg-indigo-600 text-white shadow-md{% else %}bg-slate-800 text-slate-400 hover:text-white{% endif %}">
+                همه ({{ total_customers or (customers|length) }})
+            </a>
+            <a href="{{ url_for('customers_view', search=search_q, type='debtors') }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if filter_type == 'debtors' %}bg-rose-600 text-white shadow-md{% else %}bg-slate-800 text-rose-300 hover:text-white{% endif %}">
+                ⚠️ دارای مانده بدهی ({{ total_debtors or 0 }})
+            </a>
+            <a href="{{ url_for('customers_view', search=search_q, type='vip') }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if filter_type == 'vip' %}bg-amber-600 text-white shadow-md{% else %}bg-slate-800 text-amber-300 hover:text-white{% endif %}">
+                ⭐ ویژه VIP
+            </a>
+            <a href="{{ url_for('customers_view', search=search_q, type='partner') }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if filter_type == 'partner' %}bg-teal-600 text-white shadow-md{% else %}bg-slate-800 text-teal-300 hover:text-white{% endif %}">
+                🤝 همکاران
+            </a>
+            <a href="{{ url_for('customers_view', search=search_q, type='builder') }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if filter_type == 'builder' %}bg-blue-600 text-white shadow-md{% else %}bg-slate-800 text-blue-300 hover:text-white{% endif %}">
+                🏗️ سازندگان / پیمانکار
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Customers Table -->
 <div class="glass-card p-6 overflow-x-auto">
     <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
-            <tr class="bg-slate-50 text-slate-700 font-bold">
-                <th class="p-3 border-b">نام مشتری</th>
-                <th class="p-3 border-b">شماره تماس</th>
-                <th class="p-3 border-b">نوع مشتری</th>
-                <th class="p-3 border-b">جمع کل خریدها (تومان)</th>
-                <th class="p-3 border-b">مانده بدهی دفتری</th>
-                <th class="p-3 border-b">تعداد فاکتورها</th>
-                <th class="p-3 border-b text-center">عملیات پیامک و گارانتی</th>
+            <tr class="bg-slate-900/90 text-slate-300 font-bold border-b border-white/10">
+                <th class="p-3 w-12 text-center">ردیف</th>
+                <th class="p-3">نام و مشخصات خریدار</th>
+                <th class="p-3">شماره تماس</th>
+                <th class="p-3">نوع مشتری</th>
+                <th class="p-3">سقف اعتبار اقساطی</th>
+                <th class="p-3">جمع کل خریدها</th>
+                <th class="p-3">مانده بدهی دفتری</th>
+                <th class="p-3 text-center">سابقه فاکتورها</th>
+                <th class="p-3 text-center">عملیات</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody class="divide-y divide-white/5">
             {% for c in customers %}
-            <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-900">{{ c.name }}</td>
-                <td class="p-3 font-mono text-slate-600" dir="ltr">{{ c.phone or '-' }}</td>
+            <tr class="hover:bg-white/[0.03] transition {% if c.outstanding_balance > 0 %}bg-rose-950/10{% endif %}">
+                <td class="p-3 text-center text-slate-500 font-mono">{{ loop.index }}</td>
                 <td class="p-3">
-                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-xl text-[10px] font-bold">عادی</span>
+                    <span class="font-black text-white text-sm block">{{ c.name }}</span>
+                    {% if c.address %}
+                    <span class="text-[11px] text-slate-400 truncate max-w-xs block mt-0.5">📍 {{ c.address }}</span>
+                    {% endif %}
                 </td>
-                <td class="p-3 font-bold text-emerald-700">{{ "{:,}".format(c.total_purchases) }}</td>
-                <td class="p-3 font-bold {% if c.outstanding_balance > 0 %}text-rose-600{% else %}text-slate-400{% endif %}">
-                    {{ "{:,}".format(c.outstanding_balance) }} تومان
+                <td class="p-3 font-mono text-slate-300 font-bold" dir="ltr">
+                    {% if c.phone %}
+                    <a href="tel:{{ c.phone }}" class="hover:text-indigo-400 transition">{{ c.phone }}</a>
+                    {% else %}
+                    <span class="text-slate-600">-</span>
+                    {% endif %}
                 </td>
-                <td class="p-3 font-medium">{{ c.invoices|length }} فاکتور</td>
+                <td class="p-3">
+                    {% if c.customer_type == 'vip' %}
+                    <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-lg text-[10px] font-black">⭐ ویژه VIP</span>
+                    {% elif c.customer_type == 'partner' %}
+                    <span class="bg-teal-500/20 text-teal-300 border border-teal-500/40 px-2.5 py-0.5 rounded-lg text-[10px] font-bold">🤝 همکار</span>
+                    {% elif c.customer_type == 'builder' %}
+                    <span class="bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-0.5 rounded-lg text-[10px] font-bold">🏗️ سازنده</span>
+                    {% else %}
+                    <span class="bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-lg text-[10px] font-bold">عادی</span>
+                    {% endif %}
+                </td>
+                <td class="p-3 font-mono text-slate-400 text-xs">
+                    {{ "{:,}".format(c.credit_limit or 0) }} ت
+                </td>
+                <td class="p-3 font-black text-emerald-400 text-sm">
+                    {{ "{:,}".format(c.total_purchases or 0) }} ت
+                </td>
+                <td class="p-3 font-black text-sm {% if c.outstanding_balance > 0 %}text-rose-400 animate-pulse{% else %}text-slate-500{% endif %}">
+                    {{ "{:,}".format(c.outstanding_balance or 0) }} تومان
+                </td>
                 <td class="p-3 text-center">
-                    <button onclick="sendWarrantySms('{{ c.name }}', '{{ c.phone }}')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl text-[11px] font-bold transition">
-                        📩 پیامک ثبت گارانتی
+                    <button onclick="viewCustomerInvoices({{ c.id }}, '{{ c.name|escape }}')" class="bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-300 px-3 py-1 rounded-xl text-[11px] font-bold transition">
+                        🧾 {{ c.invoices|length }} فاکتور
                     </button>
+                </td>
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick='openEditCustomerModal({{ c.to_dict()|tojson }})' class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold transition" title="ویرایش اطلاعات">
+                            ✏️ ویرایش
+                        </button>
+                        <button onclick="sendWarrantySms('{{ c.name }}', '{{ c.phone }}')" class="bg-blue-950/60 hover:bg-blue-900 border border-blue-500/30 text-blue-300 px-2.5 py-1 rounded-lg text-[11px] font-bold transition" title="ارسال پیامک گارانتی">
+                            📩 گارانتی
+                        </button>
+                    </div>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="7" class="text-center p-6 text-slate-400">مشتری‌ای ثبت نشده است.</td></tr>
+            <tr>
+                <td colspan="9" class="text-center p-8 text-slate-400">
+                    مشتری‌ای مطابق با جستجو یا فیلتر انتخابی یافت نشد.
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Modal: Add Customer -->
+<div id="addCustomerModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white">➕ تعریف مشتری جدید در CRM</h3>
+            <button onclick="closeAddCustomerModal()" class="text-slate-400 hover:text-white font-black text-lg">✕</button>
+        </div>
+        <form method="POST" action="{{ url_for('add_customer') }}" class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">نام و نام خانوادگی خریدار *</label>
+                <input type="text" name="name" required placeholder="مثال: حاج رضا اکبری"
+                    class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">شماره همراه</label>
+                    <input type="text" name="phone" placeholder="0912..."
+                        class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">دسته‌بندی مشتری</label>
+                    <select name="customer_type" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
+                        <option value="regular">عادی</option>
+                        <option value="vip">⭐ ویژه VIP</option>
+                        <option value="partner">🤝 همکار / عمده‌فروش</option>
+                        <option value="builder">🏗️ سازنده / پیمانکار</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">سقف اعتبار نسیه و دفتری (تومان)</label>
+                <input type="number" name="credit_limit" value="50000000" placeholder="50000000"
+                    class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-emerald-400 outline-none focus:border-indigo-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">نشانی یا پروژه ساختمانی</label>
+                <textarea name="address" rows="2" placeholder="آدرس فروشگاه، کارگاه یا محل تحویل بار..."
+                    class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500"></textarea>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black py-2.5 rounded-xl text-xs transition shadow-lg">
+                    ثبت پرونده مشتری
+                </button>
+                <button type="button" onclick="closeAddCustomerModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition border border-white/10">
+                    انصراف
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Customer -->
+<div id="editCustomerModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 class="text-base font-black text-white">✏️ ویرایش مشخصات خریدار</h3>
+            <button onclick="closeEditCustomerModal()" class="text-slate-400 hover:text-white font-black text-lg">✕</button>
+        </div>
+        <form id="editCustomerForm" method="POST" action="" class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">نام کامل خریدار *</label>
+                <input type="text" name="name" id="editCustName" required
+                    class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">شماره همراه</label>
+                    <input type="text" name="phone" id="editCustPhone"
+                        class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500" dir="ltr">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">دسته‌بندی مشتری</label>
+                    <select name="customer_type" id="editCustType" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500">
+                        <option value="regular">عادی</option>
+                        <option value="vip">⭐ ویژه VIP</option>
+                        <option value="partner">🤝 همکار / عمده‌فروش</option>
+                        <option value="builder">🏗️ سازنده / پیمانکار</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">سقف اعتبار نسیه و دفتری (تومان)</label>
+                <input type="number" name="credit_limit" id="editCustCreditLimit"
+                    class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-emerald-400 outline-none focus:border-indigo-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">نشانی یا آدرس پروژه</label>
+                <textarea name="address" id="editCustAddress" rows="2"
+                    class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-indigo-500"></textarea>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-black py-2.5 rounded-xl text-xs transition shadow-lg">
+                    ذخیره تغییرات
+                </button>
+                <button type="button" onclick="closeEditCustomerModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs transition border border-white/10">
+                    انصراف
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: View Customer Invoices History -->
+<div id="customerInvoicesModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+            <div>
+                <h3 class="text-base font-black text-white" id="modalCustomerTitle">سوابق فاکتورهای مشتری</h3>
+                <p class="text-xs text-slate-400 mt-0.5" id="modalCustomerSubtitle"></p>
+            </div>
+            <button onclick="closeCustomerInvoicesModal()" class="text-slate-400 hover:text-white font-black text-lg">✕</button>
+        </div>
+
+        <div id="modalInvoicesContainer" class="space-y-2">
+            <div class="text-center py-8 text-slate-400 text-xs">در حال بارگذاری فاکتورها...</div>
+        </div>
+
+        <div class="border-t border-white/10 pt-3 flex justify-end">
+            <button type="button" onclick="closeCustomerInvoicesModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs transition">
+                بستن پنجره
+            </button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    function openAddCustomerModal() {
+        document.getElementById('addCustomerModal').classList.remove('hidden');
+    }
+    function closeAddCustomerModal() {
+        document.getElementById('addCustomerModal').classList.add('hidden');
+    }
+
+    function openEditCustomerModal(data) {
+        document.getElementById('editCustomerForm').action = '/admin/customer/edit/' + data.id;
+        document.getElementById('editCustName').value = data.name || '';
+        document.getElementById('editCustPhone').value = data.phone || '';
+        document.getElementById('editCustType').value = data.customer_type || 'regular';
+        document.getElementById('editCustCreditLimit').value = data.credit_limit || 50000000;
+        document.getElementById('editCustAddress').value = data.address || '';
+        document.getElementById('editCustomerModal').classList.remove('hidden');
+    }
+    function closeEditCustomerModal() {
+        document.getElementById('editCustomerModal').classList.add('hidden');
+    }
+
+    function viewCustomerInvoices(customerId, customerName) {
+        document.getElementById('modalCustomerTitle').innerText = 'سوابق و فاکتورهای ' + customerName;
+        document.getElementById('modalCustomerSubtitle').innerText = 'در حال دریافت اطلاعات از سرور...';
+        document.getElementById('modalInvoicesContainer').innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">⏳ در حال بارگذاری لیست فاکتورها...</div>';
+        document.getElementById('customerInvoicesModal').classList.remove('hidden');
+
+        fetch('/api/customer/' + customerId + '/invoices')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('modalCustomerSubtitle').innerText = 
+                    'جمع خریدها: ' + Number(data.total_purchases || 0).toLocaleString('fa-IR') + ' ت | مانده بدهی: ' + Number(data.outstanding_balance || 0).toLocaleString('fa-IR') + ' ت';
+
+                if (!data.invoices || data.invoices.length === 0) {
+                    document.getElementById('modalInvoicesContainer').innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">هیچ فاکتوری برای این خریدار ثبت نشده است.</div>';
+                    return;
+                }
+
+                let html = '<div class="overflow-x-auto"><table class="w-full text-right text-xs"><thead><tr class="text-slate-400 border-b border-white/10 pb-2"><th class="pb-2">شماره فاکتور</th><th class="pb-2">تاریخ</th><th class="pb-2">نوع</th><th class="pb-2">مبلغ کل</th><th class="pb-2">پرداختی</th><th class="pb-2">مانده</th><th class="pb-2">وضعیت</th></tr></thead><tbody class="divide-y divide-white/5">';
+                data.invoices.forEach(inv => {
+                    const isSettled = inv.is_settled;
+                    const rem = Number(inv.remaining_balance || 0);
+                    html += '<tr class="hover:bg-white/[0.03] transition">';
+                    html += '<td class="py-2.5 font-bold text-white">' + inv.invoice_number + '</td>';
+                    html += '<td class="py-2.5 text-slate-400 text-[11px]">' + (inv.shamsi_date_time || '-') + '</td>';
+                    html += '<td class="py-2.5">' + (inv.invoice_type === 'sale' ? '<span class="text-emerald-400">فروش</span>' : '<span class="text-rose-400">مرجوعی</span>') + '</td>';
+                    html += '<td class="py-2.5 font-black text-white">' + Number(inv.total_amount).toLocaleString('fa-IR') + '</td>';
+                    html += '<td class="py-2.5 font-medium text-emerald-400">' + Number(inv.paid_amount).toLocaleString('fa-IR') + '</td>';
+                    html += '<td class="py-2.5 font-bold ' + (rem > 0 ? 'text-rose-400' : 'text-slate-500') + '">' + rem.toLocaleString('fa-IR') + '</td>';
+                    html += '<td class="py-2.5">' + (isSettled ? '<span class="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">تسویه کامل</span>' : '<span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">دارای مانده</span>') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+                document.getElementById('modalInvoicesContainer').innerHTML = html;
+            })
+            .catch(err => {
+                document.getElementById('modalInvoicesContainer').innerHTML = '<div class="text-center py-6 text-rose-400 text-xs">خطا در دریافت اطلاعات فاکتورها.</div>';
+            });
+    }
+
+    function closeCustomerInvoicesModal() {
+        document.getElementById('customerInvoicesModal').classList.add('hidden');
+    }
+
     function sendWarrantySms(name, phone) {
         if (!phone) {
             alert('شماره موبایل برای این مشتری ثبت نشده است.');
             return;
         }
-        alert('پیامک فعال‌سازی گارانتی طهماسبی برای خریدار محترم (' + name + ') به شماره ' + phone + ' با موفقیت ارسال گردید.');
+        alert('پیامک فعال‌سازی گارانتی و باشگاه مشتریان طهماسبی برای خریدار محترم (' + name + ') به شماره ' + phone + ' با موفقیت ارسال گردید.');
     }
 </script>
 {% endblock %}
-

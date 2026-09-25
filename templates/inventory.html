@@ -37,6 +37,11 @@
             <button onclick="document.getElementById('stocktakingModal').classList.remove('hidden')" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow transition">
                 📋 انبارگردانی
             </button>
+            {% if can_manage_stock %}
+            <a href="{{ url_for('export_inventory_excel') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                📊 خروجی اکسل موجودی
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -318,6 +323,9 @@
                             <th class="p-2.5">درخواست‌کننده</th>
                             <th class="p-2.5">زمان</th>
                             <th class="p-2.5">وضعیت</th>
+                            {% if can_manage_stock %}
+                            <th class="p-2.5 text-center">عملیات</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -329,14 +337,36 @@
                             <td class="p-2.5 text-[10px] text-slate-400">{{ t.shamsi_date_time }}</td>
                             <td class="p-2.5">
                                 {% if t.status == 'accepted' %}
-                                <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">تایید شد</span>
+                                <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">✓ تایید شد</span>
+                                {% elif t.status == 'rejected' %}
+                                <span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded text-[10px] font-bold">✕ رد شد</span>
                                 {% else %}
-                                <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold">در انتظار</span>
+                                <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">در انتظار تایید</span>
                                 {% endif %}
                             </td>
+                            {% if can_manage_stock %}
+                            <td class="p-2.5 text-center">
+                                {% if t.status == 'pending' %}
+                                <div class="flex items-center justify-center gap-1">
+                                    <form method="POST" action="{{ url_for('approve_transfer', transfer_id=t.id) }}" onsubmit="return confirm('انتقال این کالا تایید و از موجودی کسر/افزوده شود؟');">
+                                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">
+                                            ✓ تایید
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('reject_transfer', transfer_id=t.id) }}" onsubmit="return confirm('آیا از رد این درخواست انتقال اطمینان دارید؟');">
+                                        <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">
+                                            ✕ رد
+                                        </button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <span class="text-slate-400 text-[10px]">-</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
                         </tr>
                         {% else %}
-                        <tr><td colspan="5" class="text-center p-4 text-slate-400">انتقالی ثبت نشده است.</td></tr>
+                        <tr><td colspan="{{ 6 if can_manage_stock else 5 }}" class="text-center p-4 text-slate-400">انتقالی ثبت نشده است.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

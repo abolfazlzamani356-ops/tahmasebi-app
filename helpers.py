@@ -3,7 +3,11 @@ import json
 import jdatetime
 from datetime import datetime
 from sqlalchemy.orm import selectinload
-from models import db, User, Invoice, InvoiceItem, InventoryItem, StockLog, AuditLog, Settings, SalarySlip, Customer, Cheque, ProductCatalog
+from models import (
+    db, User, Invoice, InvoiceItem, InventoryItem, StockLog, AuditLog,
+    Settings, SalarySlip, Customer, Cheque, ProductCatalog,
+    Shop, Expense, PettyCashDeposit
+)
 
 PERSIAN_MONTHS = {
     1: 'فروردین', 2: 'اردیبهشت', 3: 'خرداد',
@@ -27,13 +31,73 @@ RETURN_REASONS = [
     'سایر موارد'
 ]
 
-def safe_int(val, default=0):
+def normalize_persian_text(text):
     """
-    تبدیل کاملاً ایمن هرگونه ورودی (فارسی، عربی، کامادار، خالی، اعشاری یا نامعتبر) به عدد صحیح بدون خطا
+    نرمال‌سازی پیشرفته و جامع متون فارسی و عربی جهت جستجوی بدون خطای کاتالوگ، انبار و مشتریان
+    """
+    if not text:
+        return ''
+    s = str(text)
+    # اصلاح ی و ک عربی و الف مقصوره به فارسی
+    s = s.replace('ي', 'ی').replace('ك', 'ک').replace('ى', 'ی')
+    # اصلاح انواع ه و ة
+    s = s.replace('ة', 'ه').replace('ۀ', 'ه')
+    # حذف اعراب و تشدیدهای عربی
+    s = re.sub(r'[\u064b-\u065f\u0670]', '', s)
+    # یکنواخت‌سازی نیم‌فاصله و حذف کاراکترهای نامرئی
+    s = s.replace('\u200c', ' ').replace('\u200e', '').replace('\u200f', '').replace('\ufeff', '')
+    # تبدیل ارقام فارسی و عربی به انگلیسی
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+    for i in range(10):
+        s = s.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+    # حذف فاصله‌های متوالی
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip()
+
+def safe_float(val, default=0.0):
+    """
+    تبدیل ایمن انواع مقادیر اعشاری (فارسی، عربی، درصدی، کامادار، منفی) به عدد اعشاری بدون خطا
     """
     if val is None:
         return default
     if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip()
+    if not s:
+        return default
+    is_neg = ('منفی' in s) or ('-' in s) or ('−' in s) or ('–' in s)
+    # تبدیل ارقام فارسی و عربی
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+    for i in range(10):
+        s = s.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+    s = s.replace('٫', '.').replace(',', '').replace(' ', '').replace('%', '')
+    s_clean = s.replace('منفی', '').replace('-', '').replace('−', '').replace('–', '').strip()
+    try:
+        f = float(s_clean)
+        return -abs(f) if is_neg else abs(f)
+    except Exception:
+        m = re.search(r'\d*\.\d+|\d+', s_clean)
+        if m:
+            try:
+                num = float(m.group(0))
+                return -abs(num) if is_neg else abs(num)
+            except Exception:
+                pass
+        return default
+
+def safe_int(val, default=0):
+    """
+    تبدیل کاملاً ایمن هرگونه ورودی (فارسی، عربی، کامادار، خالی، اعشاری یا نامعتبر) به عدد صحیح بدون خطای صفرسازی یا جابجایی رقم
+    """
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
         try:
             return int(val)
         except Exception:
@@ -43,15 +107,29 @@ def safe_int(val, default=0):
     if not s:
         return default
     
+    # بررسی علامت منفی (شامل کلمه منفی فارسی یا علائم منها)
+    is_neg = ('منفی' in s) or ('-' in s) or ('−' in s) or ('–' in s)
+    
     # تبدیل ارقام فارسی و عربی به انگلیسی
     persian_digits = '۰۱۲۳۴۵۶۷۸۹'
     arabic_digits = '٠١٢٣٤٥٦٧٨٩'
     for i in range(10):
         s = s.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
     
-    # استخراج فقط ارقام و در صورت وجود علامت منفی اول رشته
-    is_neg = s.startswith('-')
-    cleaned = re.sub(r'[^\d]', '', s)
+    s = s.replace('٫', '.').replace(',', '').replace(' ', '')
+    s_clean = s.replace('منفی', '').replace('-', '').replace('−', '').replace('–', '').strip()
+    
+    # در صورتی که اعشار داشته باشد ابتدا با float پارس شود تا رقم اعشار صفر ضرب نشود
+    if '.' in s_clean:
+        try:
+            m = re.search(r'\d*\.\d+|\d+', s_clean)
+            if m:
+                num = int(float(m.group(0)))
+                return -num if is_neg else num
+        except Exception:
+            pass
+            
+    cleaned = re.sub(r'[^\d]', '', s_clean)
     if not cleaned:
         return default
     try:
@@ -71,11 +149,32 @@ def get_current_shamsi():
         'date_only': now_j.strftime("%Y/%m/%d")
     }
 
-def log_activity(action, user_name="سیستم", category="عمومی"):
+def log_activity(action, user_name="سیستم", category="عمومی", ip_address=None, details=None):
     now_str = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
-    log = AuditLog(action=action, user_name=user_name, category=category, shamsi_date_time=now_str)
+    try:
+        from flask import has_request_context, request, session
+        if has_request_context():
+            if not ip_address:
+                ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+                if ip_address and ',' in ip_address:
+                    ip_address = ip_address.split(',')[0].strip()
+            if user_name in ("سیستم", None):
+                user_name = session.get('full_name', 'سیستم')
+    except Exception:
+        pass
+    log = AuditLog(
+        action=action,
+        user_name=user_name,
+        category=category,
+        ip_address=ip_address,
+        details=details,
+        shamsi_date_time=now_str
+    )
     db.session.add(log)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, user_name, description="", commit=True):
     item = InventoryItem.query.get(item_id)
@@ -102,7 +201,7 @@ def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, u
     if commit:
         db.session.commit()
 
-def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, settings=None):
+def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, settings=None, user=None):
     """
     محاسبه دقیق آمار فروش، پورسانت نقدی، پورسانت معلق، تعداد فاکتورها، مرجوعی‌ها و رضایت مشتری
     *** اصلاح شده: فروش خالص فقط بر اساس مبلغ واقعی تسویه‌شده محاسبه می‌شود ***
@@ -110,14 +209,20 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
     if not settings:
         settings = Settings.query.first()
 
+    year_int = safe_int(year)
+    month_int = safe_int(month)
+    month_str = str(month_int)
+    month_pad = f"{month_int:02d}"
+
     invoices = Invoice.query.options(selectinload(Invoice.cheques)).filter(
         (Invoice.seller_id == user_id) | (Invoice.second_seller_id == user_id),
-        Invoice.shamsi_year == year,
-        Invoice.shamsi_month == month,
+        db.or_(Invoice.shamsi_year == year_int, Invoice.shamsi_year == str(year_int)),
+        db.or_(Invoice.shamsi_month == month_int, Invoice.shamsi_month == month_str, Invoice.shamsi_month == month_pad),
         Invoice.status == 'final'
     ).all()
 
     gross_sales = 0      # مبلغ کل فاکتورها (برای نمایش اطلاعاتی)
+    returns_amount = 0   # مبلغ کل فاکتورهای مرجوعی
     net_sales = 0        # فروش خالص = فقط مبلغ تسویه‌شده واقعی
     total_cost = 0
     real_profit_share = 0
@@ -127,15 +232,16 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
     pending_commission_sales = 0  # مبالغ معلق: مانده + چک‌های در انتظار
 
     for inv in invoices:
-        # محاسبه درصد تسهیم فروشنده
+        # محاسبه درصد تسهیم فروشنده با بازه امن ۰ تا ۱۰۰
         ratio = 1.0
         if inv.second_seller_id:
+            s_ratio = max(0, min(100, inv.split_ratio if inv.split_ratio is not None else 100))
             if inv.seller_id == user_id:
-                ratio = (inv.split_ratio if inv.split_ratio is not None else 100) / 100.0
+                ratio = s_ratio / 100.0
             else:
-                ratio = (100 - (inv.split_ratio if inv.split_ratio is not None else 100)) / 100.0
+                ratio = (100 - s_ratio) / 100.0
 
-        item_total_amount = int(inv.total_amount * ratio)
+        item_total_amount = int((inv.total_amount or 0) * ratio)
         item_cost = int((inv.actual_buy_cost or 0) * ratio)
         item_profit = int((inv.real_profit or 0) * ratio)
 
@@ -150,7 +256,7 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             # مانده تسویه‌نشده
             remaining = inv.remaining_balance or 0
             # پرداخت فوری: نقد + کارتخوان + کارت‌به‌کارت
-            immediate_paid = inv.paid_amount or 0
+            immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
 
             # مبلغ تسویه‌شده = پرداخت فوری + چک‌های وصول‌شده
             settled_amount = immediate_paid + passed_cheque
@@ -169,18 +275,21 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             pending_commission_sales += pending_this
 
         elif inv.invoice_type == 'return':
-            # برای مرجوعی هم مبلغ واقعی برگشتی ملاک است
+            # برای مرجوعی هم مبلغ واقعی برگشتی ملاک است، در صورت عدم ثبت پرداخت، کل مبلغ فاکتور ملاک کسر است
             passed_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
-            immediate_paid = inv.paid_amount or 0
+            immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
             settled_amount = immediate_paid + passed_cheque
-            item_settled = int(settled_amount * ratio)
+            effective_return = abs(settled_amount if settled_amount > 0 else (inv.total_amount or 0))
+            item_settled = int(effective_return * ratio)
 
             net_sales -= item_settled
+            returns_amount += item_settled
             total_cost -= item_cost
             real_profit_share -= item_profit
             returns_count += 1
 
-    user = User.query.get(user_id)
+    if user is None:
+        user = User.query.get(user_id)
     is_admin = bool(user and user.role == 'admin')
     if is_admin:
         base_commission_rate = 0.0
@@ -212,6 +321,7 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
 
     return {
         'gross_sales': gross_sales,
+        'returns_amount': returns_amount,
         'net_sales': net_sales,
         'total_cost': total_cost,
         'real_profit_share': real_profit_share,
@@ -228,11 +338,20 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         'avg_rating': avg_rating
     }
 
-def get_or_create_customer(name, phone=None, address=None):
+def get_or_create_customer(name, phone=None, address=None, customer_type='regular', shop_id=None):
     if not name:
         return None
-    name = name.strip()
-    phone = (phone or '').strip() or None
+    name = normalize_persian_text(name).strip()
+    if not name:
+        name = 'مشتری محترم'
+    phone = (phone or '').strip()
+    if phone:
+        persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+        arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+        for i in range(10):
+            phone = phone.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+        phone = re.sub(r'[^\d]', '', phone) or None
+
     customer = None
     if phone:
         customer = Customer.query.filter_by(phone=phone).first()
@@ -242,17 +361,166 @@ def get_or_create_customer(name, phone=None, address=None):
         customer = Customer(
             name=name,
             phone=phone,
-            address=address,
-            customer_type='regular',
+            address=str(address) if (address and not str(address).isdigit()) else None,
+            customer_type=customer_type or 'regular',
             total_purchases=0,
             outstanding_balance=0
         )
         db.session.add(customer)
         db.session.commit()
-    elif phone and not customer.phone:
-        customer.phone = phone
-        db.session.commit()
+    else:
+        changed = False
+        if phone and not customer.phone:
+            customer.phone = phone
+            changed = True
+        if address and not str(address).isdigit() and not customer.address:
+            customer.address = str(address)
+            changed = True
+        if changed:
+            db.session.commit()
     return customer
+
+def calculate_store_financial_summary(year, month, settings=None):
+    """
+    محاسبه جامع شاخص‌های مالی، فروش، سود ناخالص، هزینه‌ها و سود خالص کل فروشگاه
+    شامل تفکیک پرداخت‌های دریافتی، تنخواه، اجاره شعب، حقوق و پورسانت
+    """
+    if not settings:
+        settings = Settings.query.first()
+
+    year_int = safe_int(year)
+    month_int = safe_int(month)
+    month_str = str(month_int)
+    month_pad = f"{month_int:02d}"
+
+    month_invoices = Invoice.query.options(
+        selectinload(Invoice.cheques),
+        selectinload(Invoice.items)
+    ).filter(
+        db.or_(Invoice.shamsi_year == year_int, Invoice.shamsi_year == str(year_int)),
+        db.or_(Invoice.shamsi_month == month_int, Invoice.shamsi_month == month_str, Invoice.shamsi_month == month_pad),
+        Invoice.status == 'final'
+    ).all()
+
+    shop1_total = 0
+    shop2_total = 0
+    gross_sales = 0
+    returns_amount = 0
+    total_sales_all = 0
+    estimated_gross_profit = 0
+    total_actual_cost = 0
+    total_discounts = 0
+
+    paid_pos = 0
+    paid_card = 0
+    paid_cash = 0
+    paid_cheque = 0
+    remaining_balance = 0
+
+    sales_count = 0
+    returns_count = 0
+
+    for inv in month_invoices:
+        passed_chk = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
+        immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
+        settled_amt = immediate_paid + passed_chk
+        profit_amt = inv.real_profit or 0
+        cost_amt = inv.actual_buy_cost or 0
+
+        if inv.invoice_type == 'sale':
+            gross_sales += (inv.total_amount or 0)
+            sales_count += 1
+            total_discounts += (inv.discount_amount or 0)
+            total_sales_all += settled_amt
+            estimated_gross_profit += profit_amt
+            total_actual_cost += cost_amt
+            paid_pos += (inv.paid_pos or 0)
+            paid_card += (inv.paid_card or 0)
+            paid_cash += (inv.paid_cash or 0)
+            paid_cheque += (inv.paid_cheque or 0)
+            remaining_balance += (inv.remaining_balance or 0)
+            if inv.shop_id == 2:
+                shop2_total += settled_amt
+            else:
+                shop1_total += settled_amt
+        elif inv.invoice_type == 'return':
+            effective_return = abs(settled_amt if settled_amt > 0 else (inv.total_amount or 0))
+            returns_amount += abs(inv.total_amount or effective_return)
+            returns_count += 1
+            total_sales_all -= effective_return
+            estimated_gross_profit -= profit_amt
+            total_actual_cost -= cost_amt
+            if inv.shop_id == 2:
+                shop2_total -= effective_return
+            else:
+                shop1_total -= effective_return
+
+    total_sales_all = max(0, total_sales_all)
+    net_sales = gross_sales - returns_amount
+
+    # محاسبه پورسانت‌ها
+    sellers = User.query.filter(User.role.in_(['seller', 'cashier']), User.is_active == True).all()
+    total_commissions = 0
+    for s in sellers:
+        s_stats = calculate_seller_exact_stats(s.id, year_int, month_int, s.commission_rate, settings, user=s)
+        total_commissions += s_stats['settled_commission'] + s_stats.get('tier_bonus_amount', 0)
+
+    all_staff = User.query.filter_by(is_active=True).all()
+    total_base_salaries = sum(u.base_salary or 0 for u in all_staff if u.role != 'admin')
+    total_payroll = total_base_salaries + total_commissions
+
+    shops = Shop.query.all()
+    total_rent = sum(s.rent_amount or 0 for s in shops)
+
+    expenses = Expense.query.filter(
+        db.or_(Expense.shamsi_year == year_int, Expense.shamsi_year == str(year_int)),
+        db.or_(Expense.shamsi_month == month_int, Expense.shamsi_month == month_str, Expense.shamsi_month == month_pad)
+    ).all()
+    total_expenses = sum(e.amount for e in expenses)
+
+    petty_deposits = PettyCashDeposit.query.filter(
+        db.or_(PettyCashDeposit.shamsi_year == year_int, PettyCashDeposit.shamsi_year == str(year_int)),
+        db.or_(PettyCashDeposit.shamsi_month == month_int, PettyCashDeposit.shamsi_month == month_str, PettyCashDeposit.shamsi_month == month_pad)
+    ).all()
+    total_petty_deposits = sum(p.amount for p in petty_deposits)
+
+    store_net_profit = estimated_gross_profit - (total_payroll + total_rent + total_expenses)
+    base_sales = net_sales if net_sales > 0 else total_sales_all
+    profit_margin_percent = round((store_net_profit / base_sales * 100), 1) if base_sales > 0 else 0
+    gross_margin_percent = round((estimated_gross_profit / base_sales * 100), 1) if base_sales > 0 else 0
+
+    return {
+        'year': year_int,
+        'month': month_int,
+        'gross_sales': gross_sales,
+        'returns_amount': returns_amount,
+        'net_sales': net_sales,
+        'total_sales_all': total_sales_all,
+        'sales_count': sales_count,
+        'returns_count': returns_count,
+        'total_discounts': total_discounts,
+        'actual_buy_cost': total_actual_cost,
+        'total_actual_cost': total_actual_cost,
+        'real_profit': estimated_gross_profit,
+        'estimated_gross_profit': estimated_gross_profit,
+        'paid_pos': paid_pos,
+        'paid_card': paid_card,
+        'paid_cash': paid_cash,
+        'paid_cheque': paid_cheque,
+        'remaining_balance': remaining_balance,
+        'shop1_total': shop1_total,
+        'shop2_total': shop2_total,
+        'total_expenses': total_expenses,
+        'total_petty_deposits': total_petty_deposits,
+        'total_rent': total_rent,
+        'total_commissions': total_commissions,
+        'total_base_salaries': total_base_salaries,
+        'total_payroll': total_payroll,
+        'store_net_profit': store_net_profit,
+        'net_store_profit': store_net_profit,
+        'profit_margin_percent': profit_margin_percent,
+        'gross_margin_percent': gross_margin_percent
+    }
 
 # ==================== موتور هوش مصنوعی و تحلیل هوشمند ====================
 
@@ -369,3 +637,5 @@ def get_inventory_ai_insights():
         'total_sell_valuation': total_inventory_sell_value,
         'estimated_stock_profit': total_inventory_sell_value - total_inventory_value
     }
+
+

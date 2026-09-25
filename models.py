@@ -39,6 +39,7 @@ class ProductCatalog(db.Model):
     __tablename__ = 'product_catalog'
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(50), nullable=True, unique=True) # کد محصول یا بارکد
+    barcode = db.Column(db.String(50), nullable=True, index=True) # بارکد استاندارد کالا
     name = db.Column(db.String(150), nullable=False) # نام کامل کالا
     category = db.Column(db.String(100), nullable=False) # دسته (هود، گاز، سینک و...)
     brand = db.Column(db.String(100), nullable=True) # برند
@@ -51,6 +52,7 @@ class ProductCatalog(db.Model):
         return {
             'id': self.id,
             'code': self.code or '',
+            'barcode': self.barcode or '',
             'name': self.name,
             'category': self.category,
             'brand': self.brand or '',
@@ -137,6 +139,18 @@ class Customer(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     invoices = db.relationship('Invoice', backref='customer', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'phone': self.phone or '',
+            'address': self.address or '',
+            'customer_type': self.customer_type or 'regular',
+            'credit_limit': self.credit_limit or 0,
+            'total_purchases': self.total_purchases or 0,
+            'outstanding_balance': self.outstanding_balance or 0
+        }
 
 class InventoryItem(db.Model):
     __tablename__ = 'inventory_items'
@@ -344,5 +358,7 @@ class AuditLog(db.Model):
     action = db.Column(db.String(255), nullable=False)
     user_name = db.Column(db.String(100), nullable=False)
     category = db.Column(db.String(50), default='عمومی') # فروش، انبار، حقوق، امنیت
+    ip_address = db.Column(db.String(50), nullable=True) # آدرس IP کاربر جهت امنیت
+    details = db.Column(db.Text, nullable=True) # جزئیات تکمیلی لاگ
     shamsi_date_time = db.Column(db.String(40), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

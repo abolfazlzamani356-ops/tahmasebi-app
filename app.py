@@ -4,6 +4,7 @@ import io
 import re
 import json
 import random
+import sqlite3
 import jdatetime
 from datetime import datetime, timedelta
 import time
@@ -26,7 +27,7 @@ from helpers import (
     get_current_shamsi, log_activity, record_stock_change,
     calculate_seller_exact_stats, get_or_create_customer,
     parse_smart_invoice_text, get_inventory_ai_insights,
-    safe_int
+    safe_int, safe_float, normalize_persian_text, calculate_store_financial_summary
 )
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -175,6 +176,9 @@ def initialize_database():
             ("users", "notes", "TEXT"),
             ("invoices", "has_custom_items", "BOOLEAN DEFAULT 0"),
             ("invoice_items", "is_custom", "BOOLEAN DEFAULT 0"),
+            ("product_catalog", "barcode", "TEXT"),
+            ("audit_logs", "ip_address", "TEXT"),
+            ("audit_logs", "details", "TEXT"),
         ]
 
         for table, col, col_def in migrations:
@@ -193,11 +197,19 @@ def initialize_database():
             ("idx_invoices_settled", "CREATE INDEX IF NOT EXISTS idx_invoices_settled ON invoices (is_settled, remaining_balance)"),
             ("idx_invoices_custom_items", "CREATE INDEX IF NOT EXISTS idx_invoices_custom_items ON invoices (has_custom_items)"),
             ("idx_invoices_created", "CREATE INDEX IF NOT EXISTS idx_invoices_created ON invoices (created_at DESC)"),
+            ("idx_invoices_number", "CREATE INDEX IF NOT EXISTS idx_invoices_number ON invoices (invoice_number)"),
             ("idx_invoice_items_inv", "CREATE INDEX IF NOT EXISTS idx_invoice_items_inv ON invoice_items (invoice_id)"),
             ("idx_cheques_inv", "CREATE INDEX IF NOT EXISTS idx_cheques_inv ON cheques (invoice_id)"),
             ("idx_cheques_status", "CREATE INDEX IF NOT EXISTS idx_cheques_status ON cheques (status)"),
             ("idx_inventory_shop", "CREATE INDEX IF NOT EXISTS idx_inventory_shop ON inventory_items (shop_id)"),
             ("idx_inventory_name", "CREATE INDEX IF NOT EXISTS idx_inventory_name ON inventory_items (name)"),
+            ("idx_inventory_barcode", "CREATE INDEX IF NOT EXISTS idx_inventory_barcode ON inventory_items (barcode)"),
+            ("idx_catalog_brand", "CREATE INDEX IF NOT EXISTS idx_catalog_brand ON product_catalog (brand)"),
+            ("idx_catalog_category", "CREATE INDEX IF NOT EXISTS idx_catalog_category ON product_catalog (category)"),
+            ("idx_catalog_code", "CREATE INDEX IF NOT EXISTS idx_catalog_code ON product_catalog (code)"),
+            ("idx_catalog_barcode", "CREATE INDEX IF NOT EXISTS idx_catalog_barcode ON product_catalog (barcode)"),
+            ("idx_customers_phone", "CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers (phone)"),
+            ("idx_customers_name", "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers (name)"),
             ("idx_stock_logs_item", "CREATE INDEX IF NOT EXISTS idx_stock_logs_item ON stock_logs (inventory_item_id)"),
             ("idx_users_role_active", "CREATE INDEX IF NOT EXISTS idx_users_role_active ON users (role, is_active)"),
             ("idx_expenses_year_month", "CREATE INDEX IF NOT EXISTS idx_expenses_year_month ON expenses (shamsi_year, shamsi_month)"),
@@ -943,7 +955,7 @@ def add_invoice():
         dest_card = request.form.get('dest_card_number', '').strip()
         dest_sheba = request.form.get('dest_sheba_number', '').strip()
 
-        split_ratio = safe_int(request.form.get('split_ratio'), 100)
+        split_ratio = max(0, min(100, safe_int(request.form.get('split_ratio'), 100)))
         customer_rating = safe_int(request.form.get('customer_rating'), 5)
 
         new_inv = Invoice(
@@ -1005,7 +1017,7 @@ def add_invoice():
                 qty = 1
             orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
             final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
-            disc_pct = safe_int(discount_percents[idx], 0) if idx < len(discount_percents) else 0
+            disc_pct = safe_float(discount_percents[idx], 0.0) if idx < len(discount_percents) else 0.0
             custom_buy_p = safe_int(buy_prices[idx], 0) if idx < len(buy_prices) else 0
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
@@ -1150,9 +1162,14 @@ def add_invoice():
 
         # ثبت در CRM مشتری
         if customer:
-            customer.total_purchases += total_amount
-            if remaining_balance > 0:
-                customer.outstanding_balance += remaining_balance
+            if inv_type == 'sale':
+                customer.total_purchases += total_amount
+                if remaining_balance > 0:
+                    customer.outstanding_balance += remaining_balance
+            elif inv_type == 'return':
+                customer.total_purchases = max(0, customer.total_purchases - total_amount)
+                if remaining_balance > 0:
+                    customer.outstanding_balance = max(0, customer.outstanding_balance - remaining_balance)
 
         db.session.commit()
         
@@ -1293,13 +1310,17 @@ def edit_invoice(invoice_id):
 
         # ۲. اصلاح حساب مشتری قبلی
         if inv.customer:
-            inv.customer.total_purchases = max(0, inv.customer.total_purchases - old_total)
-            inv.customer.outstanding_balance = max(0, inv.customer.outstanding_balance - old_remaining)
+            if old_inv_type == 'sale':
+                inv.customer.total_purchases = max(0, inv.customer.total_purchases - old_total)
+                inv.customer.outstanding_balance = max(0, inv.customer.outstanding_balance - old_remaining)
+            elif old_inv_type == 'return':
+                inv.customer.total_purchases += old_total
+                inv.customer.outstanding_balance += old_remaining
 
         # ۳. دریافت مقادیر جدید
         customer_name = request.form.get('customer_name', '').strip() or 'مشتری حضوری'
         customer_phone = request.form.get('customer_phone', '').strip()
-        customer = get_or_create_customer(customer_name, customer_phone, inv.shop_id) if customer_phone else None
+        customer = get_or_create_customer(customer_name, customer_phone, shop_id=inv.shop_id) if (customer_phone or customer_name) else None
 
         paid_pos = safe_int(request.form.get('paid_pos'), 0)
         paid_card = safe_int(request.form.get('paid_card'), 0)
@@ -1375,7 +1396,7 @@ def edit_invoice(invoice_id):
         inv.due_settlement_date = request.form.get('due_settlement_date')
         inv.is_settled = (remaining_balance <= 0)
         inv.second_seller_id = second_seller_id
-        inv.split_ratio = safe_int(request.form.get('split_ratio'), 100)
+        inv.split_ratio = max(0, min(100, safe_int(request.form.get('split_ratio'), 100)))
         inv.customer_rating = safe_int(request.form.get('customer_rating'), 5)
 
         # ۴. پاکسازی اقلام و چک‌های قبلی
@@ -1405,7 +1426,7 @@ def edit_invoice(invoice_id):
                 qty = 1
             orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
             final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
-            disc_pct = safe_int(discount_percents[idx], 0) if idx < len(discount_percents) else 0
+            disc_pct = safe_float(discount_percents[idx], 0.0) if idx < len(discount_percents) else 0.0
             custom_buy_p = safe_int(buy_prices[idx], 0) if idx < len(buy_prices) else 0
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
@@ -1540,9 +1561,14 @@ def edit_invoice(invoice_id):
 
         # بروزرسانی حساب مشتری
         if customer:
-            customer.total_purchases += total_amount
-            if remaining_balance > 0:
-                customer.outstanding_balance += remaining_balance
+            if inv_type == 'sale':
+                customer.total_purchases += total_amount
+                if remaining_balance > 0:
+                    customer.outstanding_balance += remaining_balance
+            elif inv_type == 'return':
+                customer.total_purchases = max(0, customer.total_purchases - total_amount)
+                if remaining_balance > 0:
+                    customer.outstanding_balance = max(0, customer.outstanding_balance - remaining_balance)
 
         db.session.commit()
 
@@ -1569,7 +1595,8 @@ def print_invoice_a4(invoice_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     invoice = Invoice.query.get_or_404(invoice_id)
-    return render_template('print_a4.html', invoice=invoice)
+    settings = Settings.query.first()
+    return render_template('print_a4.html', invoice=invoice, settings=settings)
 
 @app.route('/invoice/print/thermal/<int:invoice_id>')
 @app.route('/print_pos/<int:invoice_id>')
@@ -1940,11 +1967,8 @@ def update_shops_rent():
     for shop in Shop.query.all():
         field_name = f'rent_shop_{shop.id}'
         if field_name in request.form:
-            raw_val = request.form.get(field_name, '0').replace(',', '').strip()
-            try:
-                shop.rent_amount = int(raw_val) if raw_val else 0
-            except ValueError:
-                pass
+            raw_val = request.form.get(field_name, '0')
+            shop.rent_amount = safe_int(raw_val, shop.rent_amount or 0)
     db.session.commit()
     log_activity("به‌روزرسانی مبلغ اجاره ماهانه شعب", session.get('full_name'), "مالی")
     flash('مبالغ اجاره ماهانه شعب با موفقیت ذخیره و در محاسبات سود اعمال شد.', 'success')
@@ -2061,6 +2085,8 @@ def delete_inventory_item(item_id):
         return redirect(url_for('login'))
     item = InventoryItem.query.get_or_404(item_id)
     item_name = item.name
+    # قطع وابستگی فاکتورهای قبلی جهت حفظ یکپارچگی ارجاعات دیتابیس
+    InvoiceItem.query.filter_by(inventory_item_id=item_id).update({'inventory_item_id': None})
     db.session.delete(item)
     db.session.commit()
     log_activity(f"حذف کالای {item_name} از انبار", session.get('full_name'), "انبار")
@@ -2276,7 +2302,17 @@ def catalog_view():
     
     query = ProductCatalog.query
     if search:
-        query = query.filter(ProductCatalog.name.contains(search) | ProductCatalog.brand.contains(search) | ProductCatalog.code.contains(search))
+        norm_search = normalize_persian_text(search)
+        query = query.filter(
+            (ProductCatalog.name.contains(search)) |
+            (ProductCatalog.name.contains(norm_search)) |
+            (ProductCatalog.brand.contains(search)) |
+            (ProductCatalog.brand.contains(norm_search)) |
+            (ProductCatalog.code.contains(search)) |
+            (ProductCatalog.code.contains(norm_search)) |
+            (ProductCatalog.category.contains(search)) |
+            (ProductCatalog.category.contains(norm_search))
+        )
     if category_filter:
         query = query.filter_by(category=category_filter)
     if brand_filter:
@@ -2617,16 +2653,21 @@ def download_sample_excel():
 
 @app.route('/api/catalog/search')
 def api_catalog_search():
-    """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن"""
+    """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن با نرمال‌سازی فارسی/عربی"""
     q = request.args.get('q', '').strip()
     limit = min(safe_int(request.args.get('limit'), 30), 60)
     query = ProductCatalog.query
     if q:
+        norm_q = normalize_persian_text(q)
         query = query.filter(
             (ProductCatalog.name.contains(q)) |
+            (ProductCatalog.name.contains(norm_q)) |
             (ProductCatalog.brand.contains(q)) |
+            (ProductCatalog.brand.contains(norm_q)) |
             (ProductCatalog.category.contains(q)) |
-            (ProductCatalog.code.contains(q))
+            (ProductCatalog.category.contains(norm_q)) |
+            (ProductCatalog.code.contains(q)) |
+            (ProductCatalog.code.contains(norm_q))
         )
     items = query.order_by(ProductCatalog.name).limit(limit).all()
     return jsonify([i.to_dict() for i in items])
@@ -2636,14 +2677,17 @@ def api_customer_lookup():
     """استعلام سریع سوابق و مانده بدهی مشتری با شماره تلفن یا نام"""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    phone = request.args.get('phone', '').strip()
+    phone = to_english_digits(request.args.get('phone', '')).strip()
     name = request.args.get('name', '').strip()
     customer = None
     if phone:
         clean_phone = phone.replace(' ', '').replace('-', '')
         customer = Customer.query.filter(Customer.phone.contains(clean_phone)).first()
     if not customer and name and len(name) >= 3:
-        customer = Customer.query.filter(Customer.name.contains(name)).first()
+        clean_name = normalize_persian_text(name)
+        customer = Customer.query.filter(
+            (Customer.name.contains(name)) | (Customer.name.contains(clean_name))
+        ).first()
     
     if customer:
         return jsonify({
@@ -2662,7 +2706,7 @@ def api_barcode_lookup():
     """استعلام فوری بارکدخوان جهت ثبت آنی کالا در فاکتور با صدای بیپ بارکدخوان"""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    code = request.args.get('code', '').strip()
+    code = to_english_digits(request.args.get('code', '')).strip()
     shop_id = session.get('shop_id', 1)
     if not code:
         return jsonify({'found': False})
@@ -2708,10 +2752,10 @@ def faucet_wizard():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
         
-    model_name = request.form.get('model_name', '').strip()
+    model_name = normalize_persian_text(request.form.get('model_name', '')).strip()
     brand = request.form.get('brand', 'آس (ABS)').strip()
-    color = request.form.get('color', '').strip()
-    discount_pct = float(request.form.get('discount_percent', '28').replace('%', '').strip() or '28')
+    color = normalize_persian_text(request.form.get('color', '')).strip()
+    discount_pct = safe_float(request.form.get('discount_percent'), 28.0)
     discount_multiplier = (100.0 - discount_pct) / 100.0
 
     if not model_name:
@@ -2719,23 +2763,22 @@ def faucet_wizard():
         return redirect(request.referrer or url_for('inventory_view'))
 
     parts = [
-        ('دوش', request.form.get('price_shower', '').replace(',', '').strip()),
-        ('آفتابه (توالت)', request.form.get('price_toilet', '').replace(',', '').strip()),
-        ('روشویی', request.form.get('price_basin', '').replace(',', '').strip()),
-        ('ظرفشویی', request.form.get('price_kitchen', '').replace(',', '').strip()),
+        ('دوش', safe_int(request.form.get('price_shower'), 0)),
+        ('آفتابه (توالت)', safe_int(request.form.get('price_toilet'), 0)),
+        ('روشویی', safe_int(request.form.get('price_basin'), 0)),
+        ('ظرفشویی', safe_int(request.form.get('price_kitchen'), 0)),
     ]
-    tall_basin = request.form.get('price_tall_basin', '').replace(',', '').strip()
-    if tall_basin and int(tall_basin) > 0:
+    tall_basin = safe_int(request.form.get('price_tall_basin'), 0)
+    if tall_basin > 0:
         parts.append(('روشویی پایه بلند', tall_basin))
 
-    full_set_price_raw = request.form.get('price_full_set', '').replace(',', '').strip()
+    full_set_price = safe_int(request.form.get('price_full_set'), 0)
     
     created_count = 0
     calculated_full_set_sell = 0
 
-    for part_title, p_raw in parts:
-        if p_raw and int(p_raw) > 0:
-            sell_p = int(p_raw)
+    for part_title, sell_p in parts:
+        if sell_p > 0:
             buy_p = int(sell_p * discount_multiplier)
             calculated_full_set_sell += sell_p
             
@@ -2759,7 +2802,7 @@ def faucet_wizard():
             created_count += 1
 
     # ایجاد یا بروزرسانی ست کامل
-    final_full_set_sell = int(full_set_price_raw) if full_set_price_raw and int(full_set_price_raw) > 0 else calculated_full_set_sell
+    final_full_set_sell = full_set_price if full_set_price > 0 else calculated_full_set_sell
     if final_full_set_sell > 0:
         full_set_buy = int(final_full_set_sell * discount_multiplier)
         full_set_name = f"ست کامل ۴ تکه شیرآلات {model_name} {color} {brand}".strip()
@@ -2823,19 +2866,90 @@ def seed_abs_faucets():
 def request_transfer():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    item_name = (request.form.get('item_name') or '').strip()
+    if not item_name:
+        flash('نام کالا الزامی است.', 'error')
+        return redirect(url_for('inventory_view'))
+        
+    from_shop_id = safe_int(request.form.get('from_shop_id'), 1)
+    to_shop_id = session.get('shop_id', 1)
+    if from_shop_id == to_shop_id:
+        flash('شعبه مبدا و مقصد انتقال نمی‌توانند یکسان باشند.', 'warning')
+        return redirect(url_for('inventory_view'))
+
+    quantity = max(1, safe_int(request.form.get('quantity'), 1))
     now_j = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
     st = StockTransfer(
-        item_name=request.form.get('item_name'),
-        from_shop_id=int(request.form.get('from_shop_id')),
-        to_shop_id=session.get('shop_id', 1),
-        quantity=int(request.form.get('quantity', 1)),
-        requested_by=session['full_name'],
+        item_name=item_name,
+        from_shop_id=from_shop_id,
+        to_shop_id=to_shop_id,
+        quantity=quantity,
+        requested_by=session.get('full_name', 'پرسنل'),
         shamsi_date_time=now_j
     )
     db.session.add(st)
     db.session.commit()
-    log_activity(f"درخواست انتقال {st.quantity} عدد {st.item_name} بین شعب", session.get('full_name'), "انبار")
+    log_activity(f"درخواست انتقال {st.quantity} عدد {st.item_name} از شعبه {from_shop_id} به شعبه {to_shop_id}", session.get('full_name'), "انبار")
     flash('درخواست انتقال کالا با موفقیت ثبت شد.', 'success')
+    return redirect(url_for('inventory_view'))
+
+@app.route('/transfer/approve/<int:transfer_id>', methods=['POST'])
+def approve_transfer(transfer_id):
+    if not can_manage_stock():
+        flash('شما دسترسی تایید انتقال کالا را ندارید.', 'error')
+        return redirect(url_for('inventory_view'))
+
+    st = StockTransfer.query.get_or_404(transfer_id)
+    if st.status != 'pending':
+        flash('این درخواست قبلاً تعیین تکلیف شده است.', 'warning')
+        return redirect(url_for('inventory_view'))
+
+    src_item = InventoryItem.query.filter_by(name=st.item_name, shop_id=st.from_shop_id).first()
+    dst_item = InventoryItem.query.filter_by(name=st.item_name, shop_id=st.to_shop_id).first()
+
+    # کسر از مبدا
+    if src_item:
+        record_stock_change(src_item.id, st.from_shop_id, 'transfer_out', -st.quantity, f'TR-{st.id}', session.get('full_name'), f"انتقال به شعبه {st.to_shop_id}", commit=False)
+
+    # افزودن به مقصد
+    if not dst_item:
+        cat_match = ProductCatalog.query.filter_by(name=st.item_name).first()
+        dst_item = InventoryItem(
+            name=st.item_name,
+            category=src_item.category if src_item else (cat_match.category if cat_match else 'عمومی'),
+            brand=src_item.brand if src_item else (cat_match.brand if cat_match else ''),
+            shop_id=st.to_shop_id,
+            stock_quantity=0,
+            min_alert_stock=2,
+            buy_price=src_item.buy_price if src_item else (cat_match.buy_price if cat_match else 0),
+            sell_price=src_item.sell_price if src_item else (cat_match.sell_price if cat_match else 0)
+        )
+        db.session.add(dst_item)
+        db.session.flush()
+
+    record_stock_change(dst_item.id, st.to_shop_id, 'transfer_in', st.quantity, f'TR-{st.id}', session.get('full_name'), f"انتقال از شعبه {st.from_shop_id}", commit=False)
+
+    st.status = 'accepted'
+    db.session.commit()
+    log_activity(f"تایید و انجام انتقال {st.quantity} عدد {st.item_name} از شعبه {st.from_shop_id} به {st.to_shop_id}", session.get('full_name'), "انبار")
+    flash(f'انتقال «{st.item_name}» به تعداد {st.quantity} عدد با موفقیت تایید و در انبار هر دو شعبه اعمال شد.', 'success')
+    return redirect(url_for('inventory_view'))
+
+@app.route('/transfer/reject/<int:transfer_id>', methods=['POST'])
+def reject_transfer(transfer_id):
+    if not can_manage_stock():
+        flash('شما دسترسی رد انتقال کالا را ندارید.', 'error')
+        return redirect(url_for('inventory_view'))
+
+    st = StockTransfer.query.get_or_404(transfer_id)
+    if st.status != 'pending':
+        flash('این درخواست قبلاً تعیین تکلیف شده است.', 'warning')
+        return redirect(url_for('inventory_view'))
+
+    st.status = 'rejected'
+    db.session.commit()
+    log_activity(f"رد درخواست انتقال {st.quantity} عدد {st.item_name} از شعبه {st.from_shop_id} به {st.to_shop_id}", session.get('full_name'), "انبار")
+    flash(f'درخواست انتقال «{st.item_name}» رد شد.', 'warning')
     return redirect(url_for('inventory_view'))
 
 # ==================== ماژول حقوق، دستمزد و مساعده ====================
@@ -2937,8 +3051,153 @@ def add_user_advance(user_id):
 def customers_view():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
-    customers = Customer.query.order_by(Customer.total_purchases.desc()).all()
-    return render_template('customers.html', customers=customers)
+        
+    search_q = request.args.get('search', '').strip()
+    filter_type = request.args.get('type', 'all').strip()
+    
+    query = Customer.query
+    if search_q:
+        clean_q = normalize_persian_text(search_q)
+        query = query.filter(
+            (Customer.name.contains(clean_q)) |
+            (Customer.phone.contains(clean_q)) |
+            (Customer.address.contains(clean_q))
+        )
+        
+    if filter_type == 'debtors':
+        query = query.filter(Customer.outstanding_balance > 0)
+    elif filter_type in ['vip', 'builder', 'partner', 'regular']:
+        query = query.filter_by(customer_type=filter_type)
+        
+    customers = query.order_by(Customer.total_purchases.desc()).all()
+    
+    total_customers = Customer.query.count()
+    total_debtors = Customer.query.filter(Customer.outstanding_balance > 0).count()
+    total_debt_amount = db.session.query(func.sum(Customer.outstanding_balance)).scalar() or 0
+    total_purchases_all = db.session.query(func.sum(Customer.total_purchases)).scalar() or 0
+    
+    return render_template(
+        'customers.html',
+        customers=customers,
+        search_q=search_q,
+        filter_type=filter_type,
+        total_customers=total_customers,
+        total_debtors=total_debtors,
+        total_debt_amount=total_debt_amount,
+        total_purchases_all=total_purchases_all
+    )
+
+@app.route('/admin/customer/add', methods=['POST'])
+def add_customer():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    name = normalize_persian_text(request.form.get('name', '')).strip()
+    phone = to_english_digits(request.form.get('phone', '')).strip()
+    address = request.form.get('address', '').strip()
+    customer_type = request.form.get('customer_type', 'regular').strip()
+    credit_limit = safe_int(request.form.get('credit_limit'), 50_000_000)
+    
+    if not name:
+        flash('نام مشتری الزامی است.', 'error')
+        return redirect(url_for('customers_view'))
+        
+    existing = None
+    if phone:
+        existing = Customer.query.filter_by(phone=phone).first()
+    if not existing:
+        existing = Customer.query.filter_by(name=name).first()
+        
+    if existing:
+        flash(f'مشتری با این نام یا شماره تماس قبلاً ثبت شده است (نام: {existing.name}).', 'warning')
+        return redirect(url_for('customers_view'))
+        
+    cust = Customer(
+        name=name,
+        phone=phone or None,
+        address=address or None,
+        customer_type=customer_type,
+        credit_limit=credit_limit,
+        total_purchases=0,
+        outstanding_balance=0
+    )
+    db.session.add(cust)
+    db.session.commit()
+    log_activity(f"ثبت مشتری جدید: {name} (نوع: {customer_type})", session.get('full_name'), "CRM")
+    flash(f'مشتری «{name}» با موفقیت در سیستم CRM ثبت شد.', 'success')
+    return redirect(url_for('customers_view'))
+
+@app.route('/admin/customer/edit/<int:customer_id>', methods=['POST'])
+def edit_customer(customer_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    cust = Customer.query.get_or_404(customer_id)
+    name = normalize_persian_text(request.form.get('name', cust.name)).strip()
+    phone = to_english_digits(request.form.get('phone', cust.phone or '')).strip()
+    address = request.form.get('address', cust.address or '').strip()
+    customer_type = request.form.get('customer_type', cust.customer_type or 'regular').strip()
+    credit_limit = safe_int(request.form.get('credit_limit'), cust.credit_limit or 50_000_000)
+    
+    cust.name = name
+    cust.phone = phone or None
+    cust.address = address or None
+    cust.customer_type = customer_type
+    cust.credit_limit = credit_limit
+    
+    db.session.commit()
+    log_activity(f"ویرایش مشخصات مشتری {name}", session.get('full_name'), "CRM")
+    flash(f'مشخصات مشتری «{name}» با موفقیت به‌روزرسانی شد.', 'success')
+    return redirect(request.referrer or url_for('customers_view'))
+
+@app.route('/api/customer/<int:customer_id>/invoices')
+def api_customer_invoices(customer_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    cust = Customer.query.get_or_404(customer_id)
+    # پیوند هوشمند فاکتورها چه بر اساس آیدی و چه بر اساس شماره تماس مشتری
+    criteria = [Invoice.customer_id == cust.id]
+    if cust.phone:
+        criteria.append(Invoice.customer_phone == cust.phone)
+    invoices = Invoice.query.filter(db.or_(*criteria)).order_by(Invoice.created_at.desc()).all()
+    inv_list = []
+    for inv in invoices:
+        inv_list.append({
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'total_amount': inv.total_amount,
+            'paid_amount': inv.paid_amount or 0,
+            'remaining_balance': inv.remaining_balance or 0,
+            'is_settled': inv.is_settled,
+            'status': inv.status,
+            'invoice_type': inv.invoice_type,
+            'shamsi_date_time': inv.shamsi_date_time
+        })
+    return jsonify({
+        'customer_id': cust.id,
+        'customer_name': cust.name,
+        'total_purchases': cust.total_purchases,
+        'outstanding_balance': cust.outstanding_balance,
+        'invoices': inv_list
+    })
+
+@app.route('/api/customer/search')
+def api_customer_search():
+    """جستجوی سریع و بلادرنگ مشتریان جهت تکمیل خودکار فرم صدور فاکتور"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify([])
+    clean_q = normalize_persian_text(q)
+    customers = Customer.query.filter(
+        db.or_(
+            Customer.name.contains(clean_q),
+            Customer.phone.contains(clean_q),
+            Customer.address.contains(clean_q)
+        )
+    ).limit(15).all()
+    return jsonify([c.to_dict() for c in customers])
 
 # ==================== ماژول پروفایل و پرونده پرسنلی ====================
 @app.route('/profile', methods=['GET', 'POST'])
@@ -3175,11 +3434,36 @@ def delete_invoice(invoice_id):
         return redirect(url_for('login'))
     inv = Invoice.query.get_or_404(invoice_id)
     inv_num = inv.invoice_number
+    inv_type = inv.invoice_type
+    inv_status = inv.status
+    total_amt = inv.total_amount
+    rem_bal = inv.remaining_balance or 0
+    
+    # ۱. بازگرداندن و اصلاح موجودی فیزیکی انبار در صورت قطعی بودن فاکتور
+    if inv_status == 'final':
+        for row in inv.items:
+            if row.inventory_item_id:
+                if inv_type == 'sale':
+                    record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', row.quantity, inv.invoice_number, session.get('full_name'), f"بازگشت موجودی به علت حذف فاکتور {inv_num}", commit=False)
+                elif inv_type == 'return':
+                    record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', -row.quantity, inv.invoice_number, session.get('full_name'), f"کسر از انبار به علت حذف فاکتور مرجوعی {inv_num}", commit=False)
+
+    # ۲. اصلاح حساب و مانده بدهی مشتری در CRM
+    if inv.customer:
+        if inv_type == 'sale':
+            inv.customer.total_purchases = max(0, inv.customer.total_purchases - total_amt)
+            if rem_bal > 0:
+                inv.customer.outstanding_balance = max(0, inv.customer.outstanding_balance - rem_bal)
+        elif inv_type == 'return':
+            inv.customer.total_purchases += total_amt
+            if rem_bal > 0:
+                inv.customer.outstanding_balance += rem_bal
+
     db.session.delete(inv)
     db.session.commit()
-    log_activity(f"حذف فاکتور شماره {inv_num}", session.get('full_name'), "فروش")
-    flash(f'فاکتور شماره {inv_num} حذف شد.', 'success')
-    return redirect(url_for('admin_dashboard'))
+    log_activity(f"حذف کامل فاکتور شماره {inv_num} و بازگردانی خودکار موجودی انبار و حساب مشتری", session.get('full_name'), "فروش / انبار")
+    flash(f'فاکتور شماره {inv_num} حذف شد و تغییرات انبار و حساب مشتری با موفقیت بازگردانده شدند.', 'success')
+    return redirect(request.referrer or url_for('admin_dashboard'))
 
 @app.route('/admin/settings/update', methods=['POST'])
 def update_settings():
@@ -3238,12 +3522,45 @@ def update_cheque_status(cheque_id):
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
     chk = Cheque.query.get_or_404(cheque_id)
-    chk.status = request.form.get('status')
-    if chk.status == 'passed':
+    new_status = request.form.get('status')
+    old_status = chk.status
+    chk.status = new_status
+
+    # اگر وضعیت قبلی برگشتی بوده و اکنون تغییر کرده، بدهی اضافه شده قبلی برگشت داده شود
+    if old_status == 'bounced' and new_status != 'bounced':
+        if chk.invoice and chk.invoice.customer:
+            chk.invoice.customer.outstanding_balance = max(0, chk.invoice.customer.outstanding_balance - chk.amount)
+        if chk.invoice:
+            chk.invoice.remaining_balance = max(0, (chk.invoice.remaining_balance or 0) - chk.amount)
+
+    if new_status == 'passed':
         chk.passed_shamsi_date = jdatetime.datetime.now().strftime("%Y/%m/%d")
+    elif new_status == 'bounced':
+        chk.passed_shamsi_date = None
+        # فقط در صورتی که قبلاً برگشتی نبوده، جریمه بدهی اضافه شود تا دوباره اضافه نشود
+        if old_status != 'bounced':
+            if chk.invoice and chk.invoice.customer:
+                chk.invoice.customer.outstanding_balance += chk.amount
+            if chk.invoice:
+                chk.invoice.is_settled = False
+                chk.invoice.remaining_balance = (chk.invoice.remaining_balance or 0) + chk.amount
+            log_activity(f"⚠️ برگشت چک صیادی {chk.sayad_number} به مبلغ {chk.amount:,} تومان (مشتری: {chk.customer_name})", session.get('full_name'), "هشدار مالی")
+    elif new_status == 'pending':
+        chk.passed_shamsi_date = None
+
+    # بررسی و به‌روزرسانی خودکار وضعیت تسویه فاکتور متصل
+    if chk.invoice:
+        all_passed = all(c.status == 'passed' for c in chk.invoice.cheques)
+        no_remaining = (chk.invoice.remaining_balance or 0) <= 0
+        if all_passed and no_remaining:
+            chk.invoice.is_settled = True
+        else:
+            chk.invoice.is_settled = False
+
     db.session.commit()
-    flash('وضعیت چک با موفقیت به‌روزرسانی شد.', 'success')
-    return redirect(url_for('admin_dashboard'))
+    log_activity(f"تغییر وضعیت چک {chk.sayad_number} ({chk.amount:,} ت) به {new_status}", session.get('full_name'), "مالی")
+    flash('وضعیت چک با موفقیت به‌روزرسانی و در حساب فاکتور اعمال شد.', 'success')
+    return redirect(request.referrer or url_for('admin_dashboard'))
 
 @app.route('/admin/petty_deposit/add', methods=['POST'])
 def add_petty_deposit():
@@ -3303,10 +3620,23 @@ def download_backup():
             source_conn.backup(dest_conn)
         dest_conn.close()
         source_conn.close()
+        
+        with open(snapshot_path, 'rb') as f:
+            backup_bytes = io.BytesIO(f.read())
+        try:
+            os.remove(snapshot_path)
+        except OSError:
+            pass
+
         log_activity("تهیه و دانلود فایل پشتیبان دیتابیس (پشتیبان‌گیری آنلاین و امن)", session.get('full_name'), "امنیت")
-        return send_file(snapshot_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
+        return send_file(backup_bytes, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db", mimetype='application/x-sqlite3')
     except Exception as e:
         app.logger.error(f"Online backup error: {e}")
+        if os.path.exists(snapshot_path):
+            try:
+                os.remove(snapshot_path)
+            except OSError:
+                pass
         log_activity("دانلود فایل بکاپ دیتابیس", session.get('full_name'), "امنیت")
         return send_file(db_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
 
@@ -3338,7 +3668,7 @@ def export_excel():
 
     sellers = User.query.filter_by(role='seller', is_active=True).all()
     for s in sellers:
-        s_stats = calculate_seller_exact_stats(s.id, now_j.year, month, s.commission_rate, settings)
+        s_stats = calculate_seller_exact_stats(s.id, now_j.year, month, s.commission_rate, settings, user=s)
         ws.append([s.full_name, s.shop.name if s.shop else '', s_stats['sales_count'], s_stats['net_sales'], f"{s.commission_rate}%", f"{s_stats['effective_rate']}%", s_stats['settled_commission']])
 
     for col in ws.columns:
@@ -3351,6 +3681,386 @@ def export_excel():
     output.seek(0)
     filename = f"Tahmasebi_Report_{month_name}_{now_j.year}.xlsx"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/admin/export/invoices_excel')
+def export_invoices_excel():
+    """خروجی جامع اکسل از فاکتورها، مبالغ پرداختی تفکیکی، سود و مشتریان"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    now_j = jdatetime.datetime.now()
+    month = request.args.get('month', default=now_j.month, type=int)
+    month_name = PERSIAN_MONTHS.get(month, '')
+    
+    invoices = Invoice.query.options(
+        selectinload(Invoice.items),
+        selectinload(Invoice.cheques),
+        joinedload(Invoice.seller),
+        joinedload(Invoice.shop)
+    ).filter(
+        Invoice.shamsi_year == now_j.year,
+        Invoice.shamsi_month == month
+    ).order_by(Invoice.created_at.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"فاکتورهای {month_name}"
+    ws.views.sheetView[0].rightToLeft = True
+
+    headers = [
+        'شماره فاکتور', 'تاریخ و ساعت', 'نوع سند', 'وضعیت', 'نام مشتری', 'شماره تماس',
+        'شعبه', 'فروشنده اصلی', 'فروشنده دوم', 'درصد سهم', 'مبلغ کل فاکتور',
+        'تخفیف کل', 'کارتخوان', 'کارت به کارت', 'نقد', 'چک صیادی', 'مانده بدهی',
+        'وضعیت تسویه', 'بهای خرید کل', 'سود واقعی فاکتور', 'شرح اقلام'
+    ]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(name="Tahoma", size=9, bold=True, color="FFFFFF")
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    user_map = {u.id: u.full_name for u in User.query.all()}
+
+    for inv in invoices:
+        items_summary = ", ".join([f"{it.item_name} ({it.quantity}x)" for it in inv.items]) if inv.items else (inv.items_desc or '')
+        second_seller_name = user_map.get(inv.second_seller_id, '') if inv.second_seller_id else ''
+        ws.append([
+            inv.invoice_number,
+            inv.shamsi_date_time,
+            'فروش' if inv.invoice_type == 'sale' else 'مرجوعی',
+            'قطعی' if inv.status == 'final' else 'پیش‌فاکتور',
+            inv.customer_name,
+            inv.customer_phone or '',
+            inv.shop.name if inv.shop else '',
+            inv.seller.full_name if inv.seller else '',
+            second_seller_name,
+            f"{inv.split_ratio}%" if inv.second_seller_id else '100%',
+            inv.total_amount,
+            inv.discount_amount or 0,
+            inv.paid_pos or 0,
+            inv.paid_card or 0,
+            inv.paid_cash or 0,
+            inv.paid_cheque or 0,
+            inv.remaining_balance or 0,
+            'تسویه کامل' if inv.is_settled else 'دارای مانده',
+            inv.actual_buy_cost or 0,
+            inv.real_profit or 0,
+            items_summary
+        ])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(min(max_len + 4, 45), 12)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Invoices_Tahmasebi_{month_name}_{now_j.year}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/admin/export/inventory_excel')
+def export_inventory_excel():
+    """خروجی جامع انبارگردانی، موجودی شعب و ارزش‌گذاری موجودی انبارها"""
+    if not can_manage_stock():
+        return redirect(url_for('login'))
+        
+    now_j = jdatetime.datetime.now()
+    catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).all()
+    all_inv = InventoryItem.query.all()
+    inv_map = {(i.name, i.shop_id): i for i in all_inv}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "موجودی انبارها"
+    ws.views.sheetView[0].rightToLeft = True
+
+    headers = [
+        'کد کالا', 'نام کامل کالا', 'دسته‌بندی', 'برند',
+        'موجودی شعبه ۱', 'موجودی شعبه ۲', 'جمع کل موجودی',
+        'حداقل هشدار', 'وضعیت موجودی', 'قیمت خرید واحد (تومان)', 'قیمت فروش مصوب (تومان)',
+        'ارزش موجودی خرید (تومان)', 'ارزش موجودی فروش (تومان)'
+    ]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+    header_font = Font(name="Tahoma", size=9, bold=True, color="FFFFFF")
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    for cat in catalog_items:
+        i1 = inv_map.get((cat.name, 1))
+        i2 = inv_map.get((cat.name, 2))
+        s1 = i1.stock_quantity if i1 else 0
+        s2 = i2.stock_quantity if i2 else 0
+        tot_stock = s1 + s2
+        
+        status_txt = 'ناموجود' if tot_stock <= 0 else ('هشدار کسری' if tot_stock <= 2 else 'موجود')
+        buy_p = cat.buy_price if is_admin() else 0
+        sell_p = cat.sell_price
+
+        ws.append([
+            cat.code or '',
+            cat.name,
+            cat.category,
+            cat.brand or '',
+            s1,
+            s2,
+            tot_stock,
+            2,
+            status_txt,
+            buy_p,
+            sell_p,
+            buy_p * tot_stock if is_admin() else 0,
+            sell_p * tot_stock
+        ])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(min(max_len + 4, 45), 14)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Inventory_Tahmasebi_{now_j.year}_{now_j.month:02d}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/admin/export/debtors_excel')
+def export_debtors_excel():
+    """خروجی اکسل بدهکاران و مانده مطالبات معوقه مشتریان"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    now_j = jdatetime.datetime.now()
+    debtors = Customer.query.filter(Customer.outstanding_balance > 0).order_by(Customer.outstanding_balance.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "بدهکاران و مطالبات معوقه"
+    ws.views.sheetView[0].rightToLeft = True
+
+    headers = ['نام مشتری', 'شماره تماس', 'نوع مشتری', 'مانده بدهی (تومان)', 'سقف اعتبار (تومان)', 'جمع کل خریدها (تومان)', 'نشانی']
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="991B1B", end_color="991B1B", fill_type="solid")
+    header_font = Font(name="Tahoma", size=9, bold=True, color="FFFFFF")
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    for c in debtors:
+        ws.append([
+            c.name,
+            c.phone or '',
+            c.customer_type or 'عادی',
+            c.outstanding_balance,
+            c.credit_limit or 0,
+            c.total_purchases or 0,
+            c.address or ''
+        ])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(min(max_len + 4, 40), 16)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Debtors_Tahmasebi_{now_j.year}_{now_j.month:02d}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/admin/export/payroll_excel')
+def export_payroll_excel():
+    """خروجی اکسل کامل پرونده حقوق و دستمزد ماهانه همراه با شماره حساب و شبا"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    now_j = jdatetime.datetime.now()
+    month = request.args.get('month', default=now_j.month, type=int)
+    month_name = PERSIAN_MONTHS.get(month, '')
+    settings = Settings.query.first()
+    
+    staff = User.query.filter(User.is_active == True, User.role != 'admin').order_by(User.role, User.full_name).all()
+    all_adv_expenses = Expense.query.filter_by(
+        shamsi_year=now_j.year,
+        shamsi_month=month,
+        category='مساعده'
+    ).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"حقوق {month_name}"
+    ws.views.sheetView[0].rightToLeft = True
+
+    headers = [
+        'نام پرسنل', 'سمت', 'شعبه', 'کد ملی', 'شماره کارت بانکی', 'شماره شبا',
+        'حقوق پایه ثابت', 'فروش خالص ماه', 'درصد پورسانت', 'پورسانت فروش',
+        'پاداش پله‌ای تارگت', 'مساعده دریافتی', 'خالص پرداختی نهایی (تومان)'
+    ]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid")
+    header_font = Font(name="Tahoma", size=9, bold=True, color="FFFFFF")
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    for u in staff:
+        stats = calculate_seller_exact_stats(u.id, now_j.year, month, u.commission_rate, settings, user=u)
+        advances = sum(e.amount for e in all_adv_expenses if u.full_name in (e.title or ''))
+
+        base_sal = u.base_salary or 0
+        final_payable = base_sal + stats['settled_commission'] + stats['tier_bonus_amount'] - advances
+
+        role_fa = 'خدمات و تحویل بار' if u.role in ['logistics', 'services'] else ('ادمین انبار' if u.can_manage_inventory else 'فروشنده')
+
+        ws.append([
+            u.full_name,
+            role_fa,
+            u.shop.name if u.shop else '',
+            u.national_id or '',
+            u.card_number or '',
+            u.sheba_number or '',
+            base_sal,
+            stats['net_sales'] if u.role not in ['logistics', 'services'] else 0,
+            f"{stats['effective_rate']}%" if u.role not in ['logistics', 'services'] else '-',
+            stats['settled_commission'] if u.role not in ['logistics', 'services'] else 0,
+            stats['tier_bonus_amount'] if u.role not in ['logistics', 'services'] else 0,
+            advances,
+            final_payable
+        ])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(min(max_len + 4, 35), 14)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Payroll_Tahmasebi_{month_name}_{now_j.year}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/admin/export/monthly_summary_excel')
+def export_monthly_summary_excel():
+    """خروجی اکسل مدیریتی جامع از خلاصه وضعیت مالی و سود و زیان ماهانه"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    now_j = jdatetime.datetime.now()
+    month = request.args.get('month', default=now_j.month, type=int)
+    year = request.args.get('year', default=now_j.year, type=int)
+    month_name = PERSIAN_MONTHS.get(month, '')
+    
+    summary = calculate_store_financial_summary(year, month)
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"خلاصه مالی {month_name}"
+    ws.views.sheetView[0].rightToLeft = True
+
+    # تیتر اصلی
+    ws.merge_cells('A1:C1')
+    title_cell = ws['A1']
+    title_cell.value = f"گزارش جامع وضعیت مالی و سود و زیان فروشگاه طهماسبی - {month_name} {year}"
+    title_cell.font = Font(name="Tahoma", size=12, bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    ws.append([])
+    ws.append(['شاخص مالی', 'مقدار (تومان / درصد)', 'توضیحات'])
+    
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(name="Tahoma", size=10, bold=True, color="FFFFFF")
+    for col_idx in range(1, 4):
+        c = ws.cell(row=3, column=col_idx)
+        c.fill = header_fill
+        c.font = header_font
+        c.alignment = Alignment(horizontal="center", vertical="center")
+
+    rows = [
+        ('فروش ناخالص کل', summary['gross_sales'], 'مجموع کل فاکتورهای فروش صادر شده'),
+        ('کل مبالغ مرجوعی', summary['returns_amount'], 'مجموع فاکتورهای مرجوع شده به انبار'),
+        ('فروش خالص فروشگاه', summary['net_sales'], 'فروش ناخالص منهای مرجوعی‌ها'),
+        ('دریافتی کارتخوان (POS)', summary['paid_pos'], 'وجوه واریزی از طریق دستگاه‌های پوز'),
+        ('دریافتی کارت به کارت', summary['paid_card'], 'وجوه واریزی حسابی و کارت به کارت'),
+        ('دریافتی نقد', summary['paid_cash'], 'وجوه نقد صندوق'),
+        ('چک‌های صیادی تسویه شده', summary['paid_cheque'], 'چک‌های صیادی وصول یا دریافت شده'),
+        ('مانده بدهی وصول‌نشده مشتریان', summary['remaining_balance'], 'مطالبات معوقه ثبت شده در فاکتورهای ماه'),
+        ('سود ناخالص بازرگانی (تخمینی/واقعی)', summary['real_profit'], 'سود ناخالص پس از کسر بهای خرید اقلام'),
+        ('حاشیه سود ناخالص', f"{summary['gross_margin_percent']}%", 'نسبت سود به فروش خالص'),
+        ('کل هزینه‌های جاری و تنخواه', summary['total_expenses'], 'هزینه‌های ثبت شده در تنخواه شعب'),
+        ('کل اجاره ماهانه شعب', summary['total_rent'], 'مجموع اجاره مصوب شعبه ۱ و شعبه ۲'),
+        ('کل حقوق پایه پرسنل', summary['total_base_salaries'], 'مجموع حقوق ثابت ماهانه همه پرسنل'),
+        ('کل پورسانت و پاداش پرسنل', summary['total_commissions'], 'پورسانت قطعی فروش به انضمام پاداش پله‌ای'),
+        ('کل بار مالی حقوق و دستمزد', summary['total_payroll'], 'حقوق پایه + پورسانت پرسنل'),
+        ('سود خالص نهایی فروشگاه طهماسبی', summary['store_net_profit'], 'سود ناخالص منهای (هزینه‌ها + اجاره + دستمزدها)'),
+        ('حاشیه سود خالص نهایی', f"{summary['profit_margin_percent']}%", 'نسبت سود خالص نهایی به فروش کل'),
+        ('سهم فروش شعبه ۱ (اصلی)', summary['shop1_total'], 'فروش قطعی شعبه ۱'),
+        ('سهم فروش شعبه ۲', summary['shop2_total'], 'فروش قطعی شعبه ۲'),
+    ]
+
+    for item, val, desc in rows:
+        ws.append([item, val, desc])
+
+    # استایل‌دهی ردیف‌ها
+    for r in range(4, len(rows) + 4):
+        ws.cell(row=r, column=1).font = Font(name="Tahoma", size=9, bold=True)
+        ws.cell(row=r, column=2).font = Font(name="Tahoma", size=9)
+        ws.cell(row=r, column=3).font = Font(name="Tahoma", size=9, italic=True, color="64748B")
+        ws.row_dimensions[r].height = 20
+
+    # هایلایت ردیف سود خالص
+    net_profit_row = 19
+    for col_idx in range(1, 4):
+        c = ws.cell(row=net_profit_row, column=col_idx)
+        c.fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+        c.font = Font(name="Tahoma", size=10, bold=True, color="166534")
+
+    ws.column_dimensions['A'].width = 32
+    ws.column_dimensions['B'].width = 24
+    ws.column_dimensions['C'].width = 45
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Tahmasebi_Monthly_Financial_{month_name}_{year}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/api/admin/financial_summary')
+def api_admin_financial_summary():
+    """ای‌پی‌آی زنده دریافت شاخص‌های مالی و سود و زیان فروشگاه برای داشبورد و ابزارها"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    now_j = jdatetime.datetime.now()
+    month = request.args.get('month', default=now_j.month, type=int)
+    year = request.args.get('year', default=now_j.year, type=int)
+    summary = calculate_store_financial_summary(year, month)
+    return jsonify({
+        'status': 'success',
+        'year': year,
+        'month': month,
+        'month_name': PERSIAN_MONTHS.get(month, ''),
+        'summary': summary
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

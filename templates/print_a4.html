@@ -15,7 +15,7 @@
         <!-- Header -->
         <div class="flex justify-between items-center border-b-2 border-slate-900 pb-6 mb-6">
             <div>
-                <h1 class="text-2xl font-black text-slate-900">مجموعه فروشگاه‌های تخصصی طهماسبی</h1>
+                <h1 class="text-2xl font-black text-slate-900">{{ settings.store_name if settings and settings.store_name else 'مجموعه فروشگاه‌های تخصصی طهماسبی' }}</h1>
                 <p class="text-xs text-slate-600 mt-1 font-bold">{{ invoice.shop.name if invoice.shop else 'فروشگاه طهماسبی' }}</p>
                 <p class="text-[11px] text-slate-500">مرکز تخصصی هود، گاز صفحه‌ای، سینک، شیرآلات، روشویی کابینتی، فرنگی و آینه</p>
             </div>
@@ -39,8 +39,8 @@
             </div>
             <div>
                 <span class="font-bold text-slate-500 block mb-1">اطلاعات فروشگاه:</span>
-                <p><span class="font-bold text-slate-800">تلفن پشتیبانی:</span> 021-12345678</p>
-                <p><span class="font-bold text-slate-800">خدمات پس از فروش:</span> شامل گارانتی اصالت کالا و ۱۰ روز مهلت تست</p>
+                <p><span class="font-bold text-slate-800">تلفن پشتیبانی:</span> {{ settings.store_phone if settings and settings.store_phone else '021-12345678' }}</p>
+                <p><span class="font-bold text-slate-800">خدمات پس از فروش:</span> {{ settings.store_warranty_text if settings and settings.store_warranty_text else 'شامل گارانتی اصالت کالا و ۱۰ روز مهلت تست فنی' }}</p>
             </div>
         </div>
 

@@ -45,7 +45,7 @@
         <button id="tabBtnCatalog" onclick="switchInventoryTab('catalog')" 
             class="tab-btn px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 bg-purple-600 text-white shadow-md">
             <span>📋</span> لیست قیمت و کاتالوگ پایه (خرید و فروش مصوب - بدون نیاز به موجودی)
-            <span class="bg-purple-800 text-white px-2 py-0.5 rounded-full text-[10px]">{{ catalog_items|length if catalog_items else 0 }}</span>
+            <span class="bg-purple-800 text-white px-2 py-0.5 rounded-full text-[10px]">{{ total_catalog_count or (catalog_items|length if catalog_items else 0) }}</span>
         </button>
         <button id="tabBtnPhysical" onclick="switchInventoryTab('physical')" 
             class="tab-btn px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 bg-slate-100 text-slate-600 hover:bg-slate-200">
@@ -80,7 +80,7 @@
             </div>
             <div>
                 <span class="text-xs text-slate-400 font-bold">محصولات تعریف‌شده در لیست قیمت</span>
-                <h3 class="text-xl font-black text-slate-800 mt-1">{{ catalog_items|length if catalog_items else 0 }} قلم کالا</h3>
+                <h3 class="text-xl font-black text-slate-800 mt-1">{{ total_catalog_count or (catalog_items|length if catalog_items else 0) }} قلم کالا</h3>
             </div>
         </div>
 
@@ -199,10 +199,10 @@
             </table>
         </div>
 
-        {% if catalog_items|length > 60 %}
+        {% if total_catalog_count and total_catalog_count > 60 %}
         <div class="p-4 bg-slate-900/60 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span class="text-slate-400 font-medium">
-                نمایش ۶۰ قلم اول از میان <b class="text-indigo-400 font-black">{{ catalog_items|length }}</b> کالای ثبت‌شده کاتالوگ.
+                نمایش ۶۰ قلم اول از میان <b class="text-indigo-400 font-black">{{ total_catalog_count }}</b> کالای ثبت‌شده کاتالوگ.
             </span>
             <a href="{{ url_for('catalog_view') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md">
                 <span>مشاهده، فیلتر و مدیریت جامع کاتالوگ</span>
@@ -354,7 +354,7 @@
                     <h3 class="text-base font-black text-slate-900">میز کار انبارگردانی و تعیین سریع موجودی کاتالوگ شعب</h3>
                 </div>
                 <p class="text-xs text-slate-500 font-medium mt-1">
-                    تعیین ردیف به ردیف موجودی فیزیکی تمامی {{ catalog_items|length if catalog_items else 0 }} قلم کالا برای هر شعبه با ثبت آنی، هشدار کسری و کسر خودکار در فاکتور
+                    تعیین ردیف به ردیف موجودی فیزیکی تمامی {{ total_catalog_count or (catalog_items|length if catalog_items else 0) }} قلم کالا برای هر شعبه با ثبت آنی، هشدار کسری و کسر خودکار در فاکتور
                 </p>
             </div>
 
@@ -1227,28 +1227,47 @@
     const stockPageSize = 50;
     let filteredStockList = [];
 
-    const rawCatalogStockData = [
-        {% for c in catalog_items %}
-        {% set s1 = inventory_map.get((c.name, 1), {'stock': 0, 'min_alert': 2, 'id': 0}) %}
-        {% set s2 = inventory_map.get((c.name, 2), {'stock': 0, 'min_alert': 2, 'id': 0}) %}
-        {
-            id: {{ c.id }},
-            name: {{ c.name|tojson }},
-            category: {{ c.category|tojson }},
-            brand: {{ (c.brand or '')|tojson }},
-            code: {{ (c.code or '')|tojson }},
-            buy_price: {{ c.buy_price if is_admin else 0 }},
-            sell_price: {{ c.sell_price }},
-            stock_1: {{ s1.stock }},
-            min_1: {{ s1.min_alert }},
-            stock_2: {{ s2.stock }},
-            min_2: {{ s2.min_alert }}
-        },
-        {% endfor %}
-    ];
+    let rawCatalogStockData = [];
+    let isCatalogStockLoaded = false;
 
     function initStockWorkbench() {
-        switchStockShop(1);
+        if (!isCatalogStockLoaded) {
+            loadCatalogStockAsync();
+        } else {
+            switchStockShop(currentStockShop);
+        }
+    }
+
+    function loadCatalogStockAsync() {
+        const tbody = document.getElementById('catalogStockTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-12">
+                        <div class="inline-flex items-center gap-3 text-indigo-400 font-black animate-pulse">
+                            <svg class="animate-spin h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                            <span>در حال بارگذاری سریع داده‌های انبار...</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+        fetch('/api/inventory/catalog-stock')
+            .then(res => res.json())
+            .then(data => {
+                rawCatalogStockData = data || [];
+                isCatalogStockLoaded = true;
+                switchStockShop(currentStockShop);
+            })
+            .catch(err => {
+                console.error('Error loading inventory data:', err);
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-rose-400 font-bold">خطا در دریافت اطلاعات انبار. لطفاً صفحه را تازه‌سازی فرمایید.</td></tr>`;
+                }
+            });
     }
 
     function switchStockShop(shopId) {

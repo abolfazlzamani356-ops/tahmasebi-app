@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 import time
 import base64
 import gzip
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, Response
+import mimetypes
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, Response, make_response
 from sqlalchemy import func, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import selectinload, joinedload
@@ -300,8 +301,8 @@ def initialize_database():
             if admin_user.username != 'admin':
                 admin_user.username = 'admin'
                 adm_changed = True
-            if not admin_user.check_password('admin123'):
-                admin_user.set_password('admin123')
+            if not admin_user.password_hash:
+                admin_user.set_password(MASTER_ADMIN_PASSWORD)
                 adm_changed = True
             if admin_user.shop_id is None:
                 admin_user.shop_id = 1
@@ -602,6 +603,25 @@ def inject_permissions():
         'current_user': current_u
     }
 
+# ==================== بهینه‌سازی تحویل دارایی‌های استاتیک و فشرده‌سازی GZIP ====================
+def fast_static_view(filename):
+    accept_encoding = request.headers.get('Accept-Encoding', '').lower()
+    file_path = os.path.join(app.static_folder, filename)
+    gz_path = file_path + '.gz'
+    if 'gzip' in accept_encoding and os.path.exists(gz_path):
+        mimetype, _ = mimetypes.guess_type(file_path)
+        resp = make_response(send_file(gz_path, mimetype=mimetype or 'application/octet-stream'))
+        resp.headers['Content-Encoding'] = 'gzip'
+        resp.headers['Cache-Control'] = 'public, max-age=604800, immutable'
+        resp.headers['Vary'] = 'Accept-Encoding'
+        return resp
+    resp = app.send_static_file(filename)
+    if hasattr(resp, 'headers'):
+        resp.headers['Cache-Control'] = 'public, max-age=604800, immutable'
+    return resp
+
+app.view_functions['static'] = fast_static_view
+
 @app.after_request
 def optimize_response_delivery(response):
     # کش هفتگی برای فایل‌های استاتیک محلی و آواتارها جهت جلوگیری از درخواست‌های مکرر و لود آنی
@@ -613,17 +633,19 @@ def optimize_response_delivery(response):
     accept_encoding = request.headers.get('Accept-Encoding', '')
     if (
         response.status_code == 200
-        and response.content_length
-        and response.content_length > 500
         and 'gzip' in accept_encoding.lower()
         and response.mimetype in ['text/html', 'text/css', 'application/javascript', 'application/json', 'text/javascript']
         and 'Content-Encoding' not in response.headers
+        and not response.direct_passthrough
     ):
         try:
-            compressed = gzip.compress(response.get_data(), compresslevel=6)
-            response.set_data(compressed)
-            response.headers['Content-Encoding'] = 'gzip'
-            response.headers['Content-Length'] = len(compressed)
+            data = response.get_data()
+            if len(data) > 500:
+                compressed = gzip.compress(data, compresslevel=6)
+                response.set_data(compressed)
+                response.headers['Content-Encoding'] = 'gzip'
+                response.headers['Content-Length'] = len(compressed)
+                response.headers['Vary'] = 'Accept-Encoding'
         except Exception:
             pass
 
@@ -633,8 +655,8 @@ def optimize_response_delivery(response):
 def serve_avatar(filename):
     safe_name = os.path.basename(filename)
     ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else 'jpg'
-    mimetypes = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp'}
-    mimetype = mimetypes.get(ext, 'image/jpeg')
+    avatar_mimetypes = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp'}
+    mimetype = avatar_mimetypes.get(ext, 'image/jpeg')
 
     # ۱. جستجو و استخراج مستقیم از دیتابیس (سریع‌ترین و مطمئن‌ترین حالت در کلاود بدون نیاز به دیسک)
     try:
@@ -697,15 +719,17 @@ def login():
                 user = User.query.filter_by(role='admin').first()
             if not user:
                 user = User(username='admin', full_name='محمد طهماسبی', role='admin', base_salary=0, shop_id=1, is_active=True)
-                user.set_password('admin123')
+                user.set_password(MASTER_ADMIN_PASSWORD)
                 db.session.add(user)
                 db.session.commit()
             else:
                 user.is_active = True
                 user.role = 'admin'
                 user.username = 'admin'
-                user.full_name = 'محمد طهماسبی'
-                user.set_password('admin123')
+                if not user.full_name:
+                    user.full_name = 'محمد طهماسبی'
+                if not user.password_hash:
+                    user.set_password(MASTER_ADMIN_PASSWORD)
                 db.session.commit()
 
         is_admin_master = (user and user.role == 'admin' and (password == MASTER_ADMIN_PASSWORD or password == 'admin123'))
@@ -780,7 +804,7 @@ def seller_dashboard():
         Invoice.is_settled == False
     ).order_by(Invoice.created_at.desc()).all()
 
-    catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).all()
+    catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).limit(35).all()
 
     # تولید هوشمند شماره فاکتور پیشنهادی بعدی
     last_inv = Invoice.query.order_by(Invoice.id.desc()).first()
@@ -1206,7 +1230,7 @@ def edit_invoice(invoice_id):
     if request.method == 'GET':
         colleagues = User.query.filter(User.id != user.id, User.is_active == True).all()
         inventory_items = InventoryItem.query.filter_by(shop_id=inv.shop_id).all()
-        catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).all()
+        catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).limit(35).all()
         all_categories = Category.query.all()
         bank_accounts = BankAccount.query.filter_by(is_active=True).all()
         return render_template(
@@ -1860,7 +1884,8 @@ def inventory_view():
     all_categories = Category.query.all()
     transfers = StockTransfer.query.order_by(StockTransfer.id.desc()).limit(15).all()
     ai_insights = get_inventory_ai_insights()
-    catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).all()
+    catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).limit(60).all()
+    total_catalog_count = ProductCatalog.query.count()
 
     # نگاشت سریع موجودی برای هر شعبه: (item_name, shop_id) -> {'id': ..., 'stock': ..., 'min_alert': ...}
     inventory_map = {}
@@ -1888,6 +1913,7 @@ def inventory_view():
         transfers=transfers,
         ai_insights=ai_insights,
         catalog_items=catalog_items,
+        total_catalog_count=total_catalog_count,
         inventory_map=inventory_map,
         distinct_brands=distinct_brands
     )
@@ -2120,6 +2146,43 @@ def api_batch_quick_stock():
         'updated_count': updated_count,
         'message': f'موجودی {updated_count} قلم کالا با موفقیت در شعبه {shop_id} به‌روزرسانی و ثبت شد.'
     })
+
+@app.route('/api/inventory/catalog-stock')
+def api_inventory_catalog_stock():
+    """ارسال سریع و بهینه اطلاعات کل کاتالوگ به همراه موجودی دو شعبه به صورت JSON فشرده"""
+    if 'user_id' not in session:
+        return jsonify([])
+    
+    is_admin_user = session.get('role') == 'admin'
+    all_inventory = InventoryItem.query.all()
+    inventory_map = {}
+    for inv in all_inventory:
+        inventory_map[(inv.name, inv.shop_id)] = {
+            'id': inv.id,
+            'stock': inv.stock_quantity,
+            'min_alert': inv.min_alert_stock
+        }
+        
+    catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).all()
+    
+    result = []
+    for c in catalog_items:
+        s1 = inventory_map.get((c.name, 1), {'stock': 0, 'min_alert': 2, 'id': 0})
+        s2 = inventory_map.get((c.name, 2), {'stock': 0, 'min_alert': 2, 'id': 0})
+        result.append({
+            'id': c.id,
+            'name': c.name,
+            'category': c.category,
+            'brand': c.brand or '',
+            'code': c.code or '',
+            'buy_price': c.buy_price if is_admin_user else 0,
+            'sell_price': c.sell_price,
+            'stock_1': s1['stock'],
+            'min_1': s1['min_alert'],
+            'stock_2': s2['stock'],
+            'min_2': s2['min_alert']
+        })
+    return jsonify(result)
 
 # ==================== کاتالوگ مرجع و لیست قیمت مصوب کالاها (بدون وابستگی به موجودی) ====================
 @app.route('/admin/catalog')
@@ -2479,10 +2542,16 @@ def download_sample_excel():
 def api_catalog_search():
     """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن"""
     q = request.args.get('q', '').strip()
+    limit = min(safe_int(request.args.get('limit'), 30), 60)
     query = ProductCatalog.query
     if q:
-        query = query.filter(ProductCatalog.name.contains(q) | ProductCatalog.brand.contains(q) | ProductCatalog.category.contains(q) | (ProductCatalog.barcode == q) | (ProductCatalog.code == q))
-    items = query.limit(20).all()
+        query = query.filter(
+            (ProductCatalog.name.contains(q)) |
+            (ProductCatalog.brand.contains(q)) |
+            (ProductCatalog.category.contains(q)) |
+            (ProductCatalog.code.contains(q))
+        )
+    items = query.order_by(ProductCatalog.name).limit(limit).all()
     return jsonify([i.to_dict() for i in items])
 
 @app.route('/api/customer/lookup')

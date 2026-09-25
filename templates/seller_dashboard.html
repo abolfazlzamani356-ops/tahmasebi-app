@@ -243,7 +243,7 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-300 mb-1">✍️ یا نام دلخواه کالا (سفارشی / خارج از انبار):</label>
-                                <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="مثال: سنگ روشویی، کابینت پی‌وی‌سی..." class="item-name w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500">
+                                <input type="text" name="item_custom_name[]" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="مثال: سنگ روشویی، کابینت پی‌وی‌سی..." class="item-name w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500">
                             </div>
                         </div>
 
@@ -893,33 +893,76 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         }
     }
 
+    let catalogSearchDebounceTimer = null;
+    function searchCatalogAsync(inputElem) {
+        const val = inputElem.value.trim();
+        if (val.length < 2) return;
+        clearTimeout(catalogSearchDebounceTimer);
+        catalogSearchDebounceTimer = setTimeout(() => {
+            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=30')
+                .then(res => res.json())
+                .then(items => {
+                    if (!items || !items.length) return;
+                    const datalist = document.getElementById('catalogDatalist');
+                    if (!datalist) return;
+                    datalist.innerHTML = '';
+                    items.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.name;
+                        opt.setAttribute('data-price', p.sell_price || 0);
+                        opt.setAttribute('data-category', p.category || '');
+                        opt.textContent = `${p.category || 'کالا'} | ${Number(p.sell_price || 0).toLocaleString('en-US')} ت`;
+                        datalist.appendChild(opt);
+                    });
+                })
+                .catch(() => {});
+        }, 150);
+    }
+
     function onSelectCatalogItem(inputElem) {
         const val = inputElem.value.trim();
+        if (!val) return;
         const datalist = document.getElementById('catalogDatalist');
-        if (!datalist) return;
-        const options = datalist.querySelectorAll('option');
-        for (let opt of options) {
-            if (opt.value === val) {
-                const row = inputElem.closest('.item-row');
-                const price = opt.getAttribute('data-price');
-                const cat = opt.getAttribute('data-category');
-                
-                const origInput = row.querySelector('.item-orig-price');
-                const finalInput = row.querySelector('.item-price');
-                const pctInput = row.querySelector('.item-discount-pct');
-                
-                if (price && Number(price) > 0) {
-                    if (origInput) origInput.value = Number(price).toLocaleString('en-US');
-                    if (finalInput) finalInput.value = Number(price).toLocaleString('en-US');
-                    if (pctInput) pctInput.value = '';
+        let matched = false;
+        if (datalist) {
+            const options = datalist.querySelectorAll('option');
+            for (let opt of options) {
+                if (opt.value === val) {
+                    matched = true;
+                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'));
+                    break;
                 }
-                if (cat) {
-                    row.querySelector('.item-cat').value = cat;
-                }
-                onPriceOrDiscountChange(origInput, 'orig');
-                break;
             }
         }
+        if (!matched && val.length >= 2) {
+            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=1')
+                .then(r => r.json())
+                .then(items => {
+                    if (items && items.length > 0 && items[0].name === val) {
+                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category);
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+
+    function applyCatalogOptionToRow(inputElem, price, cat) {
+        const row = inputElem.closest('.item-row') || inputElem.closest('.invoice-item-row');
+        if (!row) return;
+        const origInput = row.querySelector('.item-orig-price');
+        const finalInput = row.querySelector('.item-price');
+        const pctInput = row.querySelector('.item-discount-pct');
+        
+        if (price && Number(price) > 0) {
+            if (origInput) origInput.value = Number(price).toLocaleString('en-US');
+            if (finalInput) finalInput.value = Number(price).toLocaleString('en-US');
+            if (pctInput) pctInput.value = '';
+        }
+        if (cat) {
+            const catInp = row.querySelector('.item-cat');
+            if (catInp) catInp.value = cat;
+        }
+        onPriceOrDiscountChange(origInput || finalInput, 'orig');
     }
 
     function stepQty(btn, change) {

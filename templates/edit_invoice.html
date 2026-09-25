@@ -85,10 +85,12 @@
                 {% set final_unit_p = (item.total_price // item.quantity) if item.quantity > 0 else item.unit_sell_price %}
                 {% set has_disc = (orig_p > final_unit_p) %}
                 {% set disc_pct = (((orig_p - final_unit_p) * 100 / orig_p) | round(1)) if (has_disc and orig_p > 0) else '' %}
-                <div class="invoice-item-row bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-2 text-xs">
-                    <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-12 md:col-span-6">
-                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold">
+                <div class="invoice-item-row bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
+                    <!-- سطر ۱: انتخاب از انبار یا نام کالا -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">📦 انتخاب از انبار مغازه طهماسبی:</label>
+                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
                                 {% for inv in inventory_items %}
                                 <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}" {% if item.inventory_item_id == inv.id %}selected{% endif %}>
@@ -97,78 +99,134 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ یا دستی..." class="item-name w-full p-2 border border-slate-300 rounded-xl text-xs font-bold">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">✍️ یا نام دلخواه کالا (سفارشی / خارج از انبار):</label>
+                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ یا دستی..." class="item-name w-full p-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-12 gap-1.5 items-center pt-1.5 border-t border-slate-100">
-                        <div class="col-span-4 md:col-span-2">
-                            <input type="text" name="item_category[]" value="{{ item.category }}" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border border-slate-300 rounded-xl text-xs">
+                    <!-- سطر ۲: دسته‌بندی و تعداد (با فضای باز و استپر بزرگ + و -) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">🏷️ دسته‌بندی کالا:</label>
+                            <input type="text" name="item_category[]" value="{{ item.category }}" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border border-slate-300 rounded-xl text-xs bg-white text-slate-800">
                         </div>
-                        <div class="col-span-3 md:col-span-1 flex items-center gap-1">
-                            <input type="number" name="item_quantity[]" value="{{ item.quantity }}" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" class="item-qty w-full p-2 border border-slate-300 rounded-xl text-xs text-center font-bold">
-                        </div>
-                        <div class="col-span-5 md:col-span-3">
-                            <input type="text" name="item_original_price[]" value="{{ '{:,}'.format(orig_p) if orig_p > 0 else '' }}" placeholder="قیمت مصوب" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-500 text-left" dir="ltr" title="قیمت رسمی قبل از تخفیف">
-                        </div>
-                        <div class="col-span-3 md:col-span-2">
-                            <div class="relative flex items-center">
-                                <input type="text" name="item_discount_percent[]" value="{{ disc_pct }}" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-4 border border-amber-300 bg-amber-50 rounded-xl text-xs font-bold text-amber-700 text-center" dir="ltr">
-                                <span class="absolute left-1 text-[10px] text-amber-600 font-bold pointer-events-none">٪</span>
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-amber-700 mb-1">🔢 تعداد درخواستی:</label>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="stepQty(this, -1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">−</button>
+                                <input type="number" name="item_quantity[]" value="{{ item.quantity }}" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty flex-1 h-9 p-1 border border-amber-400 bg-white rounded-xl text-sm text-center font-black text-amber-800 focus:ring-2 focus:ring-amber-500">
+                                <button type="button" onclick="stepQty(this, 1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">+</button>
                             </div>
                         </div>
-                        <div class="col-span-8 md:col-span-3">
-                            <input type="text" name="item_price[]" value="{{ '{:,}'.format(final_unit_p) if final_unit_p > 0 else '' }}" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-300 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left" dir="ltr" title="قیمت فروش نهایی به مشتری">
+                    </div>
+
+                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف و قیمت نهایی -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
+                                <input type="text" name="item_original_price[]" value="{{ '{:,}'.format(orig_p) if orig_p > 0 else '' }}" placeholder="قیمت مصوب" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 bg-white rounded-xl text-xs font-bold text-slate-700 text-left font-mono" dir="ltr" title="قیمت رسمی قبل از تخفیف">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-amber-700 mb-0.5">درصد تخفیف (٪):</label>
+                                <div class="relative flex items-center">
+                                    <input type="text" name="item_discount_percent[]" value="{{ disc_pct }}" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-300 bg-amber-50 rounded-xl text-xs font-black text-amber-800 text-center font-mono" dir="ltr">
+                                    <span class="absolute left-2 text-xs text-amber-600 font-bold pointer-events-none">٪</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-span-1 text-center">
-                            <button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button>
+                        <div>
+                            <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
+                            <input type="text" name="item_price[]" value="{{ '{:,}'.format(final_unit_p) if final_unit_p > 0 else '' }}" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr" title="قیمت فروش نهایی به مشتری">
                         </div>
                     </div>
 
-                    <div class="flex justify-between items-center text-[10px] px-1 text-slate-500">
-                        <span class="item-discount-badge {% if not has_disc %}hidden{% endif %} bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg font-bold border border-amber-300">
+                    <!-- سطر ۴: تخفیف، جمع ردیف و حذف -->
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span class="item-discount-badge {% if not has_disc %}hidden{% endif %} bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-bold border border-amber-300 text-[10px]">
                             {% if has_disc %}🏷️ {{ "{:,}".format(item.discount or (orig_p - final_unit_p) * item.quantity) }} ت تخفیف ({{ disc_pct }}٪){% endif %}
                         </span>
-                        <div class="mr-auto font-bold flex items-center gap-1">
-                            <span>جمع ردیف:</span>
-                            <span class="item-row-total-display font-mono text-emerald-700 font-black">{{ "{:,}".format(item.total_price) }} ت</span>
+                        <div class="mr-auto flex items-center gap-2">
+                            <div class="font-bold flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                                <span class="text-slate-500 text-[10px]">جمع ردیف:</span>
+                                <span class="item-row-total-display font-mono text-emerald-700 font-black text-xs">{{ "{:,}".format(item.total_price) }} ت</span>
+                            </div>
+                            <button type="button" onclick="removeInvoiceItemRow(this)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1" title="حذف این ردیف">
+                                <span>✕</span>
+                                <span class="hidden sm:inline">حذف</span>
+                            </button>
                         </div>
                     </div>
                 </div>
                 {% else %}
-                <div class="invoice-item-row bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-2 text-xs">
-                    <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-12 md:col-span-6">
-                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold">
+                <div class="invoice-item-row bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
+                    <!-- سطر ۱: انتخاب از انبار یا نام کالا -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">📦 انتخاب از انبار مغازه طهماسبی:</label>
+                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
                                 {% for inv in inventory_items %}
                                 <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}">{{ inv.name }} (موجودی: {{ inv.stock_quantity }})</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ یا دستی..." class="item-name w-full p-2 border border-slate-300 rounded-xl text-xs font-bold">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">✍️ یا نام دلخواه کالا (سفارشی / خارج از انبار):</label>
+                            <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ یا دستی..." class="item-name w-full p-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
-                    <div class="grid grid-cols-12 gap-1.5 items-center pt-1.5 border-t border-slate-100">
-                        <div class="col-span-4 md:col-span-2"><input type="text" name="item_category[]" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border border-slate-300 rounded-xl text-xs"></div>
-                        <div class="col-span-3 md:col-span-1 flex items-center gap-1"><input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" class="item-qty w-full p-2 border border-slate-300 rounded-xl text-xs text-center font-bold"></div>
-                        <div class="col-span-5 md:col-span-3"><input type="text" name="item_original_price[]" placeholder="قیمت مصوب" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-500 text-left" dir="ltr"></div>
-                        <div class="col-span-3 md:col-span-2">
-                            <div class="relative flex items-center">
-                                <input type="text" name="item_discount_percent[]" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-4 border border-amber-300 bg-amber-50 rounded-xl text-xs font-bold text-amber-700 text-center" dir="ltr">
-                                <span class="absolute left-1 text-[10px] text-amber-600 font-bold pointer-events-none">٪</span>
+
+                    <!-- سطر ۲: دسته‌بندی و تعداد (با فضای باز و استپر بزرگ + و -) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">🏷️ دسته‌بندی کالا:</label>
+                            <input type="text" name="item_category[]" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border border-slate-300 rounded-xl text-xs bg-white text-slate-800">
+                        </div>
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-amber-700 mb-1">🔢 تعداد درخواستی:</label>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="stepQty(this, -1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">−</button>
+                                <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty flex-1 h-9 p-1 border border-amber-400 bg-white rounded-xl text-sm text-center font-black text-amber-800 focus:ring-2 focus:ring-amber-500">
+                                <button type="button" onclick="stepQty(this, 1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">+</button>
                             </div>
                         </div>
-                        <div class="col-span-8 md:col-span-3"><input type="text" name="item_price[]" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-300 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left" dir="ltr"></div>
-                        <div class="col-span-1 text-center"><button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button></div>
                     </div>
-                    <div class="flex justify-between items-center text-[10px] px-1 text-slate-500">
-                        <span class="item-discount-badge hidden bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg font-bold border border-amber-300"></span>
-                        <div class="mr-auto font-bold flex items-center gap-1">
-                            <span>جمع ردیف:</span>
-                            <span class="item-row-total-display font-mono text-emerald-700 font-black">۰ ت</span>
+
+                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف و قیمت نهایی -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
+                                <input type="text" name="item_original_price[]" placeholder="قیمت مصوب" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 bg-white rounded-xl text-xs font-bold text-slate-700 text-left font-mono" dir="ltr">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-amber-700 mb-0.5">درصد تخفیف (٪):</label>
+                                <div class="relative flex items-center">
+                                    <input type="text" name="item_discount_percent[]" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-300 bg-amber-50 rounded-xl text-xs font-black text-amber-800 text-center font-mono" dir="ltr">
+                                    <span class="absolute left-2 text-xs text-amber-600 font-bold pointer-events-none">٪</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
+                            <input type="text" name="item_price[]" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr">
+                        </div>
+                    </div>
+
+                    <!-- سطر ۴: تخفیف، جمع ردیف و حذف -->
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span class="item-discount-badge hidden bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-bold border border-amber-300 text-[10px]"></span>
+                        <div class="mr-auto flex items-center gap-2">
+                            <div class="font-bold flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                                <span class="text-slate-500 text-[10px]">جمع ردیف:</span>
+                                <span class="item-row-total-display font-mono text-emerald-700 font-black text-xs">۰ ت</span>
+                            </div>
+                            <button type="button" onclick="removeInvoiceItemRow(this)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1" title="حذف این ردیف">
+                                <span>✕</span>
+                                <span class="hidden sm:inline">حذف</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -386,6 +444,17 @@
         const clean = toEnglishDigits(val).toString().replace(/,/g, '').replace(/[^\d.-]/g, '');
         const parsed = parseFloat(clean);
         return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function stepQty(btn, change) {
+        const row = btn.closest('.item-row') || btn.closest('.invoice-item-row');
+        if (!row) return;
+        const qtyInput = row.querySelector('.item-qty');
+        if (!qtyInput) return;
+        let current = parseInt(toEnglishDigits(qtyInput.value)) || 1;
+        current = Math.max(1, current + change);
+        qtyInput.value = current;
+        onPriceOrDiscountChange(qtyInput, 'qty');
     }
 
     function onInventorySelect(selectElem) {

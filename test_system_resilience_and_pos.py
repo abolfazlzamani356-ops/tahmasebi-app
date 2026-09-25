@@ -248,3 +248,73 @@ def test_edit_invoice_with_persian_digits_and_discounts(client):
         assert updated_inv.items[0].total_price == 3600000
         assert updated_inv.items[0].discount == 400000
 
+def test_invoice_pending_settlement_and_admin_view(client):
+    """تست نمایش دقیق مانده فاکتور، عدم نمایش تسویه کامل اشتباه، فیلتر مطالبات معوقه ادمین و تسویه نهایی"""
+    now_j = jdatetime.datetime.now()
+    with app.app_context():
+        inv = Invoice(
+            invoice_number=f"TEST-DEBT-{int(now_j.timestamp())}",
+            customer_name="مشتری دارای مانده حساب",
+            customer_phone="09199998888",
+            total_amount=2000000,
+            subtotal_amount=2000000,
+            discount_amount=0,
+            paid_amount=1000000,
+            paid_pos=500000,
+            paid_cash=500000,
+            remaining_balance=1000000,
+            is_settled=False,
+            payment_method="deposit",
+            items_desc="پیش پرداخت نسیه",
+            status='final',
+            invoice_type='sale',
+            seller_id=1,
+            shop_id=1,
+            shamsi_year=now_j.year,
+            shamsi_month=now_j.month,
+            shamsi_date_time=now_j.strftime("%Y/%m/%d - %H:%M:%S")
+        )
+        db.session.add(inv)
+        db.session.commit()
+        inv_id = inv.id
+
+    # ۱. تست پنل فروشنده: فاکتور باید برچسب مانده داشته باشد و تسویه کامل نزند
+    with client.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['role'] = 'seller'
+        sess['shop_id'] = 1
+        sess['full_name'] = 'فروشنده طهماسبی'
+
+    seller_resp = client.get('/seller')
+    assert seller_resp.status_code == 200
+    seller_html = seller_resp.get_data(as_text=True)
+    assert 'مشتری دارای مانده حساب' in seller_html
+    assert 'مانده:' in seller_html
+    assert '۱,۰۰۰,۰۰۰' in seller_html or '1,000,000' in seller_html
+    assert 'تسویه مانده' in seller_html
+
+    # ۲. تست پنل مدیریت: نمایش در بخش مطالبات معوقه کل شعب و فیلتر status=pending
+    with client.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['role'] = 'admin'
+        sess['full_name'] = 'مدیریت کل'
+
+    admin_resp = client.get('/admin_dashboard?status=pending')
+    assert admin_resp.status_code == 200
+    admin_html = admin_resp.get_data(as_text=True)
+    assert 'مشتری دارای مانده حساب' in admin_html
+    assert 'مطالبات معوقه' in admin_html
+    assert 'فقط دارای مانده' in admin_html
+
+    # ۳. تست تسویه مانده توسط ادمین
+    settle_resp = client.post(f'/settle_deposit/{inv_id}', data={'settle_method': 'pos', 'settle_amount': '1000000'}, follow_redirects=True)
+    assert settle_resp.status_code == 200
+
+    with app.app_context():
+        settled_inv = db.session.get(Invoice, inv_id)
+        assert settled_inv.is_settled is True
+        assert settled_inv.remaining_balance == 0
+        assert settled_inv.paid_amount == 2000000
+        assert settled_inv.paid_pos == 1500000
+
+

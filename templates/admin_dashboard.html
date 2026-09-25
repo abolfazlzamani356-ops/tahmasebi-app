@@ -640,24 +640,110 @@
     </div>
 </div>
 
+<!-- ===== بخش مطالبات و فاکتورهای دارای مانده کل شعب برای مدیریت ===== -->
+{% if admin_pending_invoices %}
+<div class="bg-gradient-to-br from-rose-950/40 to-amber-950/30 border-2 border-rose-500/40 rounded-3xl shadow-xl mb-8 overflow-hidden backdrop-blur-md">
+    <div class="p-5 border-b border-rose-500/30 flex items-center justify-between flex-wrap gap-3 bg-rose-500/10">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">⏳</span>
+            <div>
+                <h3 class="text-base font-black text-rose-300">مطالبات معوقه و فاکتورهای دارای مانده تسویه‌نشده (کل شعب)</h3>
+                <p class="text-xs text-rose-400 mt-0.5">لیست کلیه فاکتورهای دارای مانده نسیه یا بیعانه تسویه‌نشده در کلیه شعب طهماسبی</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="text-left bg-rose-900/60 border border-rose-500/50 px-3.5 py-1.5 rounded-2xl">
+                <span class="text-[10px] text-rose-300 block">جمع کل مانده‌های معوق:</span>
+                <span class="text-base font-black text-rose-200 font-mono">{{ "{:,}".format(total_admin_pending_balance) }} تومان</span>
+            </div>
+            <span class="bg-rose-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full shadow">{{ admin_pending_invoices|length }} فاکتور</span>
+        </div>
+    </div>
+    <div class="overflow-x-auto p-2">
+        <table class="table-glass w-full text-right text-xs">
+            <thead>
+                <tr class="bg-rose-900/40 text-rose-200 font-bold border-b border-rose-500/30">
+                    <th class="p-3">شماره فاکتور</th>
+                    <th class="p-3">شعبه</th>
+                    <th class="p-3">فروشنده</th>
+                    <th class="p-3">خریدار</th>
+                    <th class="p-3">مبلغ کل فاکتور</th>
+                    <th class="p-3">پرداختی‌ها</th>
+                    <th class="p-3 text-rose-300">مانده بدهی</th>
+                    <th class="p-3">موعد تسویه</th>
+                    <th class="p-3 text-center">عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pinv in admin_pending_invoices %}
+                <tr class="border-b border-rose-500/10 hover:bg-rose-500/10 transition">
+                    <td class="p-3 font-bold text-white font-mono">{{ pinv.invoice_number }}</td>
+                    <td class="p-3 text-slate-300">{{ pinv.shop.name if pinv.shop else '-' }}</td>
+                    <td class="p-3 font-bold text-indigo-300">{{ pinv.seller.full_name if pinv.seller else '-' }}</td>
+                    <td class="p-3 text-slate-200 font-medium">
+                        {{ pinv.customer_name }}
+                        {% if pinv.customer_phone %}<a href="tel:{{ pinv.customer_phone }}" class="text-[10px] text-indigo-400 block font-mono hover:underline" dir="ltr">📞 {{ pinv.customer_phone }}</a>{% endif %}
+                    </td>
+                    <td class="p-3 font-bold text-slate-200 font-mono">{{ "{:,}".format(pinv.total_amount) }}</td>
+                    <td class="p-3">
+                        <div class="flex flex-wrap gap-1 text-[10px]">
+                            {% if pinv.paid_pos %}<span class="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">پوز: {{ "{:,}".format(pinv.paid_pos) }}</span>{% endif %}
+                            {% if pinv.paid_card %}<span class="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">کارت: {{ "{:,}".format(pinv.paid_card) }}</span>{% endif %}
+                            {% if pinv.paid_cash %}<span class="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">نقد: {{ "{:,}".format(pinv.paid_cash) }}</span>{% endif %}
+                            {% if pinv.paid_cheque %}<span class="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">چک: {{ "{:,}".format(pinv.paid_cheque) }}</span>{% endif %}
+                            {% if not pinv.paid_pos and not pinv.paid_card and not pinv.paid_cash and not pinv.paid_cheque %}
+                            <span class="text-rose-400 font-bold">پرداخت‌نشده</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="p-3 font-black text-rose-300 text-sm font-mono bg-rose-500/10 rounded-xl">{{ "{:,}".format(pinv.remaining_balance or 0) }} تومان</td>
+                    <td class="p-3 text-amber-300 font-medium">{{ pinv.due_settlement_date or '—' }}</td>
+                    <td class="p-3 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <button type="button"
+                                onclick="openAdminSettleModal({{ pinv.id }}, '{{ pinv.invoice_number }}', {{ pinv.remaining_balance or 0 }}, '{{ pinv.customer_name }}')"
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow">
+                                💰 تسویه
+                            </button>
+                            <a href="{{ url_for('edit_invoice', invoice_id=pinv.id) }}" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2 py-1.5 rounded-xl text-xs font-bold transition">✏️ ویرایش</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Advanced Invoices Filter -->
 <div class="glass-card p-6 mb-8 overflow-x-auto">
     <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
-        <h3 class="text-md font-bold text-slate-200">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
+        <div>
+            <h3 class="text-md font-bold text-slate-200">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
+            <!-- تب‌های فیلتر سریع وضعیت تسویه -->
+            <div class="flex items-center gap-1 bg-slate-800/80 p-1 rounded-2xl border border-slate-700 text-xs mt-2 w-fit">
+                <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='all') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'all' or not status_filter %}bg-indigo-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">همه اسناد</a>
+                <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='pending') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'pending' %}bg-rose-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">فقط دارای مانده ⏳</a>
+                <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='settled') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'settled' %}bg-emerald-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">تسویه شده ✅</a>
+            </div>
+        </div>
+
         <form method="GET" class="flex flex-wrap gap-2 w-full md:w-auto items-center">
             <input type="hidden" name="month" value="{{ selected_month }}">
+            <input type="hidden" name="status_filter" value="{{ status_filter }}">
             
-            <select name="seller_filter" class="p-2.5 border border-slate-300 rounded-2xl text-xs bg-slate-50 font-bold">
+            <select name="seller_filter" class="p-2.5 border border-slate-700 rounded-2xl text-xs bg-slate-800 text-white font-bold">
                 <option value="">👤 همه فروشندگان</option>
                 {% for s in all_sellers %}
                 <option value="{{ s.id }}" {% if seller_filter == s.id|string %}selected{% endif %}>{{ s.full_name }} ({{ s.shop.name if s.shop else '' }})</option>
                 {% endfor %}
             </select>
 
-            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="شماره فاکتور، تلفن یا خریدار..." class="p-2.5 border border-slate-300 rounded-2xl text-xs w-full md:w-60">
-            <button type="submit" class="bg-slate-900 text-white text-xs px-4 py-2.5 rounded-2xl font-bold transition hover:bg-slate-800">جستجو</button>
-            {% if search_query or seller_filter %}
-            <a href="{{ url_for('admin_dashboard', month=selected_month) }}" class="text-xs text-rose-600 hover:underline">حذف فیلترها</a>
+            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="شماره فاکتور، تلفن یا خریدار..." class="p-2.5 border border-slate-700 rounded-2xl text-xs bg-slate-800 text-white w-full md:w-60">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2.5 rounded-2xl font-bold transition">جستجو</button>
+            {% if search_query or seller_filter or status_filter != 'all' %}
+            <a href="{{ url_for('admin_dashboard', month=selected_month) }}" class="text-xs text-rose-400 hover:underline">حذف فیلترها</a>
             {% endif %}
         </form>
     </div>
@@ -674,14 +760,14 @@
                 <th class="p-3 border-b">نحوه تسویه / مانده</th>
                 <th class="p-3 border-b">تاریخ و ساعت</th>
                 <th class="p-3 border-b text-center">مشاهده ریز اقلام</th>
-                <th class="p-3 border-b">چاپ</th>
+                <th class="p-3 border-b">چاپ و عملیات</th>
                 <th class="p-3 border-b">حذف</th>
             </tr>
         </thead>
         <tbody>
             {% for inv in all_invoices %}
             <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                <td class="p-3 font-bold text-slate-800">{{ inv.invoice_number }}</td>
+                <td class="p-3 font-bold text-slate-200">{{ inv.invoice_number }}</td>
                 <td class="p-3">
                     {% if inv.status == 'proforma' %}
                         <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">پیش‌فاکتور</span>
@@ -691,43 +777,75 @@
                         <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">قطعی</span>
                     {% endif %}
                 </td>
-                <td class="p-3 text-slate-600">{{ inv.shop_name }}</td>
-                <td class="p-3 font-bold text-indigo-900">{{ inv.seller_name }}</td>
-                <td class="p-3">{{ inv.customer_name }} <span class="text-slate-400 block text-[10px]">{{ inv.customer_phone or '' }}</span></td>
-                <td class="p-3 font-black {% if inv.invoice_type == 'return' %}text-rose-600{% else %}text-emerald-700{% endif %}">
+                <td class="p-3 text-slate-300">{{ inv.shop_name }}</td>
+                <td class="p-3 font-bold text-indigo-300">{{ inv.seller_name }}</td>
+                <td class="p-3 text-slate-200">{{ inv.customer_name }} <span class="text-slate-400 block text-[10px]">{{ inv.customer_phone or '' }}</span></td>
+                <td class="p-3 font-black {% if inv.invoice_type == 'return' %}text-rose-400{% else %}text-emerald-400{% endif %}">
                     {% if inv.invoice_type == 'return' %}-{% endif %}{{ "{:,}".format(inv.total_amount) }}
                 </td>
                 <td class="p-3">
-                    {% if inv.payment_method == 'card_to_card' %}
-                        <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-lg text-[10px] font-bold">کارت به کارت</span>
-                    {% elif inv.payment_method == 'deposit' and inv.total_amount > (inv.paid_amount or 0) %}
-                        <span class="text-rose-600 font-bold text-[10px]">مانده: {{ "{:,}".format(inv.total_amount - (inv.paid_amount or 0)) }}</span>
-                    {% elif inv.payment_method == 'cheque' %}
-                        <span class="text-indigo-600 font-bold">چک صیادی</span>
+                    {% if not inv.is_settled or (inv.remaining_balance and inv.remaining_balance > 0) %}
+                        <div class="space-y-1">
+                            <span class="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-sm">
+                                <span>⏳</span>
+                                <span>مانده: {{ "{:,}".format(inv.remaining_balance) }} ت</span>
+                            </span>
+                            <div class="flex flex-wrap gap-1 text-[9px]">
+                                {% if inv.paid_pos and inv.paid_pos > 0 %}<span class="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded">پوز: {{ "{:,}".format(inv.paid_pos) }}</span>{% endif %}
+                                {% if inv.paid_card and inv.paid_card > 0 %}<span class="bg-blue-500/10 text-blue-300 border border-blue-500/20 px-1.5 py-0.5 rounded">کارت: {{ "{:,}".format(inv.paid_card) }}</span>{% endif %}
+                                {% if inv.paid_cash and inv.paid_cash > 0 %}<span class="bg-amber-500/10 text-amber-300 border border-amber-500/20 px-1.5 py-0.5 rounded">نقد: {{ "{:,}".format(inv.paid_cash) }}</span>{% endif %}
+                                {% if inv.paid_cheque and inv.paid_cheque > 0 %}<span class="bg-purple-500/10 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded">چک: {{ "{:,}".format(inv.paid_cheque) }}</span>{% endif %}
+                                {% if not inv.paid_pos and not inv.paid_card and not inv.paid_cash and not inv.paid_cheque %}
+                                <span class="text-rose-400 font-bold">⚠️ پرداخت‌نشده</span>
+                                {% endif %}
+                            </div>
+                            {% if inv.due_settlement_date %}
+                            <span class="text-slate-400 text-[9px] block">موعد: {{ inv.due_settlement_date }}</span>
+                            {% endif %}
+                        </div>
                     {% else %}
-                        <span class="text-slate-600">تسویه کامل</span>
+                        <div class="space-y-0.5">
+                            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-sm">
+                                <span>✅</span>
+                                <span>تسویه کامل</span>
+                            </span>
+                            <div class="flex flex-wrap gap-1 text-[9px] text-slate-400">
+                                {% if inv.paid_pos and inv.paid_pos > 0 %}<span>پوز</span>{% endif %}
+                                {% if inv.paid_card and inv.paid_card > 0 %}<span>کارت</span>{% endif %}
+                                {% if inv.paid_cash and inv.paid_cash > 0 %}<span>نقد</span>{% endif %}
+                                {% if inv.paid_cheque and inv.paid_cheque > 0 %}<span>چک</span>{% endif %}
+                                {% if not inv.paid_pos and not inv.paid_card and not inv.paid_cash and not inv.paid_cheque %}
+                                <span>{{ inv.payment_method or 'نقدی' }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
                     {% endif %}
                 </td>
                 <td class="p-3 text-slate-400 text-[11px]" dir="ltr">{{ inv.shamsi_date_time }}</td>
                 <td class="p-3 text-center">
-                    <button onclick='openInvoiceDetailModal({{ inv|tojson }})' class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-xl text-[10px] transition">
+                    <button onclick='openInvoiceDetailModal({{ inv|tojson }})' class="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 font-bold px-2.5 py-1 rounded-xl text-[10px] transition">
                         👁️ جزئیات کامل
                     </button>
                 </td>
                 <td class="p-3">
-                    <div class="flex items-center gap-1.5">
-                        <a href="{{ url_for('edit_invoice', invoice_id=inv.id) }}" class="text-blue-600 hover:text-blue-800 font-bold bg-blue-50 px-2 py-1 rounded-lg text-[10px]">✏️ ویرایش</a>
-                        <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 px-2 py-1 rounded-lg text-[10px]">🖨️ چاپ</a>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        {% if not inv.is_settled and inv.remaining_balance and inv.remaining_balance > 0 %}
+                        <button type="button" onclick="openAdminSettleModal({{ inv.id }}, '{{ inv.invoice_number }}', {{ inv.remaining_balance }}, '{{ inv.customer_name }}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-sm" title="تسویه مانده این فاکتور">
+                            💰 تسویه
+                        </button>
+                        {% endif %}
+                        <a href="{{ url_for('edit_invoice', invoice_id=inv.id) }}" class="text-blue-400 hover:text-blue-300 font-bold bg-blue-500/10 px-2 py-1 rounded-lg text-[10px]">✏️ ویرایش</a>
+                        <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/10 px-2 py-1 rounded-lg text-[10px]">🖨️ چاپ</a>
                     </div>
                 </td>
                 <td class="p-3">
                     <form method="POST" action="{{ url_for('delete_invoice', invoice_id=inv.id) }}" onsubmit="return confirm('این فاکتور حذف شود؟')">
-                        <button type="submit" class="text-rose-600 hover:text-rose-800 font-bold">حذف</button>
+                        <button type="submit" class="text-rose-400 hover:text-rose-300 font-bold">حذف</button>
                     </form>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="11" class="text-center p-6 text-slate-400">فاکتوری یافت نشد.</td></tr>
+            <tr><td colspan="11" class="text-center p-6 text-slate-400">فاکتوری با فیلتر انتخابی یافت نشد.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -948,6 +1066,63 @@
         <div class="flex justify-end">
             <button onclick="document.getElementById('invoiceDetailModal').classList.add('hidden')" class="bg-slate-900 text-white px-6 py-2.5 rounded-2xl text-xs font-bold">بستن</button>
         </div>
+    </div>
+</div>
+
+<!-- مودال تسویه مانده فاکتور توسط مدیریت کل -->
+<div id="adminSettleModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden text-white">
+        <div class="bg-gradient-to-l from-emerald-600 to-teal-600 p-5 text-white">
+            <h3 class="text-base font-black flex items-center gap-2"><span>💰</span> تسویه مانده فاکتور (مدیریت)</h3>
+            <p id="adminSettleModalSubtitle" class="text-xs opacity-80 mt-1"></p>
+        </div>
+        <form id="adminSettleForm" method="POST" action="">
+            <div class="p-6 space-y-4 text-xs">
+                <div class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-center">
+                    <p class="text-xs text-rose-300 mb-1 font-bold">مانده قابل تسویه فاکتور</p>
+                    <p id="adminSettleModalRemaining" class="text-2xl font-black text-rose-400 font-mono"></p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">مبلغ تسویه (تومان):</label>
+                    <input type="number" name="settle_amount" id="adminSettleAmountInput"
+                        class="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-3 text-left font-mono font-bold text-emerald-400 focus:border-emerald-500 outline-none text-base"
+                        placeholder="مبلغ دریافتی را وارد کنید" min="1" dir="ltr">
+                    <p class="text-[10px] text-slate-400 mt-1">پیش‌فرض: تسویه کامل کل مانده</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2">روش دریافت و واریز:</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex flex-col items-center gap-1 cursor-pointer">
+                            <input type="radio" name="settle_method" value="pos" checked class="hidden peer">
+                            <span class="peer-checked:bg-emerald-600 peer-checked:text-white bg-slate-800 text-slate-300 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-emerald-600 border-transparent">
+                                💳 کارتخوان
+                            </span>
+                        </label>
+                        <label class="flex flex-col items-center gap-1 cursor-pointer">
+                            <input type="radio" name="settle_method" value="card" class="hidden peer">
+                            <span class="peer-checked:bg-blue-600 peer-checked:text-white bg-slate-800 text-slate-300 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-blue-600 border-transparent">
+                                📱 کارت / شبا
+                            </span>
+                        </label>
+                        <label class="flex flex-col items-center gap-1 cursor-pointer">
+                            <input type="radio" name="settle_method" value="cash" class="hidden peer">
+                            <span class="peer-checked:bg-amber-600 peer-checked:text-white bg-slate-800 text-slate-300 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-amber-600 border-transparent">
+                                💵 پول نقد
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5 border-t border-slate-800 flex gap-3">
+                <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl transition text-xs shadow-lg">
+                    ✅ ثبت و تسویه فاکتور
+                </button>
+                <button type="button" onclick="document.getElementById('adminSettleModal').classList.add('hidden')"
+                    class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition text-xs">
+                    انصراف
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -1236,10 +1411,10 @@
             document.getElementById('dtChequeBox').classList.add('hidden');
         }
 
-        if (inv.payment_method === 'deposit') {
+        if (inv.remaining_balance > 0 || !inv.is_settled) {
             document.getElementById('dtDepositBox').classList.remove('hidden');
             document.getElementById('dtPaid').innerText = Number(inv.paid_amount || 0).toLocaleString() + ' تومان';
-            document.getElementById('dtRemaining').innerText = Number(inv.total_amount - (inv.paid_amount || 0)).toLocaleString() + ' تومان';
+            document.getElementById('dtRemaining').innerText = Number(inv.remaining_balance || (inv.total_amount - (inv.paid_amount || 0))).toLocaleString() + ' تومان';
             document.getElementById('dtDepositDate').innerText = inv.due_settlement_date || '-';
         } else {
             document.getElementById('dtDepositBox').classList.add('hidden');
@@ -1248,6 +1423,14 @@
         let descText = (inv.categories_json ? inv.categories_json.replace(/["\[\]]/g, '') : '') + '\n' + (inv.items_desc || 'بدون توضیحات');
         document.getElementById('dtDesc').innerText = descText;
         document.getElementById('invoiceDetailModal').classList.remove('hidden');
+    }
+
+    function openAdminSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
+        document.getElementById('adminSettleForm').action = '/settle_deposit/' + invoiceId;
+        document.getElementById('adminSettleModalSubtitle').innerText = 'فاکتور شماره ' + invoiceNumber + ' • خریدار: ' + (customerName || 'نامشخص');
+        document.getElementById('adminSettleModalRemaining').innerText = Number(remaining).toLocaleString() + ' تومان';
+        document.getElementById('adminSettleAmountInput').value = remaining;
+        document.getElementById('adminSettleModal').classList.remove('hidden');
     }
 
     const sellerCtx = document.getElementById('sellerSalesChart').getContext('2d');

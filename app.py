@@ -673,6 +673,7 @@ def logout():
 
 # ==================== پنل فروشنده ====================
 @app.route('/seller')
+@app.route('/seller_dashboard')
 def seller_dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -1062,6 +1063,7 @@ def convert_proforma(invoice_id):
     return redirect(url_for('seller_dashboard'))
 
 @app.route('/invoice/settle_deposit/<int:invoice_id>', methods=['POST'])
+@app.route('/settle_deposit/<int:invoice_id>', methods=['POST'])
 def settle_deposit(invoice_id):
     """تسویه مانده فاکتور - جزئی یا کامل - با ثبت روش پرداخت"""
     if 'user_id' not in session:
@@ -1117,7 +1119,9 @@ def settle_deposit(invoice_id):
         session.get('full_name'), "فروش"
     )
     flash(f'مبلغ {actual_settle:,} تومان از مانده فاکتور {inv.invoice_number} تسویه شد. {"✅ کاملاً تسویه شد." if inv.is_settled else f"⏳ مانده باقی: {inv.remaining_balance:,} تومان"}', 'success')
-    return redirect(url_for('seller_dashboard'))
+    if user.role == 'admin':
+        return redirect(request.referrer or url_for('admin_dashboard'))
+    return redirect(request.referrer or url_for('seller_dashboard'))
 
 # ==================== ویرایش فاکتور توسط فروشنده و ادمین ====================
 @app.route('/invoice/edit/<int:invoice_id>', methods=['GET', 'POST'])
@@ -1437,6 +1441,7 @@ def print_invoice_thermal(invoice_id):
 
 # ==================== داشبورد مدیریت کل ====================
 @app.route('/admin')
+@app.route('/admin_dashboard')
 def admin_dashboard():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
@@ -1557,10 +1562,15 @@ def admin_dashboard():
     low_stock_count = len([i for i in all_inventory if i.stock_quantity <= i.min_alert_stock])
     total_catalog_products = ProductCatalog.query.count()
     
+    status_filter = request.args.get('status_filter', 'all').strip()
     query = Invoice.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
     if seller_filter:
         query = query.filter_by(seller_id=int(seller_filter))
-        
+    if status_filter == 'pending':
+        query = query.filter(db.or_(Invoice.is_settled == False, Invoice.remaining_balance > 0))
+    elif status_filter == 'settled':
+        query = query.filter(Invoice.is_settled == True, db.or_(Invoice.remaining_balance == 0, Invoice.remaining_balance == None))
+
     if search_query:
         query = query.filter(
             (Invoice.customer_name.contains(search_query)) |
@@ -1569,6 +1579,14 @@ def admin_dashboard():
         )
     all_invoices_raw = query.order_by(Invoice.created_at.desc()).all()
     
+    # فاکتورهای دارای مانده کل مجموعه جهت نمایش در پنل مدیریت
+    admin_pending_invoices = Invoice.query.filter(
+        db.or_(Invoice.is_settled == False, Invoice.remaining_balance > 0),
+        Invoice.status == 'final',
+        Invoice.invoice_type != 'return'
+    ).order_by(Invoice.created_at.desc()).all()
+    total_admin_pending_balance = sum(inv.remaining_balance or 0 for inv in admin_pending_invoices)
+
     all_invoices = []
     for inv in all_invoices_raw:
         all_invoices.append({
@@ -1584,7 +1602,15 @@ def admin_dashboard():
             'customer_name': inv.customer_name,
             'customer_phone': inv.customer_phone,
             'total_amount': inv.total_amount,
-            'paid_amount': inv.paid_amount,
+            'subtotal_amount': inv.subtotal_amount or 0,
+            'discount_amount': inv.discount_amount or 0,
+            'paid_amount': inv.paid_amount or 0,
+            'paid_pos': inv.paid_pos or 0,
+            'paid_card': inv.paid_card or 0,
+            'paid_cash': inv.paid_cash or 0,
+            'paid_cheque': inv.paid_cheque or 0,
+            'remaining_balance': inv.remaining_balance or 0,
+            'is_settled': inv.is_settled,
             'payment_method': inv.payment_method,
             'dest_card_number': inv.dest_card_number,
             'payment_tracking_code': inv.payment_tracking_code,
@@ -1672,6 +1698,9 @@ def admin_dashboard():
         chart_category_data=chart_category_data,
         all_invoices=all_invoices,
         search_query=search_query,
+        status_filter=status_filter,
+        admin_pending_invoices=admin_pending_invoices,
+        total_admin_pending_balance=total_admin_pending_balance,
         settings=settings,
         logs=logs,
         top_selling_items=top_selling_items,

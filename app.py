@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 import time
 import base64
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, Response
-from sqlalchemy import func
+from sqlalchemy import func, event
+from sqlalchemy.engine import Engine
 
 from models import (
     db, Shop, Category, User, Settings, Customer, BankAccount,
@@ -92,6 +93,20 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db.init_app(app)
 
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    import sqlite3
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode = WAL")
+            cursor.execute("PRAGMA synchronous = NORMAL")
+            cursor.execute("PRAGMA busy_timeout = 30000")
+        except Exception:
+            pass
+        finally:
+            cursor.close()
+
 # ==================== مقداردهی اولیه دیتابیس با Flask ====================
 def initialize_database():
     """مقداردهی اولیه و مایگریشن دیتابیس - فقط یکبار اجرا می‌شود"""
@@ -107,6 +122,12 @@ def initialize_database():
     try:
         conn = sqlite3.connect(db_path, timeout=20)
         cursor = conn.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode = WAL")
+            cursor.execute("PRAGMA synchronous = NORMAL")
+            cursor.execute("PRAGMA busy_timeout = 30000")
+        except Exception:
+            pass
 
         migrations = [
             ("settings", "store_name", "TEXT DEFAULT 'مجموعه فروشگاه‌های تخصصی طهماسبی'"),
@@ -930,12 +951,12 @@ def add_invoice():
             )
             db.session.add(inv_row)
             
-            # کسر از انبار برای فاکتور قطعی
+            # کسر از انبار برای فاکتور قطعی (اتمیک همراه با کل فاکتور)
             if status == 'final' and inv_item:
                 if inv_type == 'sale':
-                    record_stock_change(inv_item.id, shop_id, 'sale', -qty, new_inv.invoice_number, session.get('full_name'), f"فروش در فاکتور {new_inv.invoice_number}")
+                    record_stock_change(inv_item.id, shop_id, 'sale', -qty, new_inv.invoice_number, session.get('full_name'), f"فروش در فاکتور {new_inv.invoice_number}", commit=False)
                 elif inv_type == 'return':
-                    record_stock_change(inv_item.id, shop_id, 'return', qty, new_inv.invoice_number, session.get('full_name'), f"مرجوعی فاکتور {new_inv.invoice_number}")
+                    record_stock_change(inv_item.id, shop_id, 'return', qty, new_inv.invoice_number, session.get('full_name'), f"مرجوعی فاکتور {new_inv.invoice_number}", commit=False)
 
         # اگر مبلغ کل فاکتور در فیلد وارد نشده بود اما اقلام قیمت داشتند
         if new_inv.total_amount <= 0 and items_total_sum > 0:
@@ -996,10 +1017,10 @@ def convert_proforma(invoice_id):
     inv = Invoice.query.get_or_404(invoice_id)
     inv.status = 'final'
     
-    # کسر اقلام از انبار در لحظه قطعی شدن
+    # کسر اقلام از انبار در لحظه قطعی شدن (اتمیک)
     for row in inv.items:
         if row.inventory_item_id:
-            record_stock_change(row.inventory_item_id, inv.shop_id, 'sale', -row.quantity, inv.invoice_number, session.get('full_name'), f"تبدیل پیش‌فاکتور به قطعی {inv.invoice_number}")
+            record_stock_change(row.inventory_item_id, inv.shop_id, 'sale', -row.quantity, inv.invoice_number, session.get('full_name'), f"تبدیل پیش‌فاکتور به قطعی {inv.invoice_number}", commit=False)
 
     db.session.commit()
     log_activity(f"تبدیل پیش‌فاکتور {inv.invoice_number} به فاکتور قطعی و کسر انبار", session.get('full_name'), "فروش")
@@ -1107,9 +1128,9 @@ def edit_invoice(invoice_id):
             for row in inv.items:
                 if row.inventory_item_id:
                     if old_inv_type == 'sale':
-                        record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش فاکتور {inv.invoice_number}")
+                        record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش فاکتور {inv.invoice_number}", commit=False)
                     elif old_inv_type == 'return':
-                        record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', -row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش مرجوعی {inv.invoice_number}")
+                        record_stock_change(row.inventory_item_id, inv.shop_id, 'adjustment', -row.quantity, inv.invoice_number, session.get('full_name'), f"اصلاح موجودی انبار جهت ویرایش مرجوعی {inv.invoice_number}", commit=False)
 
         # ۲. اصلاح حساب مشتری قبلی
         if inv.customer:
@@ -1272,9 +1293,9 @@ def edit_invoice(invoice_id):
 
             if status == 'final' and inv_item:
                 if inv_type == 'sale':
-                    record_stock_change(inv_item.id, inv.shop_id, 'sale', -qty, inv.invoice_number, session.get('full_name'), f"فروش پس از ویرایش فاکتور {inv.invoice_number}")
+                    record_stock_change(inv_item.id, inv.shop_id, 'sale', -qty, inv.invoice_number, session.get('full_name'), f"فروش پس از ویرایش فاکتور {inv.invoice_number}", commit=False)
                 elif inv_type == 'return':
-                    record_stock_change(inv_item.id, inv.shop_id, 'return', qty, inv.invoice_number, session.get('full_name'), f"مرجوعی پس از ویرایش فاکتور {inv.invoice_number}")
+                    record_stock_change(inv_item.id, inv.shop_id, 'return', qty, inv.invoice_number, session.get('full_name'), f"مرجوعی پس از ویرایش فاکتور {inv.invoice_number}", commit=False)
 
         if inv.total_amount <= 0 and items_total_sum > 0:
             inv.total_amount = items_total_sum
@@ -1336,11 +1357,14 @@ def print_invoice_a4(invoice_id):
     return render_template('print_a4.html', invoice=invoice)
 
 @app.route('/invoice/print/thermal/<int:invoice_id>')
+@app.route('/print_pos/<int:invoice_id>')
+@app.route('/invoice/print/pos/<int:invoice_id>')
 def print_invoice_thermal(invoice_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     invoice = Invoice.query.get_or_404(invoice_id)
-    return render_template('print_thermal.html', invoice=invoice)
+    settings = Settings.query.first()
+    return render_template('print_pos.html', invoice=invoice, settings=settings)
 
 # ==================== داشبورد مدیریت کل ====================
 @app.route('/admin')
@@ -1435,6 +1459,30 @@ def admin_dashboard():
     cheques = Cheque.query.order_by(Cheque.id.desc()).all()
     pending_cheques = [c for c in cheques if c.status == 'pending']
     pending_cheques_total = sum(c.amount for c in pending_cheques)
+    
+    # محاسبه هوشمند چک‌های سررسید نزدیک (امروز، ۳ روز آینده یا معوقه شده)
+    urgent_cheques = []
+    today_j = now_j.date()
+    for c in pending_cheques:
+        try:
+            if c.due_shamsi_date:
+                parts = [int(p) for p in c.due_shamsi_date.replace('-', '/').split('/')]
+                due_date = jdatetime.date(parts[0], parts[1], parts[2])
+                days_diff = (due_date - today_j).days
+                if days_diff <= 3:
+                    urgent_cheques.append({
+                        'id': c.id,
+                        'customer_name': c.customer_name,
+                        'amount': c.amount,
+                        'sayad_number': c.sayad_number,
+                        'bank_name': c.bank_name,
+                        'due_shamsi_date': c.due_shamsi_date,
+                        'days_diff': days_diff,
+                        'is_overdue': days_diff < 0,
+                        'is_today': days_diff == 0
+                    })
+        except Exception:
+            pass
     
     all_inventory = InventoryItem.query.all()
     low_stock_count = len([i for i in all_inventory if i.stock_quantity <= i.min_alert_stock])
@@ -1557,7 +1605,8 @@ def admin_dashboard():
         search_query=search_query,
         settings=settings,
         logs=logs,
-        top_selling_items=top_selling_items
+        top_selling_items=top_selling_items,
+        urgent_cheques=urgent_cheques
     )
 
 # ==================== مدیریت حساب‌های بانکی (شماره کارت و شماره شبا) ====================
@@ -2257,9 +2306,79 @@ def api_catalog_search():
     q = request.args.get('q', '').strip()
     query = ProductCatalog.query
     if q:
-        query = query.filter(ProductCatalog.name.contains(q) | ProductCatalog.brand.contains(q) | ProductCatalog.category.contains(q))
+        query = query.filter(ProductCatalog.name.contains(q) | ProductCatalog.brand.contains(q) | ProductCatalog.category.contains(q) | (ProductCatalog.barcode == q) | (ProductCatalog.code == q))
     items = query.limit(20).all()
     return jsonify([i.to_dict() for i in items])
+
+@app.route('/api/customer/lookup')
+def api_customer_lookup():
+    """استعلام سریع سوابق و مانده بدهی مشتری با شماره تلفن یا نام"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    phone = request.args.get('phone', '').strip()
+    name = request.args.get('name', '').strip()
+    customer = None
+    if phone:
+        clean_phone = phone.replace(' ', '').replace('-', '')
+        customer = Customer.query.filter(Customer.phone.contains(clean_phone)).first()
+    if not customer and name and len(name) >= 3:
+        customer = Customer.query.filter(Customer.name.contains(name)).first()
+    
+    if customer:
+        return jsonify({
+            'found': True,
+            'id': customer.id,
+            'name': customer.name,
+            'phone': customer.phone or '',
+            'outstanding_balance': customer.outstanding_balance or 0,
+            'total_purchases': customer.total_purchases or 0,
+            'customer_type': customer.customer_type or 'regular'
+        })
+    return jsonify({'found': False})
+
+@app.route('/api/barcode/lookup')
+def api_barcode_lookup():
+    """استعلام فوری بارکدخوان جهت ثبت آنی کالا در فاکتور با صدای بیپ بارکدخوان"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    code = request.args.get('code', '').strip()
+    shop_id = session.get('shop_id', 1)
+    if not code:
+        return jsonify({'found': False})
+    
+    # اول در انبار فیزیکی این شعبه جستجو شود
+    inv_item = InventoryItem.query.filter_by(shop_id=shop_id).filter(
+        (InventoryItem.barcode == code) | (InventoryItem.code == code)
+    ).first()
+    if inv_item:
+        return jsonify({
+            'found': True,
+            'source': 'inventory',
+            'inventory_item_id': inv_item.id,
+            'name': inv_item.name,
+            'category': inv_item.category,
+            'brand': inv_item.brand or '',
+            'sell_price': inv_item.sell_price,
+            'stock_quantity': inv_item.stock_quantity
+        })
+        
+    # در صورت عدم وجود در انبار، در کاتالوگ جامع جستجو شود
+    cat_item = ProductCatalog.query.filter(
+        (ProductCatalog.barcode == code) | (ProductCatalog.code == code)
+    ).first()
+    if cat_item:
+        return jsonify({
+            'found': True,
+            'source': 'catalog',
+            'inventory_item_id': None,
+            'name': cat_item.name,
+            'category': cat_item.category,
+            'brand': cat_item.brand or '',
+            'sell_price': cat_item.sell_price,
+            'stock_quantity': 0
+        })
+        
+    return jsonify({'found': False})
 
 # ==================== ماژول جادویی ثبت سریع شیرآلات (محاسبه خودکار ۲۸٪ تخفیف) ====================
 @app.route('/admin/catalog/faucet_wizard', methods=['POST'])
@@ -2853,8 +2972,22 @@ def download_backup():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
     now_str = jdatetime.datetime.now().strftime("%Y%m%d_%H%M")
-    log_activity("دانلود فایل بکاپ دیتابیس", session.get('full_name'), "امنیت")
-    return send_file(db_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
+    
+    # تهیه نسخه پشتیبان اتمیک و زنده با SQLite Backup API (بدون توقف یا قفل شدن سیستم و با تضمین یکپارچگی WAL)
+    snapshot_path = os.path.join(DATA_DIR, f"temp_backup_{now_str}.db")
+    try:
+        source_conn = sqlite3.connect(db_path, timeout=30)
+        dest_conn = sqlite3.connect(snapshot_path)
+        with dest_conn:
+            source_conn.backup(dest_conn)
+        dest_conn.close()
+        source_conn.close()
+        log_activity("تهیه و دانلود فایل پشتیبان دیتابیس (پشتیبان‌گیری آنلاین و امن)", session.get('full_name'), "امنیت")
+        return send_file(snapshot_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
+    except Exception as e:
+        app.logger.error(f"Online backup error: {e}")
+        log_activity("دانلود فایل بکاپ دیتابیس", session.get('full_name'), "امنیت")
+        return send_file(db_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
 
 @app.route('/admin/export/excel')
 def export_excel():

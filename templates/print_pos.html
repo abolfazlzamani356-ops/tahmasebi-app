@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رسید صندوق ۸۰ میلی‌متری • فاکتور {{ invoice.invoice_number }}</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <style>
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        body {
+            font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, Tahoma, sans-serif;
+            margin: 0;
+            padding: 8px 4px;
+            background: #fff;
+            color: #000;
+            font-size: 11px;
+            line-height: 1.4;
+            width: 78mm;
+            max-width: 78mm;
+            margin: 0 auto;
+        }
+        .receipt {
+            width: 100%;
+            text-align: center;
+        }
+        .header {
+            border-bottom: 2px dashed #000;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+        }
+        .store-title {
+            font-size: 14px;
+            font-weight: 900;
+            margin-bottom: 3px;
+        }
+        .store-sub {
+            font-size: 10px;
+            font-weight: 700;
+            color: #222;
+        }
+        .store-phone {
+            font-size: 10px;
+            direction: ltr;
+            margin-top: 2px;
+        }
+        .info-grid {
+            width: 100%;
+            text-align: right;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+            font-size: 10px;
+        }
+        .info-grid td {
+            padding: 2px 0;
+        }
+        .info-label {
+            color: #444;
+            width: 32%;
+        }
+        .info-val {
+            font-weight: 700;
+            text-align: left;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 6px 0;
+            font-size: 10px;
+        }
+        .items-table th {
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            padding: 4px 0;
+            font-weight: 800;
+        }
+        .items-table td {
+            padding: 4px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        .calc-box {
+            border-top: 1px dashed #000;
+            border-bottom: 2px dashed #000;
+            padding: 5px 0;
+            margin: 6px 0;
+        }
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            margin: 2px 0;
+        }
+        .calc-total {
+            font-size: 13px;
+            font-weight: 900;
+            margin-top: 4px;
+            padding-top: 3px;
+            border-top: 1px solid #000;
+        }
+        .payment-box {
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+            margin-bottom: 6px;
+            font-size: 9.5px;
+            text-align: right;
+        }
+        .footer {
+            margin-top: 8px;
+            font-size: 9px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .cut-line {
+            margin-top: 10px;
+            border-top: 1px dashed #888;
+            padding-top: 4px;
+            font-size: 8px;
+            color: #666;
+        }
+        .barcode-box {
+            margin: 6px auto;
+            font-family: monospace;
+            letter-spacing: 3px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="receipt">
+        <!-- Header -->
+        <div class="header">
+            <div class="store-title">{{ settings.store_name if settings and settings.store_name else 'فروشگاه‌های تخصصی طهماسبی' }}</div>
+            <div class="store-sub">{{ invoice.shop.name if invoice.shop else 'شعبه طهماسبی' }}</div>
+            {% if settings and settings.store_phone %}
+            <div class="store-phone">{{ settings.store_phone }}</div>
+            {% endif %}
+            <div style="font-size: 9px; margin-top: 3px; font-weight: bold;">رسید فروش و تحویل صندوق</div>
+        </div>
+
+        <!-- Meta Information -->
+        <table class="info-grid">
+            <tr>
+                <td class="info-label">شماره فاکتور:</td>
+                <td class="info-val font-mono" style="font-size: 12px;">#{{ invoice.invoice_number }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">خریدار:</td>
+                <td class="info-val">{{ invoice.customer_name }}</td>
+            </tr>
+            {% if invoice.customer_phone %}
+            <tr>
+                <td class="info-label">تلفن خریدار:</td>
+                <td class="info-val" dir="ltr">{{ invoice.customer_phone }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td class="info-label">تاریخ و زمان:</td>
+                <td class="info-val" dir="ltr" style="font-size: 9px;">{{ invoice.shamsi_date_time }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">فروشنده:</td>
+                <td class="info-val">{{ invoice.seller.full_name if invoice.seller else 'مدیریت' }}</td>
+            </tr>
+        </table>
+
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="text-align: right; width: 50%;">شرح کالا</th>
+                    <th style="text-align: center; width: 15%;">تعداد</th>
+                    <th style="text-align: left; width: 35%;">مبلغ کل</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoice.items %}
+                    {% for item in invoice.items %}
+                    <tr>
+                        <td style="text-align: right;">{{ item.item_name }}</td>
+                        <td style="text-align: center; font-weight: bold;">{{ item.quantity }}</td>
+                        <td style="text-align: left; font-weight: bold;">{{ "{:,}".format(item.total_price) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td style="text-align: right;">{{ invoice.items_desc or 'تجهیزات و ملزومات' }}</td>
+                        <td style="text-align: center; font-weight: bold;">۱</td>
+                        <td style="text-align: left; font-weight: bold;">{{ "{:,}".format(invoice.total_amount) }}</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <!-- Totals and Calculations -->
+        <div class="calc-box">
+            {% if invoice.subtotal_amount and invoice.subtotal_amount > invoice.total_amount %}
+            <div class="calc-row">
+                <span>جمع اقلام:</span>
+                <span>{{ "{:,}".format(invoice.subtotal_amount) }} ت</span>
+            </div>
+            {% endif %}
+            {% if invoice.discount_amount and invoice.discount_amount > 0 %}
+            <div class="calc-row" style="color: #666;">
+                <span>تخفیف ویژه:</span>
+                <span>{{ "{:,}".format(invoice.discount_amount) }}- ت</span>
+            </div>
+            {% endif %}
+            <div class="calc-row calc-total">
+                <span>مبلغ کل فاکتور:</span>
+                <span>{{ "{:,}".format(invoice.total_amount) }} تومان</span>
+            </div>
+        </div>
+
+        <!-- Payment Breakdown -->
+        <div class="payment-box">
+            <div style="font-weight: 800; margin-bottom: 3px;">وضعیت تسویه و پرداخت:</div>
+            {% if invoice.paid_pos and invoice.paid_pos > 0 %}
+            <div class="calc-row">
+                <span>پرداخت پوز کارتخوان:</span>
+                <span style="font-weight: 700;">{{ "{:,}".format(invoice.paid_pos) }} ت</span>
+            </div>
+            {% endif %}
+            {% if invoice.paid_card and invoice.paid_card > 0 %}
+            <div class="calc-row">
+                <span>کارت‌به‌کارت / شبا:</span>
+                <span style="font-weight: 700;">{{ "{:,}".format(invoice.paid_card) }} ت</span>
+            </div>
+            {% endif %}
+            {% if invoice.paid_cash and invoice.paid_cash > 0 %}
+            <div class="calc-row">
+                <span>پرداخت نقدی:</span>
+                <span style="font-weight: 700;">{{ "{:,}".format(invoice.paid_cash) }} ت</span>
+            </div>
+            {% endif %}
+            {% if invoice.paid_cheque and invoice.paid_cheque > 0 %}
+            <div class="calc-row">
+                <span>چک صیادی:</span>
+                <span style="font-weight: 700;">{{ "{:,}".format(invoice.paid_cheque) }} ت</span>
+            </div>
+            {% endif %}
+            {% if invoice.remaining_balance and invoice.remaining_balance > 0 %}
+            <div class="calc-row" style="color: #b91c1c; font-weight: 800; margin-top: 3px; border-top: 1px dotted #ccc; padding-top: 2px;">
+                <span>مانده بدهی (نسیه):</span>
+                <span>{{ "{:,}".format(invoice.remaining_balance) }} تومان</span>
+            </div>
+            {% else %}
+            <div class="calc-row" style="font-weight: 700; color: #15803d; margin-top: 2px;">
+                <span>وضعیت تسویه:</span>
+                <span>تسویه کامل ✅</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Warranty & Store Terms -->
+        <div class="footer">
+            <div>{{ settings.store_warranty_text if settings and settings.store_warranty_text else 'کلیه اقلام دارای گارانتی اصالت کالا می‌باشند.' }}</div>
+            <div style="margin-top: 4px; font-weight: bold;">از حسن انتخاب و اعتماد شما سپاسگزاریم.</div>
+            <div class="barcode-box">*{{ invoice.invoice_number }}*</div>
+        </div>
+
+        <div class="cut-line">✂️ محل برش فیش پرینتر حرارتی</div>
+
+        <!-- Print Buttons (Hidden during actual print) -->
+        <div class="no-print" style="margin-top: 15px; display: flex; gap: 8px; justify-content: center;">
+            <button onclick="window.print()" style="padding: 6px 14px; background: #0f172a; color: #fff; border: none; border-radius: 8px; font-family: inherit; font-size: 11px; cursor: pointer; font-weight: bold;">
+                🖨️ چاپ مجدد فیش
+            </button>
+            <button onclick="window.close()" style="padding: 6px 12px; background: #e2e8f0; color: #333; border: none; border-radius: 8px; font-family: inherit; font-size: 11px; cursor: pointer;">
+                بستن صفحه
+            </button>
+        </div>
+    </div>
+</body>
+</html>

@@ -87,6 +87,38 @@
     </div>
 </div>
 
+<!-- Urgent Cheques Alert Banner -->
+{% if urgent_cheques %}
+<div class="bg-gradient-to-r from-rose-950/40 via-amber-950/30 to-rose-950/40 border border-rose-500/50 p-4 rounded-2xl mb-6 text-xs shadow-lg">
+    <div class="flex items-center gap-2 mb-2.5 font-black text-rose-300">
+        <span class="text-xl">🚨</span>
+        <span>هشدار فوری: سررسید چک‌های صیادی (امروز یا ۳ روز آینده):</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {% for u in urgent_cheques %}
+        <div class="bg-black/50 border {% if u.is_overdue %}border-rose-500/70 text-rose-300{% elif u.is_today %}border-amber-500/70 text-amber-300{% else %}border-yellow-500/50 text-yellow-200{% endif %} p-2.5 rounded-xl flex items-center justify-between">
+            <div>
+                <div class="font-bold text-slate-100">{{ u.customer_name }}</div>
+                <div class="text-[10px] text-slate-400">بانک {{ u.bank_name }} • صیاد: {{ u.sayad_number or '-' }}</div>
+            </div>
+            <div class="text-left font-mono">
+                <div class="font-black text-xs text-white">{{ "{:,}".format(u.amount) }} ت</div>
+                <div class="text-[10px]">
+                    {% if u.is_overdue %}
+                    <span class="text-rose-400 font-bold">⚠️ معوقه ({{ u.days_diff|abs }} روز پیش)</span>
+                    {% elif u.is_today %}
+                    <span class="text-amber-400 font-bold">⏰ سررسید امروز!</span>
+                    {% else %}
+                    <span class="text-yellow-400 font-bold">⏳ سررسید در {{ u.days_diff }} روز آینده</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Alert Banner -->
 {% if pending_cheques_count > 0 or total_expenses > total_petty_deposits or low_stock_count > 0 %}
 <div class="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl mb-6 text-xs flex flex-wrap items-center justify-between gap-3 shadow-md">

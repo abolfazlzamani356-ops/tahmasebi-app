@@ -76,7 +76,7 @@ def log_activity(action, user_name="سیستم", category="عمومی"):
     db.session.add(log)
     db.session.commit()
 
-def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, user_name, description=""):
+def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, user_name, description="", commit=True):
     item = InventoryItem.query.get(item_id)
     if not item:
         return
@@ -98,7 +98,8 @@ def record_stock_change(item_id, shop_id, change_type, quantity, reference_id, u
         shamsi_date_time=now_str
     )
     db.session.add(log)
-    db.session.commit()
+    if commit:
+        db.session.commit()
 
 def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, settings=None):
     """

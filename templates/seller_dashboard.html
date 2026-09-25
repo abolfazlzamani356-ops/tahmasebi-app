@@ -187,13 +187,22 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1">نام خریدار:</label>
-                    <input type="text" name="customer_name" id="custNameInput" required placeholder="آقای احمدی" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium">
+                    <input type="text" name="customer_name" id="custNameInput" required placeholder="آقای احمدی" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium" onblur="checkCustomerDebt()">
                 </div>
             </div>
 
             <div class="mb-3">
                 <label class="block text-xs font-bold text-slate-600 mb-1">شماره همراه خریدار:</label>
-                <input type="text" name="customer_phone" id="custPhoneInput" placeholder="0912..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-left font-bold" dir="ltr">
+                <input type="text" name="customer_phone" id="custPhoneInput" placeholder="0912..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-left font-bold" dir="ltr" onblur="checkCustomerDebt()" oninput="if(this.value.length >= 10) checkCustomerDebt()">
+                
+                <!-- هشدار هوشمند وضعیت اعتبار و بدهی معوقه خریدار -->
+                <div id="customerDebtBadge" class="hidden mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-1.5">
+                        <span id="customerDebtIcon" class="text-base">⚠️</span>
+                        <span id="customerDebtText"></span>
+                    </div>
+                    <span id="customerDebtAmount" class="font-mono text-xs px-2.5 py-1 rounded-lg"></span>
+                </div>
             </div>
 
             <!-- بخش اقلام فاکتور با تعداد و دسته دلخواه -->
@@ -204,6 +213,15 @@
                     </label>
                     <button type="button" onclick="addInvoiceItemRow()" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-xl transition shadow">
                         ➕ افزودن ردیف کالا
+                    </button>
+                </div>
+
+                <!-- ورودی بارکدخوان سریع کالا با صدای بیپ و ثبت آنی -->
+                <div class="flex items-center gap-2 mb-3 p-2 bg-indigo-50/80 border border-indigo-200 rounded-xl">
+                    <span class="text-sm">🏷️</span>
+                    <input type="text" id="quickBarcodeInput" placeholder="اسکن بارکدخوان یا تایپ بارکد کالا..." class="w-full bg-white border border-indigo-200 rounded-lg p-1.5 text-xs font-bold text-left focus:ring-2 focus:ring-indigo-600" dir="ltr" autocomplete="off" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleBarcodeScan(this.value); }">
+                    <button type="button" onclick="handleBarcodeScan(document.getElementById('quickBarcodeInput').value)" class="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shadow-sm">
+                        ثبت بارکدخوان ⚡
                     </button>
                 </div>
 
@@ -854,6 +872,133 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         } catch (e) {
             resMsg.innerText = '⚠️ خطای ارتباط با دستیار هوشمند.';
         }
+    }
+
+    // استعلام هوشمند مانده بدهی مشتری
+    let lastCheckedPhone = '';
+    function checkCustomerDebt() {
+        const phone = document.getElementById('custPhoneInput').value.trim();
+        const name = document.getElementById('custNameInput').value.trim();
+        const badge = document.getElementById('customerDebtBadge');
+        const textElem = document.getElementById('customerDebtText');
+        const amtElem = document.getElementById('customerDebtAmount');
+        const iconElem = document.getElementById('customerDebtIcon');
+
+        if (!phone && !name) {
+            badge.classList.add('hidden');
+            return;
+        }
+        if (phone === lastCheckedPhone && !name) return;
+        lastCheckedPhone = phone;
+
+        fetch(`/api/customer/lookup?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    if (!document.getElementById('custNameInput').value && data.name) {
+                        document.getElementById('custNameInput').value = data.name;
+                    }
+                    badge.classList.remove('hidden');
+                    if (data.outstanding_balance > 0) {
+                        badge.className = "mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm bg-rose-50 border border-rose-300 text-rose-800";
+                        iconElem.textContent = "🚨";
+                        textElem.textContent = `توجه فروشنده: این خریدار مانده بدهی معوقه قبلی دارد!`;
+                        amtElem.className = "font-mono text-xs px-2.5 py-1 rounded-lg bg-rose-200/80 text-rose-900 font-black";
+                        amtElem.textContent = `${Number(data.outstanding_balance).toLocaleString()} تومان`;
+                    } else {
+                        badge.className = "mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm bg-emerald-50 border border-emerald-300 text-emerald-800";
+                        iconElem.textContent = "✅";
+                        textElem.textContent = `خریدار معتبر: فاقد بدهی معوقه`;
+                        amtElem.className = "font-mono text-xs px-2.5 py-1 rounded-lg bg-emerald-200/80 text-emerald-900 font-black";
+                        amtElem.textContent = `تسویه کامل`;
+                    }
+                } else {
+                    badge.classList.add('hidden');
+                }
+            })
+            .catch(() => {});
+    }
+
+    // پخش صدای بیپ بارکدخوان با Web Audio API
+    function playBarcodeBeep() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1760, ctx.currentTime);
+            gain.gain.setValueAtTime(0.25, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.1);
+        } catch(e) {}
+    }
+
+    // هندلر ثبت سریع بارکدخوان
+    function handleBarcodeScan(code) {
+        code = (code || '').trim();
+        if (!code) return;
+        const input = document.getElementById('quickBarcodeInput');
+        
+        fetch(`/api/barcode/lookup?code=${encodeURIComponent(code)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    playBarcodeBeep();
+                    if (input) input.value = '';
+                    
+                    const container = document.getElementById('invoiceItemsContainer');
+                    const rows = container.querySelectorAll('.item-row');
+                    let foundRow = null;
+
+                    for (let r of rows) {
+                        const sel = r.querySelector('.item-select');
+                        const nameInp = r.querySelector('.item-name');
+                        if (data.inventory_item_id && sel && sel.value == data.inventory_item_id) {
+                            foundRow = r;
+                            break;
+                        } else if (nameInp && nameInp.value.trim() === data.name.trim()) {
+                            foundRow = r;
+                            break;
+                        }
+                    }
+
+                    if (foundRow) {
+                        const qtyInp = foundRow.querySelector('.item-qty');
+                        qtyInp.value = (parseInt(qtyInp.value) || 1) + 1;
+                        calcTotal();
+                    } else {
+                        let targetRow = null;
+                        if (rows.length === 1 && !rows[0].querySelector('.item-name').value && !rows[0].querySelector('.item-select').value) {
+                            targetRow = rows[0];
+                        } else {
+                            addInvoiceItemRow();
+                            const updatedRows = container.querySelectorAll('.item-row');
+                            targetRow = updatedRows[updatedRows.length - 1];
+                        }
+
+                        if (data.inventory_item_id) {
+                            const sel = targetRow.querySelector('.item-select');
+                            sel.value = data.inventory_item_id;
+                            onSelectItem(sel);
+                        } else {
+                            targetRow.querySelector('.item-name').value = data.name;
+                            targetRow.querySelector('.item-cat').value = data.category || 'تجهیزات';
+                            targetRow.querySelector('.item-price').value = data.sell_price ? Number(data.sell_price).toLocaleString() : '';
+                        }
+                        calcTotal();
+                    }
+                } else {
+                    alert('کالایی با بارکد یا کد «' + code + '» در سیستم یافت نشد.');
+                }
+            })
+            .catch(err => {
+                alert('خطا در استعلام بارکد');
+            });
     }
 </script>
 {% endblock %}

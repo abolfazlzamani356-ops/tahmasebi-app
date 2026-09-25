@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>رسید صندوق ۸۰ میلی‌متری • فاکتور {{ invoice.invoice_number }}</title>
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='libs/fonts/vazirmatn.css') }}" rel="stylesheet">
     <style>
         @page {
             size: 80mm auto;

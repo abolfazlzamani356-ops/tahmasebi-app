@@ -1091,25 +1091,23 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-300 mb-2">روش دریافت و واریز:</label>
+                    <input type="hidden" name="settle_method" id="adminSelectedSettleMethod" value="pos">
                     <div class="grid grid-cols-3 gap-2">
-                        <label class="flex flex-col items-center gap-1 cursor-pointer">
-                            <input type="radio" name="settle_method" value="pos" checked class="hidden peer">
-                            <span class="peer-checked:bg-emerald-600 peer-checked:text-white bg-slate-800 text-slate-300 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-emerald-600 border-transparent">
-                                💳 کارتخوان
-                            </span>
-                        </label>
-                        <label class="flex flex-col items-center gap-1 cursor-pointer">
-                            <input type="radio" name="settle_method" value="card" class="hidden peer">
-                            <span class="peer-checked:bg-blue-600 peer-checked:text-white bg-slate-800 text-slate-300 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-blue-600 border-transparent">
-                                📱 کارت / شبا
-                            </span>
-                        </label>
-                        <label class="flex flex-col items-center gap-1 cursor-pointer">
-                            <input type="radio" name="settle_method" value="cash" class="hidden peer">
-                            <span class="peer-checked:bg-amber-600 peer-checked:text-white bg-slate-800 text-slate-300 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-amber-600 border-transparent">
-                                💵 پول نقد
-                            </span>
-                        </label>
+                        <button type="button" id="adminBtnMethodPos" onclick="setAdminSettleMethod('pos')"
+                            class="settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-emerald-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30">
+                            <span>💳</span>
+                            <span>کارتخوان</span>
+                        </button>
+                        <button type="button" id="adminBtnMethodCard" onclick="setAdminSettleMethod('card')"
+                            class="settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 bg-slate-800 text-slate-300 border-2 border-slate-700 hover:border-slate-500">
+                            <span>📱</span>
+                            <span>کارت / شبا</span>
+                        </button>
+                        <button type="button" id="adminBtnMethodCash" onclick="setAdminSettleMethod('cash')"
+                            class="settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 bg-slate-800 text-slate-300 border-2 border-slate-700 hover:border-slate-500">
+                            <span>💵</span>
+                            <span>پول نقد</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1425,11 +1423,34 @@
         document.getElementById('invoiceDetailModal').classList.remove('hidden');
     }
 
+    function setAdminSettleMethod(method) {
+        const input = document.getElementById('adminSelectedSettleMethod');
+        if (input) input.value = method;
+        const btnPos = document.getElementById('adminBtnMethodPos');
+        const btnCard = document.getElementById('adminBtnMethodCard');
+        const btnCash = document.getElementById('adminBtnMethodCash');
+
+        const defaultClass = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 bg-slate-800 text-slate-300 border-2 border-slate-700 hover:border-slate-500';
+
+        if (btnPos) btnPos.className = defaultClass;
+        if (btnCard) btnCard.className = defaultClass;
+        if (btnCash) btnCash.className = defaultClass;
+
+        if (method === 'pos' && btnPos) {
+            btnPos.className = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-emerald-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30';
+        } else if (method === 'card' && btnCard) {
+            btnCard.className = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-blue-600 text-white border-2 border-blue-400 ring-2 ring-blue-500/30';
+        } else if (method === 'cash' && btnCash) {
+            btnCash.className = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-amber-600 text-white border-2 border-amber-400 ring-2 ring-amber-500/30';
+        }
+    }
+
     function openAdminSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         document.getElementById('adminSettleForm').action = '/settle_deposit/' + invoiceId;
         document.getElementById('adminSettleModalSubtitle').innerText = 'فاکتور شماره ' + invoiceNumber + ' • خریدار: ' + (customerName || 'نامشخص');
         document.getElementById('adminSettleModalRemaining').innerText = Number(remaining).toLocaleString() + ' تومان';
         document.getElementById('adminSettleAmountInput').value = remaining;
+        setAdminSettleMethod('pos');
         document.getElementById('adminSettleModal').classList.remove('hidden');
     }
 

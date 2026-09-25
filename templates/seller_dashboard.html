@@ -674,55 +674,53 @@
 </div>
 
 <!-- مودال تسویه مانده فاکتور -->
-<div id="settleModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+<div id="settleModal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden text-white">
         <div class="bg-gradient-to-l from-emerald-600 to-teal-600 p-5 text-white">
-            <h3 class="text-lg font-black">💰 تسویه مانده فاکتور</h3>
-            <p id="settleModalSubtitle" class="text-sm opacity-80 mt-1"></p>
+            <h3 class="text-base font-black flex items-center gap-2"><span>💰</span> تسویه مانده فاکتور</h3>
+            <p id="settleModalSubtitle" class="text-xs opacity-85 mt-1 font-medium"></p>
         </div>
         <form id="settleForm" method="POST" action="">
-            <div class="p-6 space-y-4">
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center">
-                    <p class="text-xs text-rose-600 mb-1">مانده قابل تسویه</p>
-                    <p id="settleModalRemaining" class="text-2xl font-black text-rose-600"></p>
+            <div class="p-6 space-y-4 text-xs">
+                <div class="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-center">
+                    <p class="text-xs text-rose-300 mb-1 font-bold">مانده قابل تسویه فاکتور</p>
+                    <p id="settleModalRemaining" class="text-2xl font-black text-rose-400 font-mono"></p>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">مبلغ تسویه (تومان)</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5">مبلغ تسویه (تومان):</label>
                     <input type="number" name="settle_amount" id="settleAmountInput"
-                        class="w-full border-2 border-slate-200 rounded-xl p-3 text-right font-bold focus:border-emerald-500 outline-none text-lg"
-                        placeholder="مبلغ را وارد کنید" min="1">
+                        class="w-full bg-slate-800 border-2 border-slate-700 rounded-xl p-3 text-left font-mono font-bold text-emerald-400 focus:border-emerald-500 outline-none text-base"
+                        placeholder="مبلغ را وارد کنید" min="1" dir="ltr">
                     <p class="text-[10px] text-slate-400 mt-1">پیش‌فرض: تسویه کامل کل مانده</p>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-2">روش پرداخت تسویه</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-2">روش پرداخت تسویه:</label>
+                    <input type="hidden" name="settle_method" id="selectedSettleMethod" value="pos">
                     <div class="grid grid-cols-3 gap-2">
-                        <label class="flex flex-col items-center gap-1 cursor-pointer">
-                            <input type="radio" name="settle_method" value="pos" checked class="hidden peer">
-                            <span class="peer-checked:bg-emerald-600 peer-checked:text-white bg-slate-100 text-slate-600 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-emerald-600 border-transparent">
-                                💳 کارتخوان
-                            </span>
-                        </label>
-                        <label class="flex flex-col items-center gap-1 cursor-pointer">
-                            <input type="radio" name="settle_method" value="card" class="hidden peer">
-                            <span class="peer-checked:bg-blue-600 peer-checked:text-white bg-slate-100 text-slate-600 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-blue-600 border-transparent">
-                                📱 کارت‌به‌کارت
-                            </span>
-                        </label>
-                        <label class="flex flex-col items-center gap-1 cursor-pointer">
-                            <input type="radio" name="settle_method" value="cash" class="hidden peer">
-                            <span class="peer-checked:bg-amber-600 peer-checked:text-white bg-slate-100 text-slate-600 rounded-xl p-2 w-full text-center text-xs font-bold transition border-2 peer-checked:border-amber-600 border-transparent">
-                                💵 نقد
-                            </span>
-                        </label>
+                        <button type="button" id="btnMethodPos" onclick="setSettleMethod('pos')"
+                            class="settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-emerald-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30">
+                            <span>💳</span>
+                            <span>کارتخوان</span>
+                        </button>
+                        <button type="button" id="btnMethodCard" onclick="setSettleMethod('card')"
+                            class="settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 bg-slate-800 text-slate-300 border-2 border-slate-700 hover:border-slate-500">
+                            <span>📱</span>
+                            <span>کارت‌به‌کارت</span>
+                        </button>
+                        <button type="button" id="btnMethodCash" onclick="setSettleMethod('cash')"
+                            class="settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 bg-slate-800 text-slate-300 border-2 border-slate-700 hover:border-slate-500">
+                            <span>💵</span>
+                            <span>نقد</span>
+                        </button>
                     </div>
                 </div>
             </div>
-            <div class="p-5 border-t border-slate-100 flex gap-3">
-                <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl transition text-sm">
+            <div class="p-5 border-t border-slate-800 flex gap-3">
+                <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl transition text-xs shadow-lg active:scale-95">
                     ✅ ثبت تسویه
                 </button>
                 <button type="button" onclick="document.getElementById('settleModal').classList.add('hidden')"
-                    class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition text-sm">
+                    class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition text-xs">
                     انصراف
                 </button>
             </div>
@@ -731,12 +729,35 @@
 </div>
 
 <script>
+function setSettleMethod(method) {
+    const input = document.getElementById('selectedSettleMethod');
+    if (input) input.value = method;
+    const btnPos = document.getElementById('btnMethodPos');
+    const btnCard = document.getElementById('btnMethodCard');
+    const btnCash = document.getElementById('btnMethodCash');
+
+    const defaultClass = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 bg-slate-800 text-slate-300 border-2 border-slate-700 hover:border-slate-500';
+
+    if (btnPos) btnPos.className = defaultClass;
+    if (btnCard) btnCard.className = defaultClass;
+    if (btnCash) btnCash.className = defaultClass;
+
+    if (method === 'pos' && btnPos) {
+        btnPos.className = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-emerald-600 text-white border-2 border-emerald-400 ring-2 ring-emerald-500/30';
+    } else if (method === 'card' && btnCard) {
+        btnCard.className = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-blue-600 text-white border-2 border-blue-400 ring-2 ring-blue-500/30';
+    } else if (method === 'cash' && btnCash) {
+        btnCash.className = 'settle-method-btn flex items-center justify-center gap-1.5 py-3 px-2 rounded-2xl text-xs font-black transition-all shadow-md active:scale-95 bg-amber-600 text-white border-2 border-amber-400 ring-2 ring-amber-500/30';
+    }
+}
+
 function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
-    document.getElementById('settleForm').action = '/invoice/settle_deposit/' + invoiceId;
-    document.getElementById('settleModalSubtitle').textContent = 'فاکتور ' + invoiceNumber + ' - ' + customerName;
+    document.getElementById('settleForm').action = '/settle_deposit/' + invoiceId;
+    document.getElementById('settleModalSubtitle').textContent = 'فاکتور ' + invoiceNumber + ' - ' + (customerName || 'مشتری');
     document.getElementById('settleModalRemaining').textContent = Number(remaining).toLocaleString() + ' تومان';
     document.getElementById('settleAmountInput').value = remaining;
     document.getElementById('settleAmountInput').max = remaining;
+    setSettleMethod('pos');
     document.getElementById('settleModal').classList.remove('hidden');
 }
 </script>

@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}سامانه هوشمند فروشگاه‌های طهماسبی{% endblock %}</title>
-    <!-- TailwindCSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Local Ultra-Fast Assets (No External CDN Latency / No Blocking in Iran) -->
+    <script src="{{ url_for('static', filename='libs/tailwind/tailwind.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -25,10 +25,10 @@
             }
         }
     </script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Font Vazirmatn -->
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <!-- Chart.js Local -->
+    <script src="{{ url_for('static', filename='libs/chartjs/chart.umd.min.js') }}"></script>
+    <!-- Font Vazirmatn Local -->
+    <link href="{{ url_for('static', filename='libs/fonts/vazirmatn.css') }}" rel="stylesheet">
     
     <style>
         /* ==================== 1. BASE & BACKGROUND ==================== */

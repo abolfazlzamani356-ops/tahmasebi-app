@@ -2,6 +2,7 @@ import re
 import json
 import jdatetime
 from datetime import datetime
+from sqlalchemy.orm import selectinload
 from models import db, User, Invoice, InvoiceItem, InventoryItem, StockLog, AuditLog, Settings, SalarySlip, Customer, Cheque, ProductCatalog
 
 PERSIAN_MONTHS = {
@@ -109,7 +110,7 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
     if not settings:
         settings = Settings.query.first()
 
-    invoices = Invoice.query.filter(
+    invoices = Invoice.query.options(selectinload(Invoice.cheques)).filter(
         (Invoice.seller_id == user_id) | (Invoice.second_seller_id == user_id),
         Invoice.shamsi_year == year,
         Invoice.shamsi_month == month,

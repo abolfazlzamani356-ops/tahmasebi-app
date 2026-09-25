@@ -8,9 +8,11 @@ import jdatetime
 from datetime import datetime, timedelta
 import time
 import base64
+import gzip
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, Response
 from sqlalchemy import func, event
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm import selectinload, joinedload
 
 from models import (
     db, Shop, Category, User, Settings, Customer, BankAccount,
@@ -102,6 +104,9 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor.execute("PRAGMA journal_mode = WAL")
             cursor.execute("PRAGMA synchronous = NORMAL")
             cursor.execute("PRAGMA busy_timeout = 30000")
+            cursor.execute("PRAGMA cache_size = -64000")   # حافظه کش ۶۴ مگابایت در رم برای پاسخدهی آنی
+            cursor.execute("PRAGMA temp_store = MEMORY")   # جداول موقت در رم
+            cursor.execute("PRAGMA mmap_size = 268435456") # مپ حافظه ۲۵۶ مگابایت برای خواندن فوری بدون تاخیر دیسک
         except Exception:
             pass
         finally:
@@ -126,6 +131,9 @@ def initialize_database():
             cursor.execute("PRAGMA journal_mode = WAL")
             cursor.execute("PRAGMA synchronous = NORMAL")
             cursor.execute("PRAGMA busy_timeout = 30000")
+            cursor.execute("PRAGMA cache_size = -64000")
+            cursor.execute("PRAGMA temp_store = MEMORY")
+            cursor.execute("PRAGMA mmap_size = 268435456")
         except Exception:
             pass
 
@@ -172,6 +180,30 @@ def initialize_database():
                 conn.commit()
             except Exception:
                 pass
+
+        # ایجاد ایندکس‌های پرسرعت دیتابیس برای بهینه‌سازی موشکی کوئری‌ها
+        indexes = [
+            ("idx_invoices_year_month_status", "CREATE INDEX IF NOT EXISTS idx_invoices_year_month_status ON invoices (shamsi_year, shamsi_month, status)"),
+            ("idx_invoices_seller", "CREATE INDEX IF NOT EXISTS idx_invoices_seller ON invoices (seller_id, shamsi_year, shamsi_month)"),
+            ("idx_invoices_second_seller", "CREATE INDEX IF NOT EXISTS idx_invoices_second_seller ON invoices (second_seller_id, shamsi_year, shamsi_month)"),
+            ("idx_invoices_shop", "CREATE INDEX IF NOT EXISTS idx_invoices_shop ON invoices (shop_id, shamsi_year, shamsi_month)"),
+            ("idx_invoices_settled", "CREATE INDEX IF NOT EXISTS idx_invoices_settled ON invoices (is_settled, remaining_balance)"),
+            ("idx_invoices_created", "CREATE INDEX IF NOT EXISTS idx_invoices_created ON invoices (created_at DESC)"),
+            ("idx_invoice_items_inv", "CREATE INDEX IF NOT EXISTS idx_invoice_items_inv ON invoice_items (invoice_id)"),
+            ("idx_cheques_inv", "CREATE INDEX IF NOT EXISTS idx_cheques_inv ON cheques (invoice_id)"),
+            ("idx_cheques_status", "CREATE INDEX IF NOT EXISTS idx_cheques_status ON cheques (status)"),
+            ("idx_inventory_shop", "CREATE INDEX IF NOT EXISTS idx_inventory_shop ON inventory_items (shop_id)"),
+            ("idx_inventory_name", "CREATE INDEX IF NOT EXISTS idx_inventory_name ON inventory_items (name)"),
+            ("idx_stock_logs_item", "CREATE INDEX IF NOT EXISTS idx_stock_logs_item ON stock_logs (inventory_item_id)"),
+            ("idx_users_role_active", "CREATE INDEX IF NOT EXISTS idx_users_role_active ON users (role, is_active)"),
+            ("idx_expenses_year_month", "CREATE INDEX IF NOT EXISTS idx_expenses_year_month ON expenses (shamsi_year, shamsi_month)"),
+        ]
+        for idx_name, idx_sql in indexes:
+            try:
+                cursor.execute(idx_sql)
+            except Exception:
+                pass
+        conn.commit()
     except Exception as e:
         app.logger.warning(f"Migration warning (non-critical): {e}")
     finally:
@@ -570,6 +602,33 @@ def inject_permissions():
         'current_user': current_u
     }
 
+@app.after_request
+def optimize_response_delivery(response):
+    # کش هفتگی برای فایل‌های استاتیک محلی و آواتارها جهت جلوگیری از درخواست‌های مکرر و لود آنی
+    if request.path.startswith('/static/') or request.path.startswith('/uploads/'):
+        response.headers['Cache-Control'] = 'public, max-age=604800, immutable'
+        return response
+
+    # فشرده‌سازی خودکار هوشمند GZIP برای کوچک کردن ۸۵٪ حجم HTML و JSON صفحات
+    accept_encoding = request.headers.get('Accept-Encoding', '')
+    if (
+        response.status_code == 200
+        and response.content_length
+        and response.content_length > 500
+        and 'gzip' in accept_encoding.lower()
+        and response.mimetype in ['text/html', 'text/css', 'application/javascript', 'application/json', 'text/javascript']
+        and 'Content-Encoding' not in response.headers
+    ):
+        try:
+            compressed = gzip.compress(response.get_data(), compresslevel=6)
+            response.set_data(compressed)
+            response.headers['Content-Encoding'] = 'gzip'
+            response.headers['Content-Length'] = len(compressed)
+        except Exception:
+            pass
+
+    return response
+
 @app.route('/uploads/avatars/<path:filename>')
 def serve_avatar(filename):
     safe_name = os.path.basename(filename)
@@ -685,7 +744,11 @@ def seller_dashboard():
     
     stats = calculate_seller_exact_stats(user.id, now_j.year, selected_month, user.commission_rate, settings)
     
-    invoices = Invoice.query.filter(
+    invoices = Invoice.query.options(
+        selectinload(Invoice.items),
+        selectinload(Invoice.cheques),
+        joinedload(Invoice.customer)
+    ).filter(
         (Invoice.seller_id == user.id) | (Invoice.second_seller_id == user.id),
         Invoice.shamsi_year == now_j.year,
         Invoice.shamsi_month == selected_month
@@ -707,7 +770,10 @@ def seller_dashboard():
     leaderboard.sort(key=lambda x: x['net_sales'], reverse=True)
 
     # فاکتورهای دارای مانده تسویه‌نشده برای این فروشنده
-    pending_invoices = Invoice.query.filter(
+    pending_invoices = Invoice.query.options(
+        selectinload(Invoice.cheques),
+        joinedload(Invoice.customer)
+    ).filter(
         (Invoice.seller_id == user.id) | (Invoice.second_seller_id == user.id),
         Invoice.status == 'final',
         Invoice.remaining_balance > 0,
@@ -1454,7 +1520,9 @@ def admin_dashboard():
     settings = Settings.query.first()
     
     # ۱. محاسبه جامع فروش کل مجموعه، فروش شعب و سود ناخالص بر اساس کلیه فاکتورهای قطعی ماه (شامل فروشندگان و مدیریت)
-    month_invoices = Invoice.query.filter(
+    month_invoices = Invoice.query.options(
+        selectinload(Invoice.cheques)
+    ).filter(
         Invoice.shamsi_year == now_j.year,
         Invoice.shamsi_month == selected_month,
         Invoice.status == 'final'
@@ -1563,7 +1631,12 @@ def admin_dashboard():
     total_catalog_products = ProductCatalog.query.count()
     
     status_filter = request.args.get('status_filter', 'all').strip()
-    query = Invoice.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
+    query = Invoice.query.options(
+        selectinload(Invoice.items),
+        selectinload(Invoice.cheques),
+        joinedload(Invoice.seller),
+        joinedload(Invoice.shop)
+    ).filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
     if seller_filter:
         query = query.filter_by(seller_id=int(seller_filter))
     if status_filter == 'pending':
@@ -1580,7 +1653,11 @@ def admin_dashboard():
     all_invoices_raw = query.order_by(Invoice.created_at.desc()).all()
     
     # فاکتورهای دارای مانده کل مجموعه جهت نمایش در پنل مدیریت
-    admin_pending_invoices = Invoice.query.filter(
+    admin_pending_invoices = Invoice.query.options(
+        selectinload(Invoice.cheques),
+        joinedload(Invoice.seller),
+        joinedload(Invoice.shop)
+    ).filter(
         db.or_(Invoice.is_settled == False, Invoice.remaining_balance > 0),
         Invoice.status == 'final',
         Invoice.invoice_type != 'return'

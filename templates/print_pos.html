@@ -206,10 +206,10 @@
 
         <!-- Totals and Calculations -->
         <div class="calc-box">
-            {% if invoice.subtotal_amount and invoice.subtotal_amount > invoice.total_amount %}
+            {% if (invoice.subtotal_amount and invoice.subtotal_amount > invoice.total_amount) or (invoice.discount_amount and invoice.discount_amount > 0) %}
             <div class="calc-row">
                 <span>جمع اقلام:</span>
-                <span>{{ "{:,}".format(invoice.subtotal_amount) }} ت</span>
+                <span>{{ "{:,}".format(invoice.subtotal_amount or (invoice.total_amount + invoice.discount_amount)) }} ت</span>
             </div>
             {% endif %}
             {% if invoice.discount_amount and invoice.discount_amount > 0 %}

@@ -225,12 +225,13 @@
                     </button>
                 </div>
 
-                <div id="invoiceItemsContainer" class="space-y-2.5 max-h-56 overflow-y-auto custom-scrollbar p-1">
-                    <!-- ردیف کالا پیش‌فرض -->
-                    <div class="item-row bg-white p-2.5 rounded-2xl border border-slate-200 space-y-2 text-xs shadow-sm">
+                <div id="invoiceItemsContainer" class="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar p-1">
+                    <!-- ردیف کالا پیش‌فرض با پشتیبانی کامل از تخفیف درصدی و مبلغی -->
+                    <div class="item-row bg-white p-3 rounded-2xl border border-slate-200 space-y-2 text-xs shadow-sm">
+                        <!-- انتخاب از انبار یا تایپ نام دلخواه کالا -->
                         <div class="grid grid-cols-12 gap-1.5 items-center">
-                            <div class="col-span-6">
-                                <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-1.5 border rounded-xl text-[11px] font-medium bg-slate-50">
+                            <div class="col-span-12 md:col-span-6">
+                                <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2 border border-slate-300 rounded-xl text-[11px] font-medium bg-slate-50 focus:ring-2 focus:ring-indigo-500">
                                     <option value="">-- انتخاب از انبار شعبه --</option>
                                     {% for item in inventory_items %}
                                     <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
@@ -239,38 +240,73 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-span-6">
-                                <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ..." class="item-name w-full p-1.5 border rounded-xl text-[11px] font-bold">
+                            <div class="col-span-12 md:col-span-6">
+                                <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا تایپ نام دلخواه کالا (خارج از انبار/کاتالوگ)..." class="item-name w-full p-2 border border-slate-300 rounded-xl text-[11px] font-bold">
                             </div>
                         </div>
 
-                        <datalist id="catalogDatalist">
-                            {% for p in catalog_products %}
-                            <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
-                            {% endfor %}
-                        </datalist>
-
-                        <div class="grid grid-cols-12 gap-1.5 items-center">
-                            <div class="col-span-4">
-                                <input type="text" name="item_category[]" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-1.5 border rounded-xl text-[11px]">
+                        <!-- مشخصات، تعداد، قیمت مصوب، درصد تخفیف و قیمت نهایی -->
+                        <div class="grid grid-cols-12 gap-1.5 items-center pt-1.5 border-t border-slate-100">
+                            <!-- دسته‌بندی -->
+                            <div class="col-span-4 md:col-span-2">
+                                <input type="text" name="item_category[]" placeholder="دسته (سنگ، روشویی...)" class="item-cat w-full p-1.5 border border-slate-300 rounded-xl text-[10px]">
                             </div>
-                            <div class="col-span-3 flex items-center gap-1">
-                                <span class="text-[10px] text-slate-500">تعداد:</span>
-                                <input type="number" name="item_quantity[]" value="1" min="1" onchange="calcTotal()" class="item-qty w-full p-1.5 border rounded-xl text-[11px] text-center font-bold">
+                            <!-- تعداد -->
+                            <div class="col-span-3 md:col-span-1 flex items-center gap-1">
+                                <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" class="item-qty w-full p-1.5 border border-slate-300 rounded-xl text-[11px] text-center font-bold">
                             </div>
-                            <div class="col-span-4">
-                                <input type="text" name="item_price[]" placeholder="قیمت واحد (تومان)" onkeyup="formatNumber(this); calcTotal()" class="currency-input item-price w-full p-1.5 border rounded-xl text-[11px] font-bold text-emerald-700 text-left" dir="ltr">
+                            <!-- قیمت مصوب فروش (لیست) -->
+                            <div class="col-span-5 md:col-span-3">
+                                <input type="text" name="item_original_price[]" placeholder="قیمت مصوب (۱,۶۶۰,۰۰۰)" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-1.5 border border-slate-300 rounded-xl text-[11px] font-medium text-slate-400 text-left" dir="ltr" title="قیمت رسمی کالا قبل از تخفیف">
                             </div>
+                            <!-- درصد تخفیف % -->
+                            <div class="col-span-3 md:col-span-2">
+                                <div class="relative flex items-center">
+                                    <input type="text" name="item_discount_percent[]" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-1.5 pl-4 border border-amber-300 bg-amber-500/10 rounded-xl text-[11px] font-bold text-amber-400 text-center" dir="ltr">
+                                    <span class="absolute left-1 text-[10px] text-amber-400 font-bold pointer-events-none">٪</span>
+                                </div>
+                            </div>
+                            <!-- قیمت فروش نهایی (با تخفیف) -->
+                            <div class="col-span-8 md:col-span-3">
+                                <input type="text" name="item_price[]" placeholder="قیمت با تخفیف (۱,۵۰۰,۰۰۰)" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-1.5 border border-emerald-500/50 bg-emerald-500/10 rounded-xl text-[11px] font-black text-emerald-300 text-left" dir="ltr" title="قیمت فروش نهایی به مشتری با احتساب تخفیف">
+                            </div>
+                            <!-- دکمه حذف -->
                             <div class="col-span-1 text-center">
-                                <button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button>
+                                <button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-400 font-black text-sm" title="حذف این ردیف">✕</button>
+                            </div>
+                        </div>
+
+                        <!-- نشانگر تخفیف و جمع ردیف -->
+                        <div class="flex justify-between items-center text-[10px] px-1 text-slate-400">
+                            <span class="item-discount-badge hidden bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-lg font-bold border border-amber-500/40"></span>
+                            <div class="mr-auto font-bold flex items-center gap-1">
+                                <span>جمع این ردیف:</span>
+                                <span class="item-row-total-display font-mono text-emerald-400 font-black">۰ ت</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-2.5 pt-2 border-t flex justify-between items-center text-xs font-bold">
-                    <span class="text-slate-600">جمع کل فاکتور:</span>
-                    <span id="calculatedTotalDisplay" class="text-indigo-700 font-black text-sm">۰ تومان</span>
+                <datalist id="catalogDatalist">
+                    {% for p in catalog_products %}
+                    <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                    {% endfor %}
+                </datalist>
+
+                <!-- خلاصه اقلام و تخفیفات -->
+                <div class="mt-3 pt-2.5 border-t border-white/10 space-y-1.5 text-xs font-bold">
+                    <div class="flex justify-between items-center text-slate-400 text-[11px]">
+                        <span>مجموع اقلام قبل از تخفیف:</span>
+                        <span id="subtotalDisplay" class="font-mono text-slate-200">۰ تومان</span>
+                    </div>
+                    <div id="totalDiscountRow" class="flex justify-between items-center text-amber-400 text-[11px] hidden">
+                        <span>مجموع تخفیف‌های داده‌شده:</span>
+                        <span id="totalDiscountDisplay" class="font-mono bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg">۰ تومان</span>
+                    </div>
+                    <div class="flex justify-between items-center text-white pt-1.5 border-t border-dashed border-white/10">
+                        <span class="text-slate-300">مبلغ نهایی قابل پرداخت فاکتور:</span>
+                        <span id="calculatedTotalDisplay" class="text-emerald-400 font-black text-base font-mono">۰ تومان</span>
+                    </div>
                 </div>
             </div>
 
@@ -736,7 +772,12 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         newRow.querySelector('.item-name').value = '';
         newRow.querySelector('.item-cat').value = '';
         newRow.querySelector('.item-qty').value = '1';
+        newRow.querySelector('.item-orig-price').value = '';
+        newRow.querySelector('.item-discount-pct').value = '';
         newRow.querySelector('.item-price').value = '';
+        newRow.querySelector('.item-row-total-display').innerText = '۰ ت';
+        const badge = newRow.querySelector('.item-discount-badge');
+        if (badge) badge.classList.add('hidden');
         container.appendChild(newRow);
         calcTotal();
     }
@@ -766,11 +807,19 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const price = selectedOpt.getAttribute('data-price');
             const name = selectedOpt.getAttribute('data-name');
             const cat = selectedOpt.getAttribute('data-category');
-            row.querySelector('.item-price').value = Number(price).toLocaleString();
+            
+            const origInput = row.querySelector('.item-orig-price');
+            const finalInput = row.querySelector('.item-price');
+            const pctInput = row.querySelector('.item-discount-pct');
+            
+            if (origInput) origInput.value = price ? Number(price).toLocaleString('en-US') : '';
+            if (finalInput) finalInput.value = price ? Number(price).toLocaleString('en-US') : '';
+            if (pctInput) pctInput.value = '';
             row.querySelector('.item-name').value = name;
             row.querySelector('.item-cat').value = cat || 'عمومی';
+            
+            onPriceOrDiscountChange(origInput, 'orig');
         }
-        calcTotal();
     }
 
     function onSelectCatalogItem(inputElem) {
@@ -783,43 +832,167 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 const row = inputElem.closest('.item-row');
                 const price = opt.getAttribute('data-price');
                 const cat = opt.getAttribute('data-category');
+                
+                const origInput = row.querySelector('.item-orig-price');
+                const finalInput = row.querySelector('.item-price');
+                const pctInput = row.querySelector('.item-discount-pct');
+                
                 if (price && Number(price) > 0) {
-                    row.querySelector('.item-price').value = Number(price).toLocaleString();
+                    if (origInput) origInput.value = Number(price).toLocaleString('en-US');
+                    if (finalInput) finalInput.value = Number(price).toLocaleString('en-US');
+                    if (pctInput) pctInput.value = '';
                 }
                 if (cat) {
                     row.querySelector('.item-cat').value = cat;
                 }
-                calcTotal();
+                onPriceOrDiscountChange(origInput, 'orig');
                 break;
             }
         }
     }
 
+    function onPriceOrDiscountChange(elem, trigger) {
+        const row = elem.closest('.item-row');
+        if (!row) return;
+
+        const origInput = row.querySelector('.item-orig-price');
+        const pctInput = row.querySelector('.item-discount-pct');
+        const finalInput = row.querySelector('.item-price');
+        const discountBadge = row.querySelector('.item-discount-badge');
+        const rowTotalDisplay = row.querySelector('.item-row-total-display');
+        const qtyInput = row.querySelector('.item-qty');
+
+        let origVal = parseNumeric(origInput.value);
+        let finalVal = parseNumeric(finalInput.value);
+        let pctVal = parseNumeric(pctInput.value);
+        const qty = Math.max(1, parseNumeric(qtyInput.value) || 1);
+
+        if (trigger === 'orig') {
+            if (origVal > 0 && (finalVal <= 0 || !finalInput.value)) {
+                finalInput.value = origVal.toLocaleString('en-US');
+                finalVal = origVal;
+                pctInput.value = '';
+            } else if (origVal > 0 && pctVal > 0) {
+                finalVal = Math.round(origVal * (1 - (pctVal / 100)));
+                finalInput.value = finalVal.toLocaleString('en-US');
+            } else if (origVal > 0 && finalVal > 0) {
+                if (origVal > finalVal) {
+                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                    pctInput.value = pctVal;
+                } else {
+                    pctInput.value = '';
+                }
+            }
+        } else if (trigger === 'percent') {
+            if (origVal > 0) {
+                if (pctVal > 0 && pctVal <= 100) {
+                    finalVal = Math.round(origVal * (1 - (pctVal / 100)));
+                    finalInput.value = finalVal > 0 ? finalVal.toLocaleString('en-US') : '0';
+                } else if (pctVal === 0) {
+                    finalInput.value = origVal.toLocaleString('en-US');
+                    finalVal = origVal;
+                }
+            } else if (finalVal > 0 && pctVal > 0 && pctVal < 100) {
+                origVal = Math.round(finalVal / (1 - (pctVal / 100)));
+                origInput.value = origVal.toLocaleString('en-US');
+            }
+        } else if (trigger === 'final') {
+            if (origVal <= 0 && finalVal > 0) {
+                origInput.value = finalVal.toLocaleString('en-US');
+                origVal = finalVal;
+                pctInput.value = '';
+            } else if (origVal > 0 && finalVal > 0) {
+                if (origVal > finalVal) {
+                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                    pctInput.value = pctVal;
+                } else {
+                    pctInput.value = '';
+                }
+            }
+        }
+
+        const effectivePrice = finalVal > 0 ? finalVal : origVal;
+        const rowTotal = effectivePrice * qty;
+        const unitDiscount = Math.max(0, origVal - effectivePrice);
+        const totalRowDiscount = unitDiscount * qty;
+
+        if (rowTotalDisplay) {
+            rowTotalDisplay.innerText = rowTotal.toLocaleString('en-US') + ' ت';
+        }
+
+        if (discountBadge) {
+            if (totalRowDiscount > 0) {
+                discountBadge.classList.remove('hidden');
+                discountBadge.innerText = `🏷️ ${totalRowDiscount.toLocaleString('en-US')} ت تخفیف (${pctVal || Math.round((totalRowDiscount / (origVal * qty)) * 100)}٪)`;
+            } else {
+                discountBadge.classList.add('hidden');
+            }
+        }
+
+        calcTotal();
+    }
+
     function calcTotal() {
-        let sum = 0;
+        let grossSum = 0;
+        let netSum = 0;
+        let totalDiscount = 0;
+
         const rows = document.querySelectorAll('.item-row');
         rows.forEach(row => {
-            const qty = Number(row.querySelector('.item-qty').value || 1);
-            const price = Number(row.querySelector('.item-price').value.replace(/\D/g, '') || 0);
-            sum += (qty * price);
+            const qty = Math.max(1, parseNumeric(row.querySelector('.item-qty').value) || 1);
+            let origPrice = parseNumeric(row.querySelector('.item-orig-price').value);
+            let finalPrice = parseNumeric(row.querySelector('.item-price').value);
+
+            if (finalPrice <= 0 && origPrice > 0) finalPrice = origPrice;
+            if (origPrice <= 0 && finalPrice > 0) origPrice = finalPrice;
+
+            const rowGross = origPrice * qty;
+            const rowNet = finalPrice * qty;
+            const rowDiscount = Math.max(0, rowGross - rowNet);
+
+            grossSum += rowGross;
+            netSum += rowNet;
+            totalDiscount += rowDiscount;
         });
+
+        const subtotalElem = document.getElementById('subtotalDisplay');
+        const discountRow = document.getElementById('totalDiscountRow');
+        const discountElem = document.getElementById('totalDiscountDisplay');
+        const totalDisplay = document.getElementById('calculatedTotalDisplay');
+        const totalAmountInp = document.getElementById('totalAmountInput');
+
+        if (subtotalElem) subtotalElem.innerText = grossSum.toLocaleString('en-US') + ' تومان';
         
-        document.getElementById('calculatedTotalDisplay').innerText = Number(sum).toLocaleString() + ' تومان';
-        if (sum > 0) {
-            document.getElementById('totalAmountInput').value = Number(sum).toLocaleString();
+        if (discountRow && discountElem) {
+            if (totalDiscount > 0) {
+                discountRow.classList.remove('hidden');
+                const totalDiscPct = grossSum > 0 ? (Math.round((totalDiscount / grossSum) * 1000) / 10) : 0;
+                discountElem.innerText = `${totalDiscount.toLocaleString('en-US')} تومان (${totalDiscPct}٪)`;
+            } else {
+                discountRow.classList.add('hidden');
+            }
         }
+
+        if (totalDisplay) {
+            totalDisplay.innerText = netSum.toLocaleString('en-US') + ' تومان';
+        }
+
+        if (totalAmountInp) {
+            totalAmountInp.value = netSum > 0 ? netSum.toLocaleString('en-US') : '';
+        }
+
         calcPaymentBalances();
     }
 
     function calcPaymentBalances() {
-        const total = Number(document.getElementById('totalAmountInput').value.replace(/\D/g, '') || 0);
-        const pos = Number((document.getElementById('paidPosInput')?.value || '').replace(/\D/g, '') || 0);
-        const card = Number((document.getElementById('paidCardInput')?.value || '').replace(/\D/g, '') || 0);
-        const cash = Number((document.getElementById('paidCashInput')?.value || '').replace(/\D/g, '') || 0);
+        const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
+        const pos = parseNumeric(document.getElementById('paidPosInput')?.value);
+        const card = parseNumeric(document.getElementById('paidCardInput')?.value);
+        const cash = parseNumeric(document.getElementById('paidCashInput')?.value);
         
         let chequesSum = 0;
         document.querySelectorAll('.chk-amount').forEach(chk => {
-            chequesSum += Number(chk.value.replace(/\D/g, '') || 0);
+            chequesSum += parseNumeric(chk.value);
         });
 
         const totalPaidAndCheques = pos + card + cash + chequesSum;
@@ -830,7 +1003,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         
         if (remDisplay && remInput) {
             remInput.value = remaining;
-            remDisplay.innerText = Number(remaining).toLocaleString() + ' تومان';
+            remDisplay.innerText = Number(remaining).toLocaleString('en-US') + ' تومان';
             if (remaining === 0 && total > 0) {
                 remDisplay.className = 'text-emerald-600 font-black text-xs';
                 remDisplay.innerText = '✅ تسویه کامل';
@@ -988,9 +1161,11 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                         } else {
                             targetRow.querySelector('.item-name').value = data.name;
                             targetRow.querySelector('.item-cat').value = data.category || 'تجهیزات';
-                            targetRow.querySelector('.item-price').value = data.sell_price ? Number(data.sell_price).toLocaleString() : '';
+                            const pStr = data.sell_price ? Number(data.sell_price).toLocaleString('en-US') : '';
+                            targetRow.querySelector('.item-orig-price').value = pStr;
+                            targetRow.querySelector('.item-price').value = pStr;
+                            onPriceOrDiscountChange(targetRow.querySelector('.item-orig-price'), 'orig');
                         }
-                        calcTotal();
                     }
                 } else {
                     alert('کالایی با بارکد یا کد «' + code + '» در سیستم یافت نشد.');

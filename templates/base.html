@@ -402,15 +402,42 @@
         </div>
     </footer>
 
-    <!-- Global Helpers -->
+    <!-- Global Helpers with Full Persian & Arabic Digit Normalization -->
     <script>
-        function formatNumber(input) {
-            let value = input.value.replace(/\D/g, '');
-            if (value !== '') input.value = Number(value).toLocaleString();
+        function toEnglishDigits(str) {
+            if (str === null || str === undefined) return '';
+            const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+            const a = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+            let res = str.toString();
+            for (let i = 0; i < 10; i++) {
+                res = res.replaceAll(p[i], i).replaceAll(a[i], i);
+            }
+            return res;
         }
+
+        function parseNumeric(val) {
+            if (val === null || val === undefined) return 0;
+            const clean = toEnglishDigits(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatNumber(input) {
+            if (!input) return;
+            const raw = toEnglishDigits(input.value);
+            const clean = raw.replace(/,/g, '').replace(/[^\d]/g, '');
+            if (clean !== '') {
+                input.value = Number(clean).toLocaleString('en-US');
+            } else {
+                input.value = '';
+            }
+        }
+
         function unformatOnSubmit(form) {
             const inputs = form.querySelectorAll('.currency-input');
-            inputs.forEach(input => { input.value = input.value.replace(/,/g, ''); });
+            inputs.forEach(input => { 
+                input.value = toEnglishDigits(input.value).replace(/,/g, ''); 
+            });
         }
     </script>
     {% block scripts %}{% endblock %}

@@ -885,17 +885,23 @@ def add_invoice():
         custom_names = request.form.getlist('item_custom_name[]')
         custom_cats = request.form.getlist('item_category[]')
         quantities = request.form.getlist('item_quantity[]')
+        orig_prices = request.form.getlist('item_original_price[]')
+        discount_percents = request.form.getlist('item_discount_percent[]')
         prices = request.form.getlist('item_price[]')
         
         total_actual_buy_cost = 0
         categories_used = set()
         items_total_sum = 0
+        items_gross_sum = 0
+        items_discount_sum = 0
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
             if qty <= 0:
                 qty = 1
-            price = safe_int(prices[idx], 0) if idx < len(prices) else 0
+            orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
+            final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
+            disc_pct = safe_int(discount_percents[idx], 0) if idx < len(discount_percents) else 0
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
             inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
@@ -903,9 +909,34 @@ def add_invoice():
             name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
             if not name_val:
                 # اگر ردیف کاملاً خالی بود و قیمت هم نداشت رد شو
-                if price <= 0 and not inv_item:
+                if final_p <= 0 and orig_p <= 0 and not inv_item:
                     continue
                 name_val = 'تجهیزات بهداشتی'
+            
+            # تعیین قیمت پایه مصوب و قیمت نهایی با تخفیف
+            if orig_p <= 0:
+                if inv_item and inv_item.sell_price > 0:
+                    orig_p = inv_item.sell_price
+                elif final_p > 0:
+                    orig_p = final_p
+            
+            if final_p <= 0:
+                if orig_p > 0:
+                    if disc_pct > 0:
+                        final_p = int(orig_p * (1 - (disc_pct / 100.0)))
+                    else:
+                        final_p = orig_p
+                else:
+                    final_p = 0
+
+            # محاسبه تخفیف ردیف
+            row_discount = max(0, (orig_p - final_p) * qty) if orig_p > final_p else 0
+            row_total = final_p * qty
+            row_gross = orig_p * qty
+
+            items_gross_sum += row_gross
+            items_discount_sum += row_discount
+            items_total_sum += row_total
             
             # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
             if not inv_item and name_val:
@@ -931,11 +962,9 @@ def add_invoice():
                 if cat_match and cat_match.buy_price > 0:
                     buy_p = cat_match.buy_price
                 else:
-                    buy_p = int(price * 0.75)
+                    buy_p = int(final_p * 0.75)
             
-            row_total = price * qty
             row_profit = row_total - (buy_p * qty)
-            items_total_sum += row_total
             total_actual_buy_cost += (buy_p * qty)
             
             inv_row = InvoiceItem(
@@ -945,7 +974,8 @@ def add_invoice():
                 category=cat_val,
                 quantity=qty,
                 unit_buy_price=buy_p,
-                unit_sell_price=price,
+                unit_sell_price=orig_p,
+                discount=row_discount,
                 total_price=row_total,
                 row_profit=row_profit
             )
@@ -957,6 +987,10 @@ def add_invoice():
                     record_stock_change(inv_item.id, shop_id, 'sale', -qty, new_inv.invoice_number, session.get('full_name'), f"فروش در فاکتور {new_inv.invoice_number}", commit=False)
                 elif inv_type == 'return':
                     record_stock_change(inv_item.id, shop_id, 'return', qty, new_inv.invoice_number, session.get('full_name'), f"مرجوعی فاکتور {new_inv.invoice_number}", commit=False)
+
+        # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
+        new_inv.subtotal_amount = items_gross_sum if items_gross_sum > 0 else items_total_sum
+        new_inv.discount_amount = items_discount_sum
 
         # اگر مبلغ کل فاکتور در فیلد وارد نشده بود اما اقلام قیمت داشتند
         if new_inv.total_amount <= 0 and items_total_sum > 0:
@@ -1228,26 +1262,58 @@ def edit_invoice(invoice_id):
         custom_names = request.form.getlist('item_custom_name[]')
         custom_cats = request.form.getlist('item_category[]')
         quantities = request.form.getlist('item_quantity[]')
+        orig_prices = request.form.getlist('item_original_price[]')
+        discount_percents = request.form.getlist('item_discount_percent[]')
         prices = request.form.getlist('item_price[]')
 
         total_actual_buy_cost = 0
         categories_used = set()
         items_total_sum = 0
+        items_gross_sum = 0
+        items_discount_sum = 0
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
             if qty <= 0:
                 qty = 1
-            price = safe_int(prices[idx], 0) if idx < len(prices) else 0
+            orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
+            final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
+            disc_pct = safe_int(discount_percents[idx], 0) if idx < len(discount_percents) else 0
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
             inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
             
             name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
             if not name_val:
-                if price <= 0 and not inv_item:
+                if final_p <= 0 and orig_p <= 0 and not inv_item:
                     continue
                 name_val = 'تجهیزات بهداشتی'
+
+            # اگر قیمت مصوب وارد نشده بود اما کالا در انبار یا کاتالوگ قیمت داشت
+            if orig_p <= 0:
+                if inv_item and inv_item.sell_price > 0:
+                    orig_p = inv_item.sell_price
+                elif final_p > 0:
+                    orig_p = final_p
+            
+            # اگر قیمت نهایی وارد نشده بود
+            if final_p <= 0:
+                if orig_p > 0:
+                    if disc_pct > 0:
+                        final_p = int(orig_p * (1 - (disc_pct / 100.0)))
+                    else:
+                        final_p = orig_p
+                else:
+                    final_p = 0
+
+            # محاسبه تخفیف ردیف
+            row_discount = max(0, (orig_p - final_p) * qty) if orig_p > final_p else 0
+            row_total = final_p * qty
+            row_gross = orig_p * qty
+
+            items_gross_sum += row_gross
+            items_discount_sum += row_discount
+            items_total_sum += row_total
 
             # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
             if not inv_item and name_val:
@@ -1272,10 +1338,8 @@ def edit_invoice(invoice_id):
                 if cat_match and cat_match.buy_price > 0:
                     buy_p = cat_match.buy_price
                 else:
-                    buy_p = int(price * 0.75)
-            row_total = price * qty
+                    buy_p = int(final_p * 0.75)
             row_profit = row_total - (buy_p * qty)
-            items_total_sum += row_total
             total_actual_buy_cost += (buy_p * qty)
 
             inv_row = InvoiceItem(
@@ -1285,7 +1349,8 @@ def edit_invoice(invoice_id):
                 category=cat_val,
                 quantity=qty,
                 unit_buy_price=buy_p,
-                unit_sell_price=price,
+                unit_sell_price=orig_p,
+                discount=row_discount,
                 total_price=row_total,
                 row_profit=row_profit
             )
@@ -1296,6 +1361,10 @@ def edit_invoice(invoice_id):
                     record_stock_change(inv_item.id, inv.shop_id, 'sale', -qty, inv.invoice_number, session.get('full_name'), f"فروش پس از ویرایش فاکتور {inv.invoice_number}", commit=False)
                 elif inv_type == 'return':
                     record_stock_change(inv_item.id, inv.shop_id, 'return', qty, inv.invoice_number, session.get('full_name'), f"مرجوعی پس از ویرایش فاکتور {inv.invoice_number}", commit=False)
+
+        # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
+        inv.subtotal_amount = items_gross_sum if items_gross_sum > 0 else items_total_sum
+        inv.discount_amount = items_discount_sum
 
         if inv.total_amount <= 0 and items_total_sum > 0:
             inv.total_amount = items_total_sum

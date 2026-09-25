@@ -150,3 +150,101 @@ def test_admin_online_backup_api(client):
     assert response.status_code == 200
     assert response.headers.get('Content-Disposition') is not None
     assert 'Backup_Tahmasebi_' in response.headers.get('Content-Disposition')
+
+def test_persian_digits_and_item_discounts_invoicing(client):
+    """تست ورود ارقام فارسی موبایل، کالای دستی بدون انبار، و محاسبه دقیق درصد و مبلغ تخفیف"""
+    with client.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['role'] = 'seller'
+        sess['shop_id'] = 1
+        sess['full_name'] = 'فروشنده طهماسبی'
+
+    # سناریو: کالای دستی (سنگ روشویی) با قیمت مصوب ۱/۶۶۰/۰۰۰ و قیمت فروش با تخفیف ۱/۵۰۰/۰۰۰ به همراه ارقام فارسی
+    form_data = {
+        'customer_name': 'مشتری سنگ طهماسبی',
+        'customer_phone': '۰۹۱۲۳۴۵۶۷۸۹',
+        'total_amount': '۱,۵۰۰,۰۰۰',
+        'paid_pos': '۱,۵۰۰,۰۰۰',
+        'status': 'final',
+        'item_inventory_id[]': [''],  # بدون شناسه انبار (کالای دستی سفارشی)
+        'item_custom_name[]': ['سنگ روشویی مرمریت اعلا'],
+        'item_category[]': ['سنگ'],
+        'item_quantity[]': ['۱'],
+        'item_original_price[]': ['۱,۶۶۰,۰۰۰'],
+        'item_discount_percent[]': ['۹.۶'],
+        'item_price[]': ['۱,۵۰۰,۰۰۰']
+    }
+
+    response = client.post('/invoice/add', data=form_data, follow_redirects=True)
+    assert response.status_code == 200
+
+    with app.app_context():
+        inv = Invoice.query.filter_by(customer_name='مشتری سنگ طهماسبی').order_by(Invoice.id.desc()).first()
+        assert inv is not None
+        assert inv.total_amount == 1500000
+        assert inv.subtotal_amount == 1660000
+        assert inv.discount_amount == 160000
+        assert inv.paid_pos == 1500000
+        assert inv.remaining_balance == 0
+        assert inv.is_settled is True
+
+        assert len(inv.items) == 1
+        item = inv.items[0]
+        assert item.item_name == 'سنگ روشویی مرمریت اعلا'
+        assert item.quantity == 1
+        assert item.unit_sell_price == 1660000
+        assert item.discount == 160000
+        assert item.total_price == 1500000
+        saved_id = inv.id
+
+    # تست نمایش در پرینت A4 با تخفیف
+    a4_resp = client.get(f'/invoice/print/a4/{saved_id}')
+    assert a4_resp.status_code == 200
+    a4_text = a4_resp.get_data(as_text=True)
+    assert '160,000' in a4_text or '۱۶۰,۰۰۰' in a4_text or 'تخفیف ویژه' in a4_text
+
+def test_edit_invoice_with_persian_digits_and_discounts(client):
+    """تست ویرایش فاکتور با ارقام فارسی و تخفیفات چندگانه"""
+    with app.app_context():
+        inv = Invoice.query.filter_by(customer_name='مشتری سنگ طهماسبی').order_by(Invoice.id.desc()).first()
+        inv_id = inv.id
+
+    with client.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['role'] = 'seller'
+        sess['shop_id'] = 1
+        sess['full_name'] = 'فروشنده طهماسبی'
+
+    edit_data = {
+        'status': 'final',
+        'invoice_type': 'sale',
+        'customer_name': 'مشتری سنگ طهماسبی - ویرایش شده',
+        'customer_phone': '09123456789',
+        'total_amount': '۳,۶۰۰,۰۰۰',
+        'paid_pos': '۲,۰۰۰,۰۰۰',
+        'paid_cash': '۱,۶۰۰,۰۰۰',
+        'item_inventory_id[]': [''],
+        'item_custom_name[]': ['سنگ روشویی ۲ عدد'],
+        'item_category[]': ['سنگ'],
+        'item_quantity[]': ['۲'],
+        'item_original_price[]': ['۲,۰۰۰,۰۰۰'],
+        'item_discount_percent[]': ['۱۰'],
+        'item_price[]': ['۱,۸۰۰,۰۰۰']
+    }
+
+    resp = client.post(f'/invoice/edit/{inv_id}', data=edit_data, follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        updated_inv = db.session.get(Invoice, inv_id)
+        assert updated_inv.total_amount == 3600000
+        assert updated_inv.subtotal_amount == 4000000
+        assert updated_inv.discount_amount == 400000
+        assert updated_inv.paid_pos == 2000000
+        assert updated_inv.paid_cash == 1600000
+        assert updated_inv.remaining_balance == 0
+        assert updated_inv.is_settled is True
+        assert len(updated_inv.items) == 1
+        assert updated_inv.items[0].total_price == 3600000
+        assert updated_inv.items[0].discount == 400000
+

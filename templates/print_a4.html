@@ -65,7 +65,15 @@
                             {% if item.category %}<span class="text-[10px] text-slate-400 block">دسته‌بندی: {{ item.category }}</span>{% endif %}
                         </td>
                         <td class="p-3 border text-center font-bold">{{ item.quantity }}</td>
-                        <td class="p-3 border text-left font-mono">{{ "{:,}".format(item.unit_sell_price) }}</td>
+                        <td class="p-3 border text-left font-mono">
+                            {% if item.discount and item.discount > 0 %}
+                                <div class="text-[11px] line-through text-slate-400">{{ "{:,}".format(item.unit_sell_price) }}</div>
+                                <div class="font-bold text-emerald-700">{{ "{:,}".format((item.total_price // item.quantity) if item.quantity > 0 else (item.unit_sell_price - item.discount)) }}</div>
+                                <span class="text-[9px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded font-sans inline-block mt-0.5">تخفیف: {{ "{:,}".format(item.discount) }} ت</span>
+                            {% else %}
+                                <span>{{ "{:,}".format(item.unit_sell_price) }}</span>
+                            {% endif %}
+                        </td>
                         <td class="p-3 border text-left font-black text-slate-900 font-mono">{{ "{:,}".format(item.total_price) }}</td>
                     </tr>
                     {% endfor %}
@@ -101,7 +109,18 @@
                     وضعیت مالی: {{ '✅ تسویه کامل انجام شد' if invoice.is_settled else '⏳ دارای مانده بیعانه / چک در گردش' }}
                 </div>
             </div>
-            <div class="text-left">
+            <div class="text-left space-y-1 min-w-[200px]">
+                {% if invoice.discount_amount and invoice.discount_amount > 0 %}
+                <div class="text-xs text-slate-400 flex justify-between gap-4">
+                    <span>جمع اقلام:</span>
+                    <span class="font-mono">{{ "{:,}".format(invoice.subtotal_amount or (invoice.total_amount + invoice.discount_amount)) }} ت</span>
+                </div>
+                <div class="text-xs text-amber-400 flex justify-between gap-4">
+                    <span>تخفیف ویژه:</span>
+                    <span class="font-mono">- {{ "{:,}".format(invoice.discount_amount) }} ت</span>
+                </div>
+                <div class="border-t border-slate-700 pt-1"></div>
+                {% endif %}
                 <span class="text-xs text-slate-400 block">مبلغ نهایی قابل پرداخت:</span>
                 <span class="text-2xl font-black text-emerald-400">{{ "{:,}".format(invoice.total_amount) }} تومان</span>
             </div>

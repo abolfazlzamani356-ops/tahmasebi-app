@@ -253,6 +253,7 @@ class Invoice(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     shop_id = db.Column(db.Integer, db.ForeignKey('shops.id'), nullable=False)
+    has_custom_items = db.Column(db.Boolean, default=False, index=True) # آیا فاکتور دارای اقلام سفارشی/خارج از کاتالوگ است
     seller = db.relationship('User', foreign_keys=[seller_id])
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
@@ -271,6 +272,7 @@ class InvoiceItem(db.Model):
     discount = db.Column(db.BigInteger, default=0) # تخفیف ردیف
     total_price = db.Column(db.BigInteger, nullable=False) # جمع ردیف = (unit_sell_price * quantity) - discount
     row_profit = db.Column(db.BigInteger, default=0) # سود ردیف = total_price - (unit_buy_price * quantity)
+    is_custom = db.Column(db.Boolean, default=False) # آیا کالا سفارشی یا خارج از انبار/کاتالوگ است
 
     inventory_item = db.relationship('InventoryItem', foreign_keys=[inventory_item_id])
 

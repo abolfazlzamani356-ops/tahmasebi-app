@@ -721,11 +721,12 @@
     <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
         <div>
             <h3 class="text-md font-bold text-slate-200">🔍 جستجو و فیلتر پیشرفته فاکتورها</h3>
-            <!-- تب‌های فیلتر سریع وضعیت تسویه -->
-            <div class="flex items-center gap-1 bg-slate-800/80 p-1 rounded-2xl border border-slate-700 text-xs mt-2 w-fit">
+            <!-- تب‌های فیلتر سریع وضعیت تسویه و اقلام سفارشی -->
+            <div class="flex items-center gap-1 bg-slate-800/80 p-1 rounded-2xl border border-slate-700 text-xs mt-2 w-fit flex-wrap">
                 <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='all') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'all' or not status_filter %}bg-indigo-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">همه اسناد</a>
                 <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='pending') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'pending' %}bg-rose-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">فقط دارای مانده ⏳</a>
                 <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='settled') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'settled' %}bg-emerald-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">تسویه شده ✅</a>
+                <a href="{{ url_for('admin_dashboard', month=selected_month, seller_filter=seller_filter, search=search_query, status_filter='custom') }}" class="px-3 py-1.5 rounded-xl font-bold transition {% if status_filter == 'custom' %}bg-amber-600 text-white shadow{% else %}text-amber-400 hover:text-white{% endif %}">✨ اقلام خارج از لیست (سفارشی) {% if custom_invoices_count %}({{ custom_invoices_count }}){% endif %}</a>
             </div>
         </div>
 
@@ -748,6 +749,33 @@
         </form>
     </div>
 
+    <!-- بنر تحلیل و خلاصه اقلام سفارشی خارج از کاتالوگ -->
+    {% if status_filter == 'custom' or custom_invoices_count > 0 %}
+    <div class="mb-4 bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/20 border border-amber-500/30 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2.5">
+            <span class="text-2xl">✨</span>
+            <div>
+                <h4 class="font-black text-amber-300">تحلیل فاکتورهای دارای اقلام خارج از کاتالوگ (سفارشی)</h4>
+                <p class="text-[11px] text-slate-400 mt-0.5">در این فاکتورها، بهای خرید واقعی توسط فروشنده ثبت شده و سود واقعی بدون وابستگی به درصد تخمینی محاسبه شده است.</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-left">
+                <span class="text-[10px] text-slate-400 block">تعداد فاکتور:</span>
+                <span class="text-xs font-black text-amber-300 font-mono">{{ custom_invoices_count }} فاکتور</span>
+            </div>
+            <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-left">
+                <span class="text-[10px] text-slate-400 block">جمع فروش اقلام:</span>
+                <span class="text-xs font-black text-white font-mono">{{ "{:,}".format(custom_sales_total) }} ت</span>
+            </div>
+            <div class="bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-500/30 text-left">
+                <span class="text-[10px] text-emerald-400 block">جمع سود خالص واقعی:</span>
+                <span class="text-xs font-black text-emerald-300 font-mono">+{{ "{:,}".format(custom_profit_total) }} ت</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
             <tr>
@@ -767,7 +795,14 @@
         <tbody>
             {% for inv in all_invoices %}
             <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                <td class="p-3 font-bold text-slate-200">{{ inv.invoice_number }}</td>
+                <td class="p-3 font-bold text-slate-200">
+                    <div class="flex items-center gap-1 flex-wrap">
+                        <span>{{ inv.invoice_number }}</span>
+                        {% if inv.has_custom_items %}
+                        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded text-[9px] font-black" title="دارای اقلام خارج از کاتالوگ">✨ سفارشی</span>
+                        {% endif %}
+                    </div>
+                </td>
                 <td class="p-3">
                     {% if inv.status == 'proforma' %}
                         <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">پیش‌فاکتور</span>
@@ -1056,6 +1091,11 @@
             <p><span class="font-bold text-amber-900">مبلغ بیعانه نقدی:</span> <span id="dtPaid"></span></p>
             <p><span class="font-bold text-amber-900">مانده بدهی مشتری:</span> <span id="dtRemaining" class="text-rose-600 font-black"></span></p>
             <p><span class="font-bold text-amber-900">موعد تسویه مانده:</span> <span id="dtDepositDate" class="font-bold"></span></p>
+        </div>
+
+        <div id="dtItemsContainer" class="hidden bg-slate-50 p-3 rounded-2xl border text-xs space-y-2">
+            <span class="text-slate-700 block font-bold">📋 ریز اقلام و سود فاکتور:</span>
+            <div id="dtItemsList" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div>
         </div>
 
         <div class="bg-slate-50 p-3 rounded-2xl border text-xs">
@@ -1416,6 +1456,30 @@
             document.getElementById('dtDepositDate').innerText = inv.due_settlement_date || '-';
         } else {
             document.getElementById('dtDepositBox').classList.add('hidden');
+        }
+
+        const itemsBox = document.getElementById('dtItemsContainer');
+        const itemsList = document.getElementById('dtItemsList');
+        if (itemsBox && itemsList && inv.items && inv.items.length > 0) {
+            itemsBox.classList.remove('hidden');
+            itemsList.innerHTML = '';
+            inv.items.forEach(it => {
+                const row = document.createElement('div');
+                row.className = 'p-2 rounded-xl border ' + (it.is_custom ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white border-slate-200') + ' flex justify-between items-center text-[11px]';
+                row.innerHTML = `
+                    <div>
+                        <span class="font-bold text-slate-800">${it.item_name} (${it.quantity} عدد)</span>
+                        ${it.is_custom ? '<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[9px] font-bold mr-1">✨ سفارشی</span>' : ''}
+                        <span class="text-slate-400 block text-[10px]">خرید: ${Number(it.unit_buy_price || 0).toLocaleString()} ت | فروش: ${Number(it.total_price || 0).toLocaleString()} ت</span>
+                    </div>
+                    <div class="text-left font-mono font-bold ${it.row_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                        سود: ${Number(it.row_profit || 0).toLocaleString()} ت
+                    </div>
+                `;
+                itemsList.appendChild(row);
+            });
+        } else if (itemsBox) {
+            itemsBox.classList.add('hidden');
         }
 
         let descText = (inv.categories_json ? inv.categories_json.replace(/["\[\]]/g, '') : '') + '\n' + (inv.items_desc || 'بدون توضیحات');

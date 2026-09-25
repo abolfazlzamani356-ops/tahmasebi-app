@@ -173,6 +173,8 @@ def initialize_database():
             ("users", "sheba_number", "TEXT"),
             ("users", "address", "TEXT"),
             ("users", "notes", "TEXT"),
+            ("invoices", "has_custom_items", "BOOLEAN DEFAULT 0"),
+            ("invoice_items", "is_custom", "BOOLEAN DEFAULT 0"),
         ]
 
         for table, col, col_def in migrations:
@@ -189,6 +191,7 @@ def initialize_database():
             ("idx_invoices_second_seller", "CREATE INDEX IF NOT EXISTS idx_invoices_second_seller ON invoices (second_seller_id, shamsi_year, shamsi_month)"),
             ("idx_invoices_shop", "CREATE INDEX IF NOT EXISTS idx_invoices_shop ON invoices (shop_id, shamsi_year, shamsi_month)"),
             ("idx_invoices_settled", "CREATE INDEX IF NOT EXISTS idx_invoices_settled ON invoices (is_settled, remaining_balance)"),
+            ("idx_invoices_custom_items", "CREATE INDEX IF NOT EXISTS idx_invoices_custom_items ON invoices (has_custom_items)"),
             ("idx_invoices_created", "CREATE INDEX IF NOT EXISTS idx_invoices_created ON invoices (created_at DESC)"),
             ("idx_invoice_items_inv", "CREATE INDEX IF NOT EXISTS idx_invoice_items_inv ON invoice_items (invoice_id)"),
             ("idx_cheques_inv", "CREATE INDEX IF NOT EXISTS idx_cheques_inv ON cheques (invoice_id)"),
@@ -440,6 +443,12 @@ def initialize_database():
         _seed_catalog('KRD', generate_all_krd_items, 32.0, 'KRD')
     except Exception as e:
         app.logger.warning(f"KRD import warning: {e}")
+
+    try:
+        from rozen_catalog_data import generate_rozen_catalog_items
+        _seed_catalog('رزن', generate_rozen_catalog_items, 15.0, 'Rozen')
+    except Exception as e:
+        app.logger.warning(f"Rozen import warning: {e}")
 
 
 
@@ -805,6 +814,7 @@ def seller_dashboard():
     ).order_by(Invoice.created_at.desc()).all()
 
     catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).limit(35).all()
+    custom_invoices = [inv for inv in invoices if getattr(inv, 'has_custom_items', False)]
 
     # تولید هوشمند شماره فاکتور پیشنهادی بعدی
     last_inv = Invoice.query.order_by(Invoice.id.desc()).first()
@@ -824,6 +834,7 @@ def seller_dashboard():
         stats=stats,
         invoices=invoices,
         pending_invoices=pending_invoices,
+        custom_invoices=custom_invoices,
         months=PERSIAN_MONTHS,
         selected_month=selected_month,
         current_month_name=PERSIAN_MONTHS.get(selected_month, ''),
@@ -979,12 +990,14 @@ def add_invoice():
         orig_prices = request.form.getlist('item_original_price[]')
         discount_percents = request.form.getlist('item_discount_percent[]')
         prices = request.form.getlist('item_price[]')
+        buy_prices = request.form.getlist('item_buy_price[]')
         
         total_actual_buy_cost = 0
         categories_used = set()
         items_total_sum = 0
         items_gross_sum = 0
         items_discount_sum = 0
+        has_any_custom = False
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
@@ -993,6 +1006,7 @@ def add_invoice():
             orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
             final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
             disc_pct = safe_int(discount_percents[idx], 0) if idx < len(discount_percents) else 0
+            custom_buy_p = safe_int(buy_prices[idx], 0) if idx < len(buy_prices) else 0
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
             inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
@@ -1041,19 +1055,34 @@ def add_invoice():
             if cat_val and not Category.query.filter_by(name=cat_val).first():
                 db.session.add(Category(name=cat_val))
                 db.session.flush()
-                
-            # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
-            buy_p = 0
-            if inv_item and inv_item.buy_price > 0:
-                buy_p = inv_item.buy_price
-            else:
+
+            # بررسی تطابق با کاتالوگ
+            cat_match = None
+            if not inv_item:
                 cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
                 if not cat_match and len(name_val) >= 5:
                     cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
-                if cat_match and cat_match.buy_price > 0:
-                    buy_p = cat_match.buy_price
-                else:
-                    buy_p = int(final_p * 0.75)
+
+            # استخراج بهای خرید واقعی و تشخیص اقلام سفارشی
+            is_custom_row = False
+            buy_p = 0
+            if custom_buy_p > 0:
+                buy_p = custom_buy_p
+                if not inv_item:
+                    is_custom_row = True
+            elif inv_item and inv_item.buy_price > 0:
+                buy_p = inv_item.buy_price
+            elif cat_match and cat_match.buy_price > 0:
+                buy_p = cat_match.buy_price
+            else:
+                buy_p = int(final_p * 0.75)
+                is_custom_row = True
+
+            if not inv_item and not cat_match:
+                is_custom_row = True
+
+            if is_custom_row:
+                has_any_custom = True
             
             row_profit = row_total - (buy_p * qty)
             total_actual_buy_cost += (buy_p * qty)
@@ -1068,7 +1097,8 @@ def add_invoice():
                 unit_sell_price=orig_p,
                 discount=row_discount,
                 total_price=row_total,
-                row_profit=row_profit
+                row_profit=row_profit,
+                is_custom=is_custom_row
             )
             db.session.add(inv_row)
             
@@ -1101,6 +1131,7 @@ def add_invoice():
         new_inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
         new_inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
         new_inv.real_profit = total_amount - new_inv.actual_buy_cost
+        new_inv.has_custom_items = has_any_custom
 
         # ثبت چک‌های صیادی ایجاد شده
         for chk_data in cheques_to_create:
@@ -1359,12 +1390,14 @@ def edit_invoice(invoice_id):
         orig_prices = request.form.getlist('item_original_price[]')
         discount_percents = request.form.getlist('item_discount_percent[]')
         prices = request.form.getlist('item_price[]')
+        buy_prices = request.form.getlist('item_buy_price[]')
 
         total_actual_buy_cost = 0
         categories_used = set()
         items_total_sum = 0
         items_gross_sum = 0
         items_discount_sum = 0
+        has_any_custom = False
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
@@ -1373,6 +1406,7 @@ def edit_invoice(invoice_id):
             orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
             final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
             disc_pct = safe_int(discount_percents[idx], 0) if idx < len(discount_percents) else 0
+            custom_buy_p = safe_int(buy_prices[idx], 0) if idx < len(buy_prices) else 0
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
             inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
@@ -1420,19 +1454,35 @@ def edit_invoice(invoice_id):
             if cat_val and not Category.query.filter_by(name=cat_val).first():
                 db.session.add(Category(name=cat_val))
                 db.session.flush()
-                
-            # استخراج بهای خرید واقعی: اول از انبار، دوم از کاتالوگ مرجع، سوم تخمین
-            buy_p = 0
-            if inv_item and inv_item.buy_price > 0:
-                buy_p = inv_item.buy_price
-            else:
+
+            # بررسی تطابق با کاتالوگ
+            cat_match = None
+            if not inv_item:
                 cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
                 if not cat_match and len(name_val) >= 5:
                     cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
-                if cat_match and cat_match.buy_price > 0:
-                    buy_p = cat_match.buy_price
-                else:
-                    buy_p = int(final_p * 0.75)
+
+            # استخراج بهای خرید واقعی و تشخیص اقلام سفارشی
+            is_custom_row = False
+            buy_p = 0
+            if custom_buy_p > 0:
+                buy_p = custom_buy_p
+                if not inv_item:
+                    is_custom_row = True
+            elif inv_item and inv_item.buy_price > 0:
+                buy_p = inv_item.buy_price
+            elif cat_match and cat_match.buy_price > 0:
+                buy_p = cat_match.buy_price
+            else:
+                buy_p = int(final_p * 0.75)
+                is_custom_row = True
+
+            if not inv_item and not cat_match:
+                is_custom_row = True
+
+            if is_custom_row:
+                has_any_custom = True
+
             row_profit = row_total - (buy_p * qty)
             total_actual_buy_cost += (buy_p * qty)
 
@@ -1446,7 +1496,8 @@ def edit_invoice(invoice_id):
                 unit_sell_price=orig_p,
                 discount=row_discount,
                 total_price=row_total,
-                row_profit=row_profit
+                row_profit=row_profit,
+                is_custom=is_custom_row
             )
             db.session.add(inv_row)
 
@@ -1470,6 +1521,7 @@ def edit_invoice(invoice_id):
         inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
         inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
         inv.real_profit = total_amount - inv.actual_buy_cost
+        inv.has_custom_items = has_any_custom
 
         # ایجاد چک‌های جدید
         for chk_data in cheques_to_create:
@@ -1667,6 +1719,8 @@ def admin_dashboard():
         query = query.filter(db.or_(Invoice.is_settled == False, Invoice.remaining_balance > 0))
     elif status_filter == 'settled':
         query = query.filter(Invoice.is_settled == True, db.or_(Invoice.remaining_balance == 0, Invoice.remaining_balance == None))
+    elif status_filter == 'custom':
+        query = query.filter(Invoice.has_custom_items == True)
 
     if search_query:
         query = query.filter(
@@ -1676,6 +1730,11 @@ def admin_dashboard():
         )
     all_invoices_raw = query.order_by(Invoice.created_at.desc()).all()
     
+    # فاکتورهای دارای اقلام خارج از لیست (سفارشی) ماه
+    custom_invoices_all = [inv for inv in month_invoices if getattr(inv, 'has_custom_items', False)]
+    custom_sales_total = sum(inv.total_amount for inv in custom_invoices_all)
+    custom_profit_total = sum(inv.real_profit or 0 for inv in custom_invoices_all)
+
     # فاکتورهای دارای مانده کل مجموعه جهت نمایش در پنل مدیریت
     admin_pending_invoices = Invoice.query.options(
         selectinload(Invoice.cheques),
@@ -1721,7 +1780,22 @@ def admin_dashboard():
             'due_settlement_date': inv.due_settlement_date,
             'shamsi_date_time': inv.shamsi_date_time,
             'items_desc': inv.items_desc or '',
-            'categories_json': inv.categories_json or ''
+            'categories_json': inv.categories_json or '',
+            'has_custom_items': getattr(inv, 'has_custom_items', False),
+            'real_profit': inv.real_profit or 0,
+            'actual_buy_cost': inv.actual_buy_cost or 0,
+            'items': [{
+                'id': it.id,
+                'item_name': it.item_name,
+                'category': it.category or '',
+                'quantity': it.quantity,
+                'unit_buy_price': it.unit_buy_price or 0,
+                'unit_sell_price': it.unit_sell_price or 0,
+                'discount': it.discount or 0,
+                'total_price': it.total_price or 0,
+                'row_profit': it.row_profit or 0,
+                'is_custom': getattr(it, 'is_custom', False)
+            } for it in inv.items]
         })
     
     # استخراج اقلام پرفروش فروشگاه طهماسبی
@@ -1802,6 +1876,9 @@ def admin_dashboard():
         status_filter=status_filter,
         admin_pending_invoices=admin_pending_invoices,
         total_admin_pending_balance=total_admin_pending_balance,
+        custom_invoices_count=len(custom_invoices_all),
+        custom_sales_total=custom_sales_total,
+        custom_profit_total=custom_profit_total,
         settings=settings,
         logs=logs,
         top_selling_items=top_selling_items,

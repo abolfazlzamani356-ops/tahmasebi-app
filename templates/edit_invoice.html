@@ -93,7 +93,7 @@
                             <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
                                 {% for inv in inventory_items %}
-                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}" {% if item.inventory_item_id == inv.id %}selected{% endif %}>
+                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-buy-price="{{ inv.buy_price }}" data-cat="{{ inv.category }}" {% if item.inventory_item_id == inv.id %}selected{% endif %}>
                                     {{ inv.name }} (موجودی: {{ inv.stock_quantity }})
                                 </option>
                                 {% endfor %}
@@ -121,8 +121,8 @@
                         </div>
                     </div>
 
-                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف و قیمت نهایی -->
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت نهایی و بهای خرید ما -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
@@ -139,6 +139,18 @@
                         <div>
                             <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
                             <input type="text" name="item_price[]" value="{{ '{:,}'.format(final_unit_p) if final_unit_p > 0 else '' }}" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr" title="قیمت فروش نهایی به مشتری">
+                        </div>
+
+                        <!-- بهای خرید ما (تومان) -->
+                        <div class="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-700 font-normal">(برای اقلام خارج از لیست / انبار)</span>:</label>
+                                <input type="text" name="item_buy_price[]" value="{{ '{:,}'.format(item.unit_buy_price) if (item.unit_buy_price and item.unit_buy_price > 0) else '' }}" placeholder="قیمت خرید خودمون..." onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" oninput="onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه">
+                            </div>
+                            <div class="sm:w-44 flex flex-col justify-center items-center bg-white border border-slate-200 rounded-xl p-2 text-center">
+                                <span class="text-[9px] text-slate-500 font-medium">سود تخمینی ردیف:</span>
+                                <span class="item-profit-display text-xs font-black text-emerald-700 font-mono">{{ '{:,}'.format(item.row_profit) if item.row_profit else '۰' }} ت</span>
+                            </div>
                         </div>
                     </div>
 
@@ -168,7 +180,7 @@
                             <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
                                 {% for inv in inventory_items %}
-                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}">{{ inv.name }} (موجودی: {{ inv.stock_quantity }})</option>
+                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-buy-price="{{ inv.buy_price }}" data-cat="{{ inv.category }}">{{ inv.name }} (موجودی: {{ inv.stock_quantity }})</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -194,8 +206,8 @@
                         </div>
                     </div>
 
-                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف و قیمت نهایی -->
-                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت نهایی و بهای خرید ما -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
@@ -212,6 +224,18 @@
                         <div>
                             <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
                             <input type="text" name="item_price[]" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr">
+                        </div>
+
+                        <!-- بهای خرید ما (تومان) -->
+                        <div class="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-700 font-normal">(برای اقلام خارج از لیست / انبار)</span>:</label>
+                                <input type="text" name="item_buy_price[]" value="" placeholder="قیمت خرید خودمون..." onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" oninput="onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه">
+                            </div>
+                            <div class="sm:w-44 flex flex-col justify-center items-center bg-white border border-slate-200 rounded-xl p-2 text-center">
+                                <span class="text-[9px] text-slate-500 font-medium">سود تخمینی ردیف:</span>
+                                <span class="item-profit-display text-xs font-black text-emerald-700 font-mono">۰ ت</span>
+                            </div>
                         </div>
                     </div>
 
@@ -235,7 +259,7 @@
 
             <datalist id="catalogDatalist">
                 {% for p in catalog_products %}
-                <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
                 {% endfor %}
             </datalist>
 
@@ -462,6 +486,7 @@
         const opt = selectElem.selectedOptions[0];
         if (opt && opt.value) {
             const price = parseNumeric(opt.getAttribute('data-price') || 0);
+            const buyPrice = parseNumeric(opt.getAttribute('data-buy-price') || 0);
             const cat = opt.getAttribute('data-cat') || '';
             const name = opt.text.split(' (موجودی:')[0].trim();
             
@@ -471,10 +496,12 @@
             const origInput = row.querySelector('.item-orig-price');
             const finalInput = row.querySelector('.item-price');
             const pctInput = row.querySelector('.item-discount-pct');
+            const buyInput = row.querySelector('.item-buy-price');
             
             if (origInput) origInput.value = price > 0 ? price.toLocaleString('en-US') : '';
             if (finalInput) finalInput.value = price > 0 ? price.toLocaleString('en-US') : '';
             if (pctInput) pctInput.value = '';
+            if (buyInput && buyPrice > 0) buyInput.value = buyPrice.toLocaleString('en-US');
             
             onPriceOrDiscountChange(origInput || finalInput, 'orig');
         }
@@ -497,6 +524,7 @@
                         const opt = document.createElement('option');
                         opt.value = p.name;
                         opt.setAttribute('data-price', p.sell_price || 0);
+                        opt.setAttribute('data-buy-price', p.buy_price || 0);
                         opt.setAttribute('data-category', p.category || '');
                         opt.textContent = `${p.category || 'کالا'} | ${Number(p.sell_price || 0).toLocaleString('en-US')} ت`;
                         datalist.appendChild(opt);
@@ -516,7 +544,7 @@
             for (let opt of options) {
                 if (opt.value === val) {
                     matched = true;
-                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'));
+                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'), opt.getAttribute('data-buy-price'));
                     break;
                 }
             }
@@ -526,24 +554,27 @@
                 .then(r => r.json())
                 .then(items => {
                     if (items && items.length > 0 && items[0].name === val) {
-                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category);
+                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category, items[0].buy_price);
                     }
                 })
                 .catch(() => {});
         }
     }
 
-    function applyCatalogOptionToRow(inputElem, priceVal, cat) {
+    function applyCatalogOptionToRow(inputElem, priceVal, cat, buyPriceVal) {
         const row = inputElem.closest('.invoice-item-row');
         if (!row) return;
         const price = parseNumeric(priceVal || 0);
+        const buyPrice = parseNumeric(buyPriceVal || 0);
         const origInput = row.querySelector('.item-orig-price');
         const finalInput = row.querySelector('.item-price');
         const pctInput = row.querySelector('.item-discount-pct');
+        const buyInput = row.querySelector('.item-buy-price');
         
         if (origInput && price > 0) origInput.value = price.toLocaleString('en-US');
         if (finalInput && price > 0) finalInput.value = price.toLocaleString('en-US');
         if (pctInput) pctInput.value = '';
+        if (buyInput && buyPrice > 0) buyInput.value = buyPrice.toLocaleString('en-US');
         if (cat) {
             const catInp = row.querySelector('.item-cat');
             if (catInp) catInp.value = cat;
@@ -558,6 +589,8 @@
         const origInput = row.querySelector('.item-orig-price');
         const pctInput = row.querySelector('.item-discount-pct');
         const finalInput = row.querySelector('.item-price');
+        const buyInput = row.querySelector('.item-buy-price');
+        const profitDisplay = row.querySelector('.item-profit-display');
         const qtyInput = row.querySelector('.item-qty');
         const discountBadge = row.querySelector('.item-discount-badge');
         const rowTotalDisplay = row.querySelector('.item-row-total-display');
@@ -629,6 +662,23 @@
             }
         }
 
+        // محاسبه و نمایش سود تخمینی ردیف
+        let buyVal = buyInput ? parseNumeric(buyInput.value) : 0;
+        if (buyVal <= 0 && effectivePrice > 0) {
+            buyVal = Math.round(effectivePrice * 0.75);
+        }
+        const unitProfit = effectivePrice - buyVal;
+        const totalRowProfit = unitProfit * qty;
+        if (profitDisplay) {
+            if (totalRowProfit >= 0) {
+                profitDisplay.innerText = '+' + totalRowProfit.toLocaleString('en-US') + ' ت';
+                profitDisplay.className = 'item-profit-display text-xs font-black text-emerald-700 font-mono';
+            } else {
+                profitDisplay.innerText = '-' + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
+                profitDisplay.className = 'item-profit-display text-xs font-black text-rose-600 font-mono';
+            }
+        }
+
         calcTotal();
     }
 
@@ -645,6 +695,11 @@
         if (badge) {
             badge.classList.add('hidden');
             badge.innerText = '';
+        }
+        const profitDisp = clone.querySelector('.item-profit-display');
+        if (profitDisp) {
+            profitDisp.innerText = '۰ ت';
+            profitDisp.className = 'item-profit-display text-xs font-black text-emerald-700 font-mono';
         }
         const rowTot = clone.querySelector('.item-row-total-display');
         if (rowTot) rowTot.innerText = '۰ ت';

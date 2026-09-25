@@ -235,7 +235,7 @@
                                 <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-slate-100 focus:ring-2 focus:ring-indigo-500">
                                     <option value="">-- انتخاب از انبار شعبه --</option>
                                     {% for item in inventory_items %}
-                                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
+                                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
                                         {{ item.name }} (موجودی: {{ item.stock_quantity }})
                                     </option>
                                     {% endfor %}
@@ -263,8 +263,8 @@
                             </div>
                         </div>
 
-                        <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت فروش نهایی -->
-                        <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60 space-y-2">
+                        <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت فروش نهایی و بهای خرید ما -->
+                        <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60 space-y-2.5">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
                                     <label class="block text-[10px] font-bold text-slate-300 mb-0.5">قیمت مصوب واحد (تومان):</label>
@@ -282,6 +282,18 @@
                             <div>
                                 <label class="block text-[10px] font-bold text-emerald-400 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
                                 <input type="text" name="item_price[]" placeholder="مثال: ۱,۵۰۰,۰۰۰" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400/60 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono" dir="ltr" title="قیمت فروش به مشتری">
+                            </div>
+
+                            <!-- بهای خرید ما (تومان) جهت تعیین سود واقعی اقلام کاتالوگ و اجناس متفرقه -->
+                            <div class="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20">
+                                <div class="flex-1">
+                                    <label class="block text-[10px] font-bold text-indigo-300 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-400 font-normal">(برای اقلام خارج از لیست/انبار الزامی)</span>:</label>
+                                    <input type="text" name="item_buy_price[]" placeholder="قیمت خرید خودمون..." onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" oninput="onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-slate-900 border border-indigo-400/40 rounded-xl text-xs font-bold text-indigo-200 text-left font-mono" dir="ltr" title="قیمت خرید این کالا برای فروشگاه">
+                                </div>
+                                <div class="sm:w-44 flex flex-col justify-center items-center bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 text-center">
+                                    <span class="text-[9px] text-slate-400 font-medium">سود تخمینی ردیف:</span>
+                                    <span class="item-profit-display text-xs font-black text-emerald-400 font-mono">۰ ت</span>
+                                </div>
                             </div>
                         </div>
 
@@ -305,7 +317,7 @@
 
                 <datalist id="catalogDatalist">
                     {% for p in catalog_products %}
-                    <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                    <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
                     {% endfor %}
                 </datalist>
 
@@ -500,11 +512,29 @@
 
     <!-- جدول کلیه اسناد ماه -->
     <div class="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
-        <h3 class="text-md font-bold text-slate-200 mb-4 border-b pb-3 flex items-center justify-between">
-            <span>📑 کلیه اسناد شما در {{ current_month_name }}</span>
-            <span class="text-xs text-slate-400 font-bold">فاکتورهای قطعی، پیش‌فاکتورها و مرجوعی‌ها</span>
-        </h3>
-        <table class="table-glass w-full text-right border-collapse text-xs">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b pb-3">
+            <div>
+                <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
+                    <span>📑 کلیه اسناد شما در {{ current_month_name }}</span>
+                </h3>
+                <span class="text-xs text-slate-400 font-bold">فاکتورهای قطعی، پیش‌فاکتورها و مرجوعی‌ها</span>
+            </div>
+            
+            <!-- تب‌های فیلتر سریع برای فروشنده -->
+            <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs">
+                <button type="button" onclick="filterSellerInvoices('all', this)" class="seller-tab-btn active px-3 py-1.5 rounded-xl font-bold transition bg-indigo-600 text-white shadow-sm">
+                    همه اسناد ({{ invoices|length }})
+                </button>
+                <button type="button" onclick="filterSellerInvoices('custom', this)" class="seller-tab-btn px-3 py-1.5 rounded-xl font-bold transition text-amber-700 hover:bg-amber-100">
+                    ✨ اقلام سفارشی ({{ custom_invoices|length }})
+                </button>
+                <button type="button" onclick="filterSellerInvoices('pending', this)" class="seller-tab-btn px-3 py-1.5 rounded-xl font-bold transition text-rose-700 hover:bg-rose-100">
+                    ⏳ دارای مانده ({{ pending_invoices|length }})
+                </button>
+            </div>
+        </div>
+
+        <table id="sellerInvoicesTable" class="table-glass w-full text-right border-collapse text-xs">
             <thead>
                 <tr>
                     <th class="p-3 border-b">شماره</th>
@@ -519,8 +549,15 @@
             </thead>
             <tbody>
                 {% for inv in invoices %}
-                <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                    <td class="p-3 font-bold text-slate-900">{{ inv.invoice_number }}</td>
+                <tr class="border-b border-white/5 hover:bg-white/5 transition seller-inv-row" data-is-custom="{{ '1' if inv.has_custom_items else '0' }}" data-is-pending="{{ '1' if (not inv.is_settled or (inv.remaining_balance and inv.remaining_balance > 0)) else '0' }}">
+                    <td class="p-3 font-bold text-slate-900">
+                        <div class="flex items-center gap-1 flex-wrap">
+                            <span>{{ inv.invoice_number }}</span>
+                            {% if inv.has_custom_items %}
+                            <span class="bg-amber-500/20 text-amber-700 border border-amber-500/40 px-1.5 py-0.5 rounded text-[9px] font-black" title="دارای اقلام سفارشی خارج از کاتالوگ">✨ سفارشی</span>
+                            {% endif %}
+                        </div>
+                    </td>
                     <td class="p-3">
                         {% if inv.status == 'proforma' %}
                             <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-lg font-bold text-[10px]">پیش‌فاکتور</span>
@@ -673,6 +710,84 @@
     </div>
 </div>
 
+<!-- بخش تفکیک‌شده و اختصاصی فاکتورهای دارای اقلام سفارشی (خارج از کاتالوگ و انبار) -->
+{% if custom_invoices %}
+<div class="mt-8 bg-gradient-to-br from-amber-950/40 to-slate-900/90 border-2 border-amber-500/40 rounded-3xl shadow-xl overflow-hidden backdrop-blur-md">
+    <div class="p-5 border-b border-amber-500/30 flex items-center justify-between flex-wrap gap-3 bg-amber-500/10">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">✨</span>
+            <div>
+                <h3 class="text-base font-black text-amber-300">فاکتورهای دارای اقلام سفارشی (خارج از کاتالوگ و انبار)</h3>
+                <p class="text-xs text-amber-200/80 mt-0.5">در این فاکتورها، بهای خرید واقعی توسط شما ثبت شده تا سود خالص واقعی دقیقاً تفکیک و محاسبه شود.</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="text-left bg-amber-900/60 border border-amber-500/40 px-3.5 py-1.5 rounded-2xl">
+                <span class="text-[10px] text-amber-300 block">جمع سود واقعی این فاکتورها:</span>
+                <span class="text-base font-black text-emerald-400 font-mono">{{ "{:,}".format(custom_invoices | sum(attribute='real_profit')) }} تومان</span>
+            </div>
+            <span class="bg-amber-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full shadow">{{ custom_invoices|length }} فاکتور</span>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto p-2">
+        <table class="table-glass w-full text-right text-xs">
+            <thead>
+                <tr class="bg-amber-900/30 text-amber-200 font-bold border-b border-amber-500/30">
+                    <th class="p-3">شماره فاکتور</th>
+                    <th class="p-3">خریدار</th>
+                    <th class="p-3">اقلام سفارشی ثبت‌شده</th>
+                    <th class="p-3">مبلغ کل فاکتور</th>
+                    <th class="p-3">بهای تمام‌شده خرید</th>
+                    <th class="p-3 text-emerald-400">سود واقعی فاکتور</th>
+                    <th class="p-3">وضعیت تسویه</th>
+                    <th class="p-3 text-center">عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cinv in custom_invoices %}
+                <tr class="border-b border-amber-500/10 hover:bg-amber-500/10 transition">
+                    <td class="p-3 font-bold text-white font-mono">{{ cinv.invoice_number }}</td>
+                    <td class="p-3 text-slate-200 font-medium">
+                        {{ cinv.customer_name }}
+                        {% if cinv.customer_phone %}<span class="text-[10px] text-slate-400 block font-mono">{{ cinv.customer_phone }}</span>{% endif %}
+                    </td>
+                    <td class="p-3">
+                        <div class="space-y-1">
+                            {% for item in cinv.items %}
+                                {% if item.is_custom %}
+                                <div class="bg-amber-500/20 border border-amber-500/40 px-2 py-1 rounded-lg text-[11px] text-amber-200 flex items-center justify-between gap-2">
+                                    <span class="font-bold">✨ {{ item.item_name }} ({{ item.quantity }} عدد)</span>
+                                    <span class="text-[10px] text-slate-300 font-mono">خرید: {{ "{:,}".format(item.unit_buy_price) }} ت | فروش: {{ "{:,}".format(item.total_price) }} ت</span>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td class="p-3 font-bold text-slate-200 font-mono">{{ "{:,}".format(cinv.total_amount) }}</td>
+                    <td class="p-3 text-slate-300 font-mono">{{ "{:,}".format(cinv.actual_buy_cost or 0) }} ت</td>
+                    <td class="p-3 font-black text-emerald-400 text-sm font-mono">+{{ "{:,}".format(cinv.real_profit or 0) }} ت</td>
+                    <td class="p-3">
+                        {% if cinv.is_settled and (not cinv.remaining_balance or cinv.remaining_balance == 0) %}
+                            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-lg text-[10px] font-bold">✅ تسویه کامل</span>
+                        {% else %}
+                            <span class="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-lg text-[10px] font-bold">⏳ مانده: {{ "{:,}".format(cinv.remaining_balance or 0) }} ت</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-3 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <a href="{{ url_for('edit_invoice', invoice_id=cinv.id) }}" class="text-blue-400 hover:text-blue-300 font-bold text-[11px] bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-xl transition">✏️ ویرایش</a>
+                            <a href="{{ url_for('print_invoice_a4', invoice_id=cinv.id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-bold text-[11px] bg-indigo-500/10 px-2.5 py-1 rounded-xl border border-indigo-500/30">🖨️ چاپ</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- مودال تسویه مانده فاکتور -->
 <div id="settleModal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
     <div class="bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden text-white">
@@ -729,6 +844,32 @@
 </div>
 
 <script>
+function filterSellerInvoices(filterType, btn) {
+    document.querySelectorAll('.seller-tab-btn').forEach(b => {
+        b.className = 'seller-tab-btn px-3 py-1.5 rounded-xl font-bold transition text-slate-600 hover:text-slate-900';
+    });
+    if (filterType === 'all') {
+        btn.className = 'seller-tab-btn active px-3 py-1.5 rounded-xl font-bold transition bg-indigo-600 text-white shadow-sm';
+    } else if (filterType === 'custom') {
+        btn.className = 'seller-tab-btn active px-3 py-1.5 rounded-xl font-bold transition bg-amber-600 text-white shadow-sm';
+    } else if (filterType === 'pending') {
+        btn.className = 'seller-tab-btn active px-3 py-1.5 rounded-xl font-bold transition bg-rose-600 text-white shadow-sm';
+    }
+
+    const rows = document.querySelectorAll('#sellerInvoicesTable tbody tr.seller-inv-row');
+    rows.forEach(tr => {
+        const isCustom = tr.getAttribute('data-is-custom') === '1';
+        const isPending = tr.getAttribute('data-is-pending') === '1';
+        if (filterType === 'all') {
+            tr.style.display = '';
+        } else if (filterType === 'custom') {
+            tr.style.display = isCustom ? '' : 'none';
+        } else if (filterType === 'pending') {
+            tr.style.display = isPending ? '' : 'none';
+        }
+    });
+}
+
 function setSettleMethod(method) {
     const input = document.getElementById('selectedSettleMethod');
     if (input) input.value = method;
@@ -846,6 +987,13 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         newRow.querySelector('.item-orig-price').value = '';
         newRow.querySelector('.item-discount-pct').value = '';
         newRow.querySelector('.item-price').value = '';
+        const buyInp = newRow.querySelector('.item-buy-price');
+        if (buyInp) buyInp.value = '';
+        const profitDisp = newRow.querySelector('.item-profit-display');
+        if (profitDisp) {
+            profitDisp.innerText = '۰ ت';
+            profitDisp.className = 'item-profit-display text-xs font-black text-emerald-400 font-mono';
+        }
         newRow.querySelector('.item-row-total-display').innerText = '۰ ت';
         const badge = newRow.querySelector('.item-discount-badge');
         if (badge) badge.classList.add('hidden');
@@ -876,16 +1024,21 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const selectedOpt = selectElem.options[selectElem.selectedIndex];
         if (selectedOpt && selectedOpt.value) {
             const price = selectedOpt.getAttribute('data-price');
+            const buyPrice = selectedOpt.getAttribute('data-buy-price');
             const name = selectedOpt.getAttribute('data-name');
             const cat = selectedOpt.getAttribute('data-category');
             
             const origInput = row.querySelector('.item-orig-price');
             const finalInput = row.querySelector('.item-price');
             const pctInput = row.querySelector('.item-discount-pct');
+            const buyInput = row.querySelector('.item-buy-price');
             
             if (origInput) origInput.value = price ? Number(price).toLocaleString('en-US') : '';
             if (finalInput) finalInput.value = price ? Number(price).toLocaleString('en-US') : '';
             if (pctInput) pctInput.value = '';
+            if (buyInput && buyPrice && Number(buyPrice) > 0) {
+                buyInput.value = Number(buyPrice).toLocaleString('en-US');
+            }
             row.querySelector('.item-name').value = name;
             row.querySelector('.item-cat').value = cat || 'عمومی';
             
@@ -910,6 +1063,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                         const opt = document.createElement('option');
                         opt.value = p.name;
                         opt.setAttribute('data-price', p.sell_price || 0);
+                        opt.setAttribute('data-buy-price', p.buy_price || 0);
                         opt.setAttribute('data-category', p.category || '');
                         opt.textContent = `${p.category || 'کالا'} | ${Number(p.sell_price || 0).toLocaleString('en-US')} ت`;
                         datalist.appendChild(opt);
@@ -929,7 +1083,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             for (let opt of options) {
                 if (opt.value === val) {
                     matched = true;
-                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'));
+                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'), opt.getAttribute('data-buy-price'));
                     break;
                 }
             }
@@ -939,24 +1093,28 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 .then(r => r.json())
                 .then(items => {
                     if (items && items.length > 0 && items[0].name === val) {
-                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category);
+                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category, items[0].buy_price);
                     }
                 })
                 .catch(() => {});
         }
     }
 
-    function applyCatalogOptionToRow(inputElem, price, cat) {
+    function applyCatalogOptionToRow(inputElem, price, cat, buyPrice) {
         const row = inputElem.closest('.item-row') || inputElem.closest('.invoice-item-row');
         if (!row) return;
         const origInput = row.querySelector('.item-orig-price');
         const finalInput = row.querySelector('.item-price');
         const pctInput = row.querySelector('.item-discount-pct');
+        const buyInput = row.querySelector('.item-buy-price');
         
         if (price && Number(price) > 0) {
             if (origInput) origInput.value = Number(price).toLocaleString('en-US');
             if (finalInput) finalInput.value = Number(price).toLocaleString('en-US');
             if (pctInput) pctInput.value = '';
+        }
+        if (buyInput && buyPrice && Number(buyPrice) > 0) {
+            buyInput.value = Number(buyPrice).toLocaleString('en-US');
         }
         if (cat) {
             const catInp = row.querySelector('.item-cat');
@@ -983,6 +1141,8 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const origInput = row.querySelector('.item-orig-price');
         const pctInput = row.querySelector('.item-discount-pct');
         const finalInput = row.querySelector('.item-price');
+        const buyInput = row.querySelector('.item-buy-price');
+        const profitDisplay = row.querySelector('.item-profit-display');
         const discountBadge = row.querySelector('.item-discount-badge');
         const rowTotalDisplay = row.querySelector('.item-row-total-display');
         const qtyInput = row.querySelector('.item-qty');
@@ -1051,6 +1211,23 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 discountBadge.innerText = `🏷️ ${totalRowDiscount.toLocaleString('en-US')} ت تخفیف (${pctVal || Math.round((totalRowDiscount / (origVal * qty)) * 100)}٪)`;
             } else {
                 discountBadge.classList.add('hidden');
+            }
+        }
+
+        // محاسبه و نمایش سود تخمینی ردیف
+        let buyVal = buyInput ? parseNumeric(buyInput.value) : 0;
+        if (buyVal <= 0 && effectivePrice > 0) {
+            buyVal = Math.round(effectivePrice * 0.75);
+        }
+        const unitProfit = effectivePrice - buyVal;
+        const totalRowProfit = unitProfit * qty;
+        if (profitDisplay) {
+            if (totalRowProfit >= 0) {
+                profitDisplay.innerText = '+' + totalRowProfit.toLocaleString('en-US') + ' ت';
+                profitDisplay.className = 'item-profit-display text-xs font-black text-emerald-400 font-mono';
+            } else {
+                profitDisplay.innerText = '-' + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
+                profitDisplay.className = 'item-profit-display text-xs font-black text-rose-400 font-mono';
             }
         }
 

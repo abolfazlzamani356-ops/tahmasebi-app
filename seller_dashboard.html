@@ -268,12 +268,12 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
                                     <label class="block text-[10px] font-bold text-slate-300 mb-0.5">قیمت مصوب واحد (تومان):</label>
-                                    <input type="text" name="item_original_price[]" placeholder="مثال: ۱,۶۶۰,۰۰۰" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-300 text-left font-mono" dir="ltr" title="قیمت رسمی قبل از تخفیف">
+                                    <input type="text" name="item_original_price[]" placeholder="مثال: ۱,۶۶۰,۰۰۰" oninput="onPriceOrDiscountChange(this, 'orig')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-300 text-left font-mono" dir="ltr" title="قیمت رسمی قبل از تخفیف">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-bold text-amber-300 mb-0.5">درصد تخفیف (٪):</label>
                                     <div class="relative flex items-center">
-                                        <input type="text" name="item_discount_percent[]" placeholder="مثال: ۱۰" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-400/50 bg-amber-500/10 rounded-xl text-xs font-black text-amber-300 text-center font-mono" dir="ltr">
+                                        <input type="text" name="item_discount_percent[]" placeholder="مثال: ۱۰" oninput="onPriceOrDiscountChange(this, 'percent')" onchange="onPriceOrDiscountChange(this, 'percent')" onblur="onPriceOrDiscountChange(this, 'percent')" onkeyup="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-400/50 bg-amber-500/10 rounded-xl text-xs font-black text-amber-300 text-center font-mono" dir="ltr">
                                         <span class="absolute left-2 text-xs text-amber-400 font-bold pointer-events-none">٪</span>
                                     </div>
                                 </div>
@@ -281,14 +281,14 @@
 
                             <div>
                                 <label class="block text-[10px] font-bold text-emerald-400 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
-                                <input type="text" name="item_price[]" placeholder="مثال: ۱,۵۰۰,۰۰۰" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400/60 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono" dir="ltr" title="قیمت فروش به مشتری">
+                                <input type="text" name="item_price[]" placeholder="مثال: ۱,۵۰۰,۰۰۰" oninput="onPriceOrDiscountChange(this, 'final')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400/60 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono" dir="ltr" title="قیمت فروش به مشتری">
                             </div>
 
                             <!-- بهای خرید ما (تومان) جهت تعیین سود واقعی اقلام کاتالوگ و اجناس متفرقه -->
                             <div class="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20">
                                 <div class="flex-1">
                                     <label class="block text-[10px] font-bold text-indigo-300 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-400 font-normal">(برای اقلام خارج از لیست/انبار الزامی)</span>:</label>
-                                    <input type="text" name="item_buy_price[]" placeholder="قیمت خرید خودمون..." onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" oninput="onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-slate-900 border border-indigo-400/40 rounded-xl text-xs font-bold text-indigo-200 text-left font-mono" dir="ltr" title="قیمت خرید این کالا برای فروشگاه">
+                                    <input type="text" name="item_buy_price[]" placeholder="قیمت خرید خودمون..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-slate-900 border border-indigo-400/40 rounded-xl text-xs font-bold text-indigo-200 text-left font-mono" dir="ltr" title="قیمت خرید این کالا برای فروشگاه">
                                 </div>
                                 <div class="sm:w-44 flex flex-col justify-center items-center bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 text-center">
                                     <span class="text-[9px] text-slate-400 font-medium">سود تخمینی ردیف:</span>
@@ -350,14 +350,14 @@
                     <!-- کارتخوان POS -->
                     <div class="bg-white p-2 rounded-xl border flex items-center gap-2">
                         <span class="w-28 text-[11px] font-bold text-slate-700">🛒 کارتخوان (POS):</span>
-                        <input type="text" name="paid_pos" id="paidPosInput" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پوز مغازه" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
+                        <input type="text" name="paid_pos" id="paidPosInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پوز مغازه" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
                     </div>
 
                     <!-- کارت به کارت و شماره شبا (پایا / ساتنا) -->
                     <div class="bg-white p-3 rounded-xl border space-y-2">
                         <div class="flex items-center gap-2">
                             <span class="w-28 text-[11px] font-bold text-blue-900">💳 کارت / شبا:</span>
-                            <input type="text" name="paid_card" id="paidCardInput" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی کارت/شبا" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-blue-700 text-left" dir="ltr">
+                            <input type="text" name="paid_card" id="paidCardInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی کارت/شبا" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-blue-700 text-left" dir="ltr">
                         </div>
                         
                         <!-- انتخاب سریع کارت مقصد از لیست حساب‌ها -->
@@ -398,7 +398,7 @@
                     <!-- نقدی -->
                     <div class="bg-white p-2 rounded-xl border flex items-center gap-2">
                         <span class="w-28 text-[11px] font-bold text-slate-700">💵 پرداخت نقدی:</span>
-                        <input type="text" name="paid_cash" id="paidCashInput" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پول نقد" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
+                        <input type="text" name="paid_cash" id="paidCashInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پول نقد" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
                     </div>
 
                     <!-- چک‌های صیادی چندگانه -->
@@ -484,7 +484,7 @@
             <!-- مبلغ کل فاکتور -->
             <div class="mb-3">
                 <label class="block text-xs font-bold text-slate-600 mb-1">مبلغ نهایی فاکتور (تومان):</label>
-                <input type="text" name="total_amount" id="totalAmountInput" required onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مثال: 25,000,000" class="currency-input w-full p-3 border border-slate-300 rounded-2xl text-sm font-black text-emerald-700 bg-emerald-50/50 text-left" dir="ltr">
+                <input type="text" name="total_amount" id="totalAmountInput" required oninput="onManualTotalInput(this)" onchange="onManualTotalInput(this)" onblur="formatNumber(this); onManualTotalInput(this)" onkeyup="onManualTotalInput(this)" placeholder="مثال: 25,000,000" class="currency-input w-full p-3 border border-slate-300 rounded-2xl text-sm font-black text-emerald-700 bg-emerald-50/50 text-left" dir="ltr">
             </div>
 
             <div class="mb-3">
@@ -1202,45 +1202,49 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const qty = Math.max(1, parseNumeric(qtyInput.value) || 1);
 
         if (trigger === 'orig') {
-            if (origVal > 0 && (finalVal <= 0 || !finalInput.value)) {
-                finalInput.value = origVal.toLocaleString('en-US');
-                finalVal = origVal;
-                pctInput.value = '';
-            } else if (origVal > 0 && pctVal > 0) {
+            if (origVal > 0 && pctVal > 0 && pctVal <= 100) {
                 finalVal = Math.round(origVal * (1 - (pctVal / 100)));
                 finalInput.value = finalVal.toLocaleString('en-US');
-            } else if (origVal > 0 && finalVal > 0) {
-                if (origVal > finalVal) {
-                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
-                    pctInput.value = pctVal;
-                } else {
-                    pctInput.value = '';
-                }
+            } else {
+                finalVal = origVal;
+                finalInput.value = origVal > 0 ? origVal.toLocaleString('en-US') : '';
+                pctInput.value = '';
+                pctVal = 0;
             }
         } else if (trigger === 'percent') {
             if (origVal > 0) {
                 if (pctVal > 0 && pctVal <= 100) {
                     finalVal = Math.round(origVal * (1 - (pctVal / 100)));
                     finalInput.value = finalVal > 0 ? finalVal.toLocaleString('en-US') : '0';
-                } else if (pctVal === 0) {
+                } else {
                     finalInput.value = origVal.toLocaleString('en-US');
                     finalVal = origVal;
+                    pctVal = 0;
                 }
             } else if (finalVal > 0 && pctVal > 0 && pctVal < 100) {
                 origVal = Math.round(finalVal / (1 - (pctVal / 100)));
                 origInput.value = origVal.toLocaleString('en-US');
             }
         } else if (trigger === 'final') {
-            if (origVal <= 0 && finalVal > 0) {
-                origInput.value = finalVal.toLocaleString('en-US');
-                origVal = finalVal;
-                pctInput.value = '';
-            } else if (origVal > 0 && finalVal > 0) {
-                if (origVal > finalVal) {
-                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
-                    pctInput.value = pctVal;
+            if (pctVal > 0 && origVal > finalVal && finalVal > 0) {
+                pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                pctInput.value = pctVal;
+            } else {
+                if (finalVal > 0) {
+                    if (origVal <= 0 || !pctVal || pctVal <= 0 || origVal < finalVal) {
+                        origInput.value = finalVal.toLocaleString('en-US');
+                        origVal = finalVal;
+                        pctInput.value = '';
+                        pctVal = 0;
+                    } else if (origVal > finalVal) {
+                        pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                        pctInput.value = pctVal;
+                    }
                 } else {
-                    pctInput.value = '';
+                    if (origVal <= 0) {
+                        origInput.value = '';
+                        pctInput.value = '';
+                    }
                 }
             }
         }
@@ -1283,6 +1287,48 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         calcTotal();
     }
 
+    function onManualTotalInput(input) {
+        if (!input) return;
+        const val = parseNumeric(input.value);
+        const totalDisplay = document.getElementById('calculatedTotalDisplay');
+        const subtotalElem = document.getElementById('subtotalDisplay');
+
+        if (totalDisplay) {
+            totalDisplay.innerText = val > 0 ? (val.toLocaleString('en-US') + ' تومان') : '۰ تومان';
+        }
+
+        const rows = document.querySelectorAll('.item-row');
+        if (rows.length === 1 && val > 0) {
+            const singleRow = rows[0];
+            const pInput = singleRow.querySelector('.item-price');
+            const origInput = singleRow.querySelector('.item-orig-price');
+            const qtyInput = singleRow.querySelector('.item-qty');
+            const qty = Math.max(1, parseNumeric(qtyInput?.value) || 1);
+            const unitPrice = Math.round(val / qty);
+            const rowTotDisp = singleRow.querySelector('.item-row-total-display');
+
+            if (pInput) pInput.value = unitPrice.toLocaleString('en-US');
+            if (origInput && (!origInput.value || parseNumeric(origInput.value) <= 0 || parseNumeric(origInput.value) < unitPrice)) {
+                origInput.value = unitPrice.toLocaleString('en-US');
+            }
+            if (rowTotDisp) rowTotDisp.innerText = val.toLocaleString('en-US') + ' ت';
+        }
+
+        let itemsNetSum = 0;
+        rows.forEach(r => {
+            const p = parseNumeric(r.querySelector('.item-price')?.value) || parseNumeric(r.querySelector('.item-orig-price')?.value);
+            const q = Math.max(1, parseNumeric(r.querySelector('.item-qty')?.value) || 1);
+            itemsNetSum += (p * q);
+        });
+
+        if (subtotalElem) {
+            const displaySum = itemsNetSum > 0 ? itemsNetSum : val;
+            subtotalElem.innerText = displaySum > 0 ? (displaySum.toLocaleString('en-US') + ' تومان') : '۰ تومان';
+        }
+
+        calcPaymentBalances();
+    }
+
     function calcTotal() {
         let grossSum = 0;
         let netSum = 0;
@@ -1312,24 +1358,38 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const totalDisplay = document.getElementById('calculatedTotalDisplay');
         const totalAmountInp = document.getElementById('totalAmountInput');
 
-        if (subtotalElem) subtotalElem.innerText = grossSum.toLocaleString('en-US') + ' تومان';
-        
-        if (discountRow && discountElem) {
-            if (totalDiscount > 0) {
-                discountRow.classList.remove('hidden');
-                const totalDiscPct = grossSum > 0 ? (Math.round((totalDiscount / grossSum) * 1000) / 10) : 0;
-                discountElem.innerText = `${totalDiscount.toLocaleString('en-US')} تومان (${totalDiscPct}٪)`;
-            } else {
-                discountRow.classList.add('hidden');
+        if (netSum > 0) {
+            if (subtotalElem) subtotalElem.innerText = grossSum.toLocaleString('en-US') + ' تومان';
+            
+            if (discountRow && discountElem) {
+                if (totalDiscount > 0) {
+                    discountRow.classList.remove('hidden');
+                    const totalDiscPct = grossSum > 0 ? (Math.round((totalDiscount / grossSum) * 1000) / 10) : 0;
+                    discountElem.innerText = `${totalDiscount.toLocaleString('en-US')} تومان (${totalDiscPct}٪)`;
+                } else {
+                    discountRow.classList.add('hidden');
+                }
             }
-        }
 
-        if (totalDisplay) {
-            totalDisplay.innerText = netSum.toLocaleString('en-US') + ' تومان';
-        }
+            if (totalDisplay) {
+                totalDisplay.innerText = netSum.toLocaleString('en-US') + ' تومان';
+            }
 
-        if (totalAmountInp) {
-            totalAmountInp.value = netSum > 0 ? netSum.toLocaleString('en-US') : '';
+            if (totalAmountInp) {
+                totalAmountInp.value = netSum.toLocaleString('en-US');
+            }
+        } else {
+            const manualVal = parseNumeric(totalAmountInp?.value);
+            if (manualVal > 0) {
+                if (totalDisplay) totalDisplay.innerText = manualVal.toLocaleString('en-US') + ' تومان';
+                if (subtotalElem) subtotalElem.innerText = manualVal.toLocaleString('en-US') + ' تومان';
+                if (discountRow) discountRow.classList.add('hidden');
+            } else {
+                if (totalDisplay) totalDisplay.innerText = '۰ تومان';
+                if (subtotalElem) subtotalElem.innerText = '۰ تومان';
+                if (discountRow) discountRow.classList.add('hidden');
+                if (totalAmountInp) totalAmountInp.value = '';
+            }
         }
 
         calcPaymentBalances();

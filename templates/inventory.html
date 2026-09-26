@@ -114,12 +114,30 @@
 
     <!-- جدول کاتالوگ مرجع قیمت خرید و فروش -->
     <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div class="p-4 bg-slate-900/80 border-b border-white/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <span class="text-base">📋</span>
-                <h3 class="text-sm font-black text-slate-800">لیست قیمت پایه محصولات مجموعه طهماسبی</h3>
+                <h3 class="text-sm font-black text-white">لیست قیمت پایه محصولات مجموعه طهماسبی</h3>
+                <span class="text-[11px] text-slate-400">({{ total_catalog_count }} قلم ثبت شده)</span>
             </div>
-            <span class="text-xs text-slate-500">قیمت‌های رسمی فروش و کاتالوگ محصولات</span>
+            <!-- Search Form for Catalog in Inventory Tab 1 -->
+            <form method="GET" action="{{ url_for('inventory_view') }}" class="flex items-center gap-2 flex-1 max-w-md">
+                <div class="relative flex-1">
+                    <input type="text" name="search" id="catalogTabSearchInput" value="{{ search or '' }}"
+                        placeholder="جستجوی نام کالا یا برند (مثلاً داتیس، آس، سینک...)"
+                        oninput="filterCatalogTable(this.value)"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-8">
+                    <span class="absolute right-2.5 top-2.5 text-xs text-slate-400 pointer-events-none">🔍</span>
+                </div>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-xs transition shadow flex items-center gap-1">
+                    <span>جستجو</span>
+                </button>
+                {% if search %}
+                <a href="{{ url_for('inventory_view') }}" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold px-2.5 py-2 rounded-xl text-xs transition">
+                    ✕ پاک‌کردن
+                </a>
+                {% endif %}
+            </form>
         </div>
 
         <div class="overflow-x-auto">
@@ -143,12 +161,12 @@
                         {% endif %}
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 font-medium">
+                <tbody id="catalogTableBody" class="divide-y divide-slate-100 font-medium">
                     {% if catalog_items %}
-                        {% for item in catalog_items[:60] %}
+                        {% for item in catalog_items %}
                         {% set s1 = inventory_map.get((item.name, 1), {'stock': 0, 'min_alert': 2}) %}
                         {% set s2 = inventory_map.get((item.name, 2), {'stock': 0, 'min_alert': 2}) %}
-                        <tr class="hover:bg-slate-50 transition">
+                        <tr class="catalog-item-row hover:bg-slate-50 transition" data-search-text="{{ item.name }} {{ item.category }} {{ item.brand or '' }} {{ item.code or '' }}">
                             <td class="p-4 font-mono text-slate-500">{{ item.code or '—' }}</td>
                             <td class="p-4 font-black text-slate-100 text-sm">{{ item.name }}</td>
                             <td class="p-4">
@@ -179,7 +197,18 @@
                             {% if can_manage_stock %}
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openCatalogEditModal({{ item.id }}, '{{ item.name|escape }}', '{{ item.category|escape }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}', {{ s1.stock }}, {{ s2.stock }})"
+                                    <button type="button"
+                                        data-id="{{ item.id }}"
+                                        data-name="{{ item.name }}"
+                                        data-category="{{ item.category }}"
+                                        data-brand="{{ item.brand or '' }}"
+                                        data-code="{{ item.code or '' }}"
+                                        data-buy-price="{{ item.buy_price if (is_admin or can_manage_stock) else 0 }}"
+                                        data-sell-price="{{ item.sell_price }}"
+                                        data-description="{{ item.description or '' }}"
+                                        data-stock1="{{ s1.stock }}"
+                                        data-stock2="{{ s2.stock }}"
+                                        onclick="openCatalogEditModalFromBtn(this)"
                                         class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-xl font-bold transition">
                                         ✏️ ویرایش و اصلاح
                                     </button>
@@ -1198,6 +1227,37 @@
         }
     }
 
+    function filterCatalogTable(term) {
+        term = (term || '').toString().toLowerCase().trim();
+        const rows = document.querySelectorAll('#catalogTableBody tr.catalog-item-row');
+        rows.forEach(r => {
+            if (!term) {
+                r.classList.remove('hidden');
+                return;
+            }
+            const text = (r.getAttribute('data-search-text') || r.innerText || '').toLowerCase();
+            if (text.includes(term)) {
+                r.classList.remove('hidden');
+            } else {
+                r.classList.add('hidden');
+            }
+        });
+    }
+
+    function openCatalogEditModalFromBtn(btn) {
+        const id = btn.getAttribute('data-id');
+        const name = btn.getAttribute('data-name');
+        const category = btn.getAttribute('data-category');
+        const brand = btn.getAttribute('data-brand') || '';
+        const code = btn.getAttribute('data-code') || '';
+        const buyPrice = btn.getAttribute('data-buy-price') || 0;
+        const sellPrice = btn.getAttribute('data-sell-price') || 0;
+        const desc = btn.getAttribute('data-description') || '';
+        const s1 = btn.getAttribute('data-stock1') || 0;
+        const s2 = btn.getAttribute('data-stock2') || 0;
+        openCatalogEditModal(id, name, category, brand, code, buyPrice, sellPrice, desc, s1, s2);
+    }
+
     function openCatalogEditModal(id, name, cat, brand, code, buy, sell, desc, stock_1, stock_2) {
         document.getElementById('catalogEditForm').action = '/admin/catalog/edit/' + id;
         document.getElementById('catEditName').value = name;
@@ -1352,24 +1412,36 @@
         if (elUnits && !isAdmin) elUnits.innerText = totalUnits.toLocaleString('fa-IR') + ' عدد';
     }
 
+    function jsNormalizePersian(str) {
+        if (!str) return '';
+        const map = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+                     '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+                     'ي':'ی', 'ك':'ک', 'ى':'ی', 'ة':'ه', 'ۀ':'ه', 'آ':'ا', 'أ':'ا', 'إ':'ا'};
+        let s = str.toString().toLowerCase();
+        s = s.replace(/[۰-۹٠-٩يكىةۀآأإ]/g, function(w) { return map[w] || w; });
+        s = s.replace(/[\u064b-\u065f\u0670\u200c\u200e\u200f\ufeff]/g, ' ');
+        return s.replace(/\s+/g, ' ').trim();
+    }
+
     function onStockFilterChange() {
         const queryEl = document.getElementById('catalogStockSearch');
         const brandEl = document.getElementById('catalogStockBrand');
         const statusEl = document.getElementById('catalogStockStatus');
 
-        const query = (queryEl ? queryEl.value : '').trim().toLowerCase();
+        const rawQuery = (queryEl ? queryEl.value : '').trim();
         const brand = (brandEl ? brandEl.value : '').trim();
         const status = statusEl ? statusEl.value : 'all';
 
-        filteredStockList = rawCatalogStockData.filter(item => {
-            if (brand && item.brand !== brand) return false;
+        const normQuery = jsNormalizePersian(rawQuery);
+        const queryTokens = normQuery ? normQuery.split(/\s+/).filter(Boolean) : [];
 
-            if (query) {
-                const matchName = item.name.toLowerCase().includes(query);
-                const matchCat = item.category.toLowerCase().includes(query);
-                const matchBrand = (item.brand || '').toLowerCase().includes(query);
-                const matchCode = (item.code || '').toLowerCase().includes(query);
-                if (!matchName && !matchCat && !matchBrand && !matchCode) return false;
+        let matchFn = function(item, ignoreBrand = false) {
+            if (!ignoreBrand && brand && item.brand !== brand) return false;
+
+            if (queryTokens.length > 0) {
+                const itemTarget = jsNormalizePersian(`${item.name} ${item.category} ${item.brand || ''} ${item.code || ''} ${item.barcode || ''}`);
+                const allTokensMatch = queryTokens.every(tok => itemTarget.includes(tok));
+                if (!allTokensMatch) return false;
             }
 
             const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
@@ -1383,7 +1455,20 @@
                 if (stock > 0) return false;
             }
             return true;
-        });
+        };
+
+        filteredStockList = rawCatalogStockData.filter(item => matchFn(item, false));
+
+        if (filteredStockList.length === 0 && brand && queryTokens.length > 0) {
+            const fallbackList = rawCatalogStockData.filter(item => matchFn(item, true));
+            if (fallbackList.length > 0) {
+                filteredStockList = fallbackList;
+                const infoEl = document.getElementById('stockPaginationInfo');
+                if (infoEl) {
+                    infoEl.innerHTML = `<span class="text-amber-600 font-bold">⚠️ در برند «${brand}» موردی یافت نشد؛ نتایج در کل کاتالوگ (${fallbackList.length} کالا):</span>`;
+                }
+            }
+        }
 
         currentStockPage = 1;
         renderStockTable();

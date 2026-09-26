@@ -272,6 +272,10 @@ class TahmasebiBoostInnovationsAndBugfixesTest(unittest.TestCase):
 
     def test_stock_transfer_approve_reject(self):
         """تست تایید و رد درخواست جابجایی کالا بین دو شعبه"""
+        InventoryItem.query.filter_by(name="کالای تست انتقال").delete()
+        StockTransfer.query.filter_by(item_name="کالای تست انتقال").delete()
+        db.session.commit()
+
         item1 = InventoryItem(name="کالای تست انتقال", category="شیرآلات", shop_id=1, stock_quantity=8, min_alert_stock=2, buy_price=5000, sell_price=10000)
         item2 = InventoryItem(name="کالای تست انتقال", category="شیرآلات", shop_id=2, stock_quantity=2, min_alert_stock=2, buy_price=5000, sell_price=10000)
         db.session.add_all([item1, item2])

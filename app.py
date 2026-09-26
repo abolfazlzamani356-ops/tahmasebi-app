@@ -28,7 +28,7 @@ from helpers import (
     calculate_seller_exact_stats, get_or_create_customer,
     parse_smart_invoice_text, get_inventory_ai_insights,
     safe_int, safe_float, normalize_persian_text, calculate_store_financial_summary,
-    send_invoice_sms
+    send_invoice_sms, build_catalog_search_filter, get_persian_word_variants
 )
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -1040,6 +1040,7 @@ def add_invoice():
         items_gross_sum = 0
         items_discount_sum = 0
         has_any_custom = False
+        created_invoice_items = []
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
@@ -1143,6 +1144,7 @@ def add_invoice():
                 is_custom=is_custom_row
             )
             db.session.add(inv_row)
+            created_invoice_items.append(inv_row)
             
             # کسر از انبار برای فاکتور قطعی (اتمیک همراه با کل فاکتور)
             if status == 'final' and inv_item:
@@ -1151,9 +1153,43 @@ def add_invoice():
                 elif inv_type == 'return':
                     record_stock_change(inv_item.id, shop_id, 'return', qty, new_inv.invoice_number, session.get('full_name'), f"مرجوعی فاکتور {new_inv.invoice_number}", commit=False)
 
-        # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
-        new_inv.subtotal_amount = items_gross_sum if items_gross_sum > 0 else items_total_sum
-        new_inv.discount_amount = items_discount_sum
+        # اگر اقلام بدون قیمت بودند اما مبلغ کل فاکتور دستی وارد شده است
+        if new_inv.total_amount > 0 and items_total_sum <= 0:
+            if created_invoice_items:
+                num_items = len(created_invoice_items)
+                per_item = new_inv.total_amount // num_items
+                remainder = new_inv.total_amount % num_items
+                total_actual_buy_cost = 0
+                for i, row in enumerate(created_invoice_items):
+                    row_tot = per_item + (remainder if i == 0 else 0)
+                    row.total_price = row_tot
+                    row.unit_sell_price = int(row_tot / max(1, row.quantity))
+                    row.discount = 0
+                    if row.unit_buy_price <= 0:
+                        row.unit_buy_price = int(row.unit_sell_price * 0.75)
+                    row.row_profit = row.total_price - (row.unit_buy_price * row.quantity)
+                    total_actual_buy_cost += (row.unit_buy_price * row.quantity)
+                items_gross_sum = new_inv.total_amount
+                items_total_sum = new_inv.total_amount
+            else:
+                fallback_row = InvoiceItem(
+                    invoice_id=new_inv.id,
+                    item_name='تجهیزات بهداشتی و ساختمانی',
+                    category='عمومی',
+                    quantity=1,
+                    unit_buy_price=int(new_inv.total_amount * 0.75),
+                    unit_sell_price=new_inv.total_amount,
+                    discount=0,
+                    total_price=new_inv.total_amount,
+                    row_profit=new_inv.total_amount - int(new_inv.total_amount * 0.75),
+                    is_custom=True
+                )
+                db.session.add(fallback_row)
+                created_invoice_items.append(fallback_row)
+                categories_used.add('عمومی')
+                total_actual_buy_cost = int(new_inv.total_amount * 0.75)
+                items_gross_sum = new_inv.total_amount
+                items_total_sum = new_inv.total_amount
 
         # اگر مبلغ کل فاکتور در فیلد وارد نشده بود اما اقلام قیمت داشتند
         if new_inv.total_amount <= 0 and items_total_sum > 0:
@@ -1164,6 +1200,13 @@ def add_invoice():
                 new_inv.remaining_balance = remaining_balance
                 new_inv.is_settled = (remaining_balance <= 0)
 
+        # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
+        new_inv.subtotal_amount = max(items_gross_sum, new_inv.total_amount) if items_gross_sum > 0 else new_inv.total_amount
+        if new_inv.total_amount > 0 and items_gross_sum > new_inv.total_amount:
+            new_inv.discount_amount = max(items_discount_sum, items_gross_sum - new_inv.total_amount)
+        else:
+            new_inv.discount_amount = items_discount_sum
+
         # اعتبارسنجی نهایی مبلغ فاکتور
         if new_inv.total_amount <= 0:
             db.session.rollback()
@@ -1171,8 +1214,8 @@ def add_invoice():
             return redirect(request.referrer or url_for('seller_dashboard'))
 
         new_inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
-        new_inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
-        new_inv.real_profit = total_amount - new_inv.actual_buy_cost
+        new_inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(new_inv.total_amount * 0.75)
+        new_inv.real_profit = new_inv.total_amount - new_inv.actual_buy_cost
         new_inv.has_custom_items = has_any_custom
 
         # ثبت چک‌های صیادی ایجاد شده
@@ -1193,13 +1236,13 @@ def add_invoice():
         # ثبت در CRM مشتری
         if customer:
             if inv_type == 'sale':
-                customer.total_purchases += total_amount
-                if remaining_balance > 0:
-                    customer.outstanding_balance += remaining_balance
+                customer.total_purchases += new_inv.total_amount
+                if new_inv.remaining_balance > 0:
+                    customer.outstanding_balance += new_inv.remaining_balance
             elif inv_type == 'return':
-                customer.total_purchases = max(0, customer.total_purchases - total_amount)
-                if remaining_balance > 0:
-                    customer.outstanding_balance = max(0, customer.outstanding_balance - remaining_balance)
+                customer.total_purchases = max(0, customer.total_purchases - new_inv.total_amount)
+                if new_inv.remaining_balance > 0:
+                    customer.outstanding_balance = max(0, customer.outstanding_balance - new_inv.remaining_balance)
 
         db.session.commit()
         
@@ -1479,6 +1522,7 @@ def edit_invoice(invoice_id):
         items_gross_sum = 0
         items_discount_sum = 0
         has_any_custom = False
+        created_invoice_items = []
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
@@ -1581,6 +1625,7 @@ def edit_invoice(invoice_id):
                 is_custom=is_custom_row
             )
             db.session.add(inv_row)
+            created_invoice_items.append(inv_row)
 
             if status == 'final' and inv_item:
                 if inv_type == 'sale':
@@ -1588,9 +1633,43 @@ def edit_invoice(invoice_id):
                 elif inv_type == 'return':
                     record_stock_change(inv_item.id, inv.shop_id, 'return', qty, inv.invoice_number, session.get('full_name'), f"مرجوعی پس از ویرایش فاکتور {inv.invoice_number}", commit=False)
 
-        # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
-        inv.subtotal_amount = items_gross_sum if items_gross_sum > 0 else items_total_sum
-        inv.discount_amount = items_discount_sum
+        # اگر اقلام بدون قیمت بودند اما مبلغ کل فاکتور دستی وارد شده است
+        if inv.total_amount > 0 and items_total_sum <= 0:
+            if created_invoice_items:
+                num_items = len(created_invoice_items)
+                per_item = inv.total_amount // num_items
+                remainder = inv.total_amount % num_items
+                total_actual_buy_cost = 0
+                for i, row in enumerate(created_invoice_items):
+                    row_tot = per_item + (remainder if i == 0 else 0)
+                    row.total_price = row_tot
+                    row.unit_sell_price = int(row_tot / max(1, row.quantity))
+                    row.discount = 0
+                    if row.unit_buy_price <= 0:
+                        row.unit_buy_price = int(row.unit_sell_price * 0.75)
+                    row.row_profit = row.total_price - (row.unit_buy_price * row.quantity)
+                    total_actual_buy_cost += (row.unit_buy_price * row.quantity)
+                items_gross_sum = inv.total_amount
+                items_total_sum = inv.total_amount
+            else:
+                fallback_row = InvoiceItem(
+                    invoice_id=inv.id,
+                    item_name='تجهیزات بهداشتی و ساختمانی',
+                    category='عمومی',
+                    quantity=1,
+                    unit_buy_price=int(inv.total_amount * 0.75),
+                    unit_sell_price=inv.total_amount,
+                    discount=0,
+                    total_price=inv.total_amount,
+                    row_profit=inv.total_amount - int(inv.total_amount * 0.75),
+                    is_custom=True
+                )
+                db.session.add(fallback_row)
+                created_invoice_items.append(fallback_row)
+                categories_used.add('عمومی')
+                total_actual_buy_cost = int(inv.total_amount * 0.75)
+                items_gross_sum = inv.total_amount
+                items_total_sum = inv.total_amount
 
         if inv.total_amount <= 0 and items_total_sum > 0:
             inv.total_amount = items_total_sum
@@ -1599,9 +1678,22 @@ def edit_invoice(invoice_id):
             inv.remaining_balance = remaining_balance
             inv.is_settled = (remaining_balance <= 0)
 
+        # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
+        inv.subtotal_amount = max(items_gross_sum, inv.total_amount) if items_gross_sum > 0 else inv.total_amount
+        if inv.total_amount > 0 and items_gross_sum > inv.total_amount:
+            inv.discount_amount = max(items_discount_sum, items_gross_sum - inv.total_amount)
+        else:
+            inv.discount_amount = items_discount_sum
+
+        # اعتبارسنجی نهایی مبلغ فاکتور
+        if inv.total_amount <= 0:
+            db.session.rollback()
+            flash('مبلغ کل فاکتور نمی‌تواند صفر یا خالی باشد. لطفاً اقلام یا مبلغ فاکتور را وارد فرمایید.', 'warning')
+            return redirect(request.referrer or url_for('seller_dashboard'))
+
         inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
-        inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(total_amount * 0.75)
-        inv.real_profit = total_amount - inv.actual_buy_cost
+        inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(inv.total_amount * 0.75)
+        inv.real_profit = inv.total_amount - inv.actual_buy_cost
         inv.has_custom_items = has_any_custom
 
         # ایجاد چک‌های جدید
@@ -1622,13 +1714,13 @@ def edit_invoice(invoice_id):
         # بروزرسانی حساب مشتری
         if customer:
             if inv_type == 'sale':
-                customer.total_purchases += total_amount
-                if remaining_balance > 0:
-                    customer.outstanding_balance += remaining_balance
+                customer.total_purchases += inv.total_amount
+                if inv.remaining_balance > 0:
+                    customer.outstanding_balance += inv.remaining_balance
             elif inv_type == 'return':
-                customer.total_purchases = max(0, customer.total_purchases - total_amount)
-                if remaining_balance > 0:
-                    customer.outstanding_balance = max(0, customer.outstanding_balance - remaining_balance)
+                customer.total_purchases = max(0, customer.total_purchases - inv.total_amount)
+                if inv.remaining_balance > 0:
+                    customer.outstanding_balance = max(0, customer.outstanding_balance - inv.remaining_balance)
 
         db.session.commit()
 
@@ -2072,8 +2164,15 @@ def inventory_view():
     shops = Shop.query.all()
     all_categories = Category.query.all()
     transfers = StockTransfer.query.order_by(StockTransfer.id.desc()).limit(15).all()
-    ai_insights = get_inventory_ai_insights()
-    catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).limit(60).all()
+    search_q = request.args.get('search', '').strip()
+    cat_query = ProductCatalog.query
+    if search_q:
+        s_filter = build_catalog_search_filter(ProductCatalog, search_q)
+        if s_filter is not None:
+            cat_query = cat_query.filter(s_filter)
+        catalog_items = cat_query.order_by(ProductCatalog.brand, ProductCatalog.name).limit(120).all()
+    else:
+        catalog_items = ProductCatalog.query.order_by(ProductCatalog.brand, ProductCatalog.category, ProductCatalog.name).limit(60).all()
     total_catalog_count = ProductCatalog.query.count()
 
     # نگاشت سریع موجودی برای هر شعبه: (item_name, shop_id) -> {'id': ..., 'stock': ..., 'min_alert': ...}
@@ -2093,6 +2192,7 @@ def inventory_view():
         .order_by(ProductCatalog.brand)
         .all()
     ]
+    ai_insights = get_inventory_ai_insights()
 
     return render_template(
         'inventory.html',
@@ -2104,7 +2204,8 @@ def inventory_view():
         catalog_items=catalog_items,
         total_catalog_count=total_catalog_count,
         inventory_map=inventory_map,
-        distinct_brands=distinct_brands
+        distinct_brands=distinct_brands,
+        search=search_q
     )
 
 @app.route('/admin/inventory/add', methods=['POST'])
@@ -2389,24 +2490,55 @@ def catalog_view():
     per_page = 50
     
     query = ProductCatalog.query
-    if search:
-        norm_search = normalize_persian_text(search)
-        query = query.filter(
-            (ProductCatalog.name.contains(search)) |
-            (ProductCatalog.name.contains(norm_search)) |
-            (ProductCatalog.brand.contains(search)) |
-            (ProductCatalog.brand.contains(norm_search)) |
-            (ProductCatalog.code.contains(search)) |
-            (ProductCatalog.code.contains(norm_search)) |
-            (ProductCatalog.category.contains(search)) |
-            (ProductCatalog.category.contains(norm_search))
-        )
-    if category_filter:
-        query = query.filter_by(category=category_filter)
-    if brand_filter:
-        query = query.filter_by(brand=brand_filter)
+    search_filter = build_catalog_search_filter(ProductCatalog, search) if search else None
+    if search_filter is not None:
+        query = query.filter(search_filter)
         
-    total_products = query.count()
+    strict_query = query
+    if category_filter:
+        strict_query = strict_query.filter_by(category=category_filter)
+    if brand_filter:
+        strict_query = strict_query.filter_by(brand=brand_filter)
+        
+    total_products = strict_query.count()
+    has_fallback = False
+    fallback_scope = None
+    
+    # جستجوی سلسله‌مراتبی هوشمند در صورت صفر بودن نتایج با فیلترهای محدودکننده
+    if total_products == 0 and search and (category_filter or brand_filter):
+        # گام ۱: جستجو در همان دسته‌بندی با رهاسازی فیلتر برند (مثلاً جستجوی شیرآلات از سایر برندها)
+        if category_filter and brand_filter:
+            cat_query = query.filter_by(category=category_filter)
+            cat_count = cat_query.count()
+            if cat_count > 0:
+                query = cat_query
+                total_products = cat_count
+                has_fallback = True
+                fallback_scope = 'category'
+
+        # گام ۲: جستجو در همان برند با رهاسازی فیلتر دسته‌بندی
+        if not has_fallback and brand_filter:
+            brand_query = query.filter_by(brand=brand_filter)
+            brand_count = brand_query.count()
+            if brand_count > 0:
+                query = brand_query
+                total_products = brand_count
+                has_fallback = True
+                fallback_scope = 'brand'
+
+        # گام ۳: جستجو در کل کاتالوگ بدون محدودیت برند و دسته‌بندی
+        if not has_fallback:
+            global_count = query.count()
+            if global_count > 0:
+                query = query
+                total_products = global_count
+                has_fallback = True
+                fallback_scope = 'global'
+            else:
+                query = strict_query
+    else:
+        query = strict_query
+        
     pagination = query.order_by(ProductCatalog.category, ProductCatalog.name).paginate(page=page, per_page=per_page, error_out=False)
     catalog_items = pagination.items
 
@@ -2443,6 +2575,8 @@ def catalog_view():
         search=search,
         category_filter=category_filter,
         brand_filter=brand_filter,
+        has_fallback=has_fallback,
+        fallback_scope=fallback_scope,
         is_admin=is_admin(),
         can_manage_stock=can_manage_stock()
     )
@@ -2741,22 +2875,14 @@ def download_sample_excel():
 
 @app.route('/api/catalog/search')
 def api_catalog_search():
-    """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن با نرمال‌سازی فارسی/عربی"""
+    """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن با نرمال‌سازی فارسی/عربی و چندکلمه‌ای"""
     q = request.args.get('q', '').strip()
     limit = min(safe_int(request.args.get('limit'), 30), 60)
     query = ProductCatalog.query
     if q:
-        norm_q = normalize_persian_text(q)
-        query = query.filter(
-            (ProductCatalog.name.contains(q)) |
-            (ProductCatalog.name.contains(norm_q)) |
-            (ProductCatalog.brand.contains(q)) |
-            (ProductCatalog.brand.contains(norm_q)) |
-            (ProductCatalog.category.contains(q)) |
-            (ProductCatalog.category.contains(norm_q)) |
-            (ProductCatalog.code.contains(q)) |
-            (ProductCatalog.code.contains(norm_q))
-        )
+        search_filter = build_catalog_search_filter(ProductCatalog, q)
+        if search_filter is not None:
+            query = query.filter(search_filter)
     items = query.order_by(ProductCatalog.name).limit(limit).all()
     return jsonify([i.to_dict() for i in items])
 

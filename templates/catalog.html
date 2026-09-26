@@ -277,11 +277,14 @@
         </div>
 
         <!-- فیلتر و جستجو -->
-        <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-3">
-            <form method="GET" action="{{ url_for('catalog_view') }}" class="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+        <div class="glass-card p-4 space-y-3">
+            <form method="GET" action="{{ url_for('catalog_view') }}" class="flex flex-wrap items-center gap-3 w-full">
                 <div class="relative flex-1 min-w-[220px]">
-                    <input type="text" name="search" value="{{ search }}" placeholder="جستجو نام کالا، برند یا کد..."
+                    <input type="text" name="search" value="{{ search }}" placeholder="🔍 جستجو نام کالا، برند، کد یا مشخصات..."
                         class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-indigo-500 font-bold">
+                    {% if search %}
+                    <a href="{{ url_for('catalog_view', category=category_filter, brand=brand_filter) }}" class="absolute left-3 top-2.5 text-slate-400 hover:text-slate-600 font-bold text-xs" title="حذف جستجوی متنی">✕</a>
+                    {% endif %}
                 </div>
                 <select name="category" onchange="this.form.submit()"
                     class="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-700 outline-none font-bold">
@@ -297,15 +300,37 @@
                     <option value="{{ br }}" {% if brand_filter == br %}selected{% endif %}>🏷️ {{ br }}</option>
                     {% endfor %}
                 </select>
-                <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-2xl text-xs font-bold transition">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black transition shadow-sm">
                     جستجو
                 </button>
                 {% if search or category_filter or brand_filter %}
-                <a href="{{ url_for('catalog_view') }}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2.5 rounded-2xl text-xs font-bold transition">
-                    پاکسازی فیلترها
+                <a href="{{ url_for('catalog_view') }}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition">
+                    پاکسازی همه فیلترها
                 </a>
                 {% endif %}
             </form>
+
+            {% if has_fallback %}
+            <div class="p-3 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-amber-200">
+                <div class="flex items-center gap-2">
+                    <span class="text-base">🔍</span>
+                    <span>
+                        {% if fallback_scope == 'category' %}
+                        در برند «{{ brand_filter }}» برای عبارت «{{ search }}» کالایی یافت نشد؛ اما <b>{{ total_products }}</b> کالا در دسته‌بندی <b>«{{ category_filter }}»</b> از سایر برندها پیدا شد:
+                        {% elif fallback_scope == 'brand' %}
+                        در دسته‌بندی «{{ category_filter }}» برای عبارت «{{ search }}» کالایی یافت نشد؛ اما <b>{{ total_products }}</b> کالا در برند <b>«{{ brand_filter }}»</b> پیدا شد:
+                        {% else %}
+                        با فیلترهای انتخابی ({{ ('دسته‌بندی: ' + category_filter) if category_filter else '' }} {{ ('برند: ' + brand_filter) if brand_filter else '' }}) موردی یافت نشد؛ اما <b>{{ total_products }}</b> کالا در <b>کل کاتالوگ</b> برای عبارت <b>«{{ search }}»</b> پیدا شد:
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ url_for('catalog_view', search=search) }}" class="bg-amber-600 hover:bg-amber-700 text-white font-black px-3.5 py-1.5 rounded-xl transition shadow-sm whitespace-nowrap">
+                        مشاهده در کل کاتالوگ
+                    </a>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- جدول محصولات کاتالوگ و مدیریت موجودی -->
@@ -422,7 +447,18 @@
                             {% if can_manage_stock %}
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
-                                    <button onclick="openEditModal({{ item.id }}, '{{ item.name|escape }}', '{{ item.category|escape }}', '{{ item.brand or '' }}', '{{ item.code or '' }}', {{ item.buy_price if (is_admin or can_manage_stock) else 0 }}, {{ item.sell_price }}, '{{ item.description or '' }}', {{ s1.stock }}, {{ s2.stock }})"
+                                    <button type="button"
+                                        data-id="{{ item.id }}"
+                                        data-name="{{ item.name }}"
+                                        data-category="{{ item.category }}"
+                                        data-brand="{{ item.brand or '' }}"
+                                        data-code="{{ item.code or '' }}"
+                                        data-buy="{{ item.buy_price if (is_admin or can_manage_stock) else 0 }}"
+                                        data-sell="{{ item.sell_price }}"
+                                        data-desc="{{ item.description or '' }}"
+                                        data-s1="{{ s1.stock }}"
+                                        data-s2="{{ s2.stock }}"
+                                        onclick="openEditModalFromBtn(this)"
                                         class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl font-bold transition">
                                         ✏️ ویرایش
                                     </button>
@@ -438,7 +474,23 @@
                         {% else %}
                         <tr>
                             <td colspan="{{ 9 if is_admin else 7 }}" class="p-8 text-center text-slate-400">
+                                {% if search or category_filter or brand_filter %}
+                                <div class="space-y-2 py-4">
+                                    <p class="font-bold text-slate-600 text-sm">هیچ کالایی با مشخصات جستجو و فیلترهای انتخابی پیدا نشد.</p>
+                                    <div class="flex items-center justify-center gap-2 pt-2">
+                                        <a href="{{ url_for('catalog_view') }}" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition text-xs shadow-sm">
+                                            مشاهده همه محصولات کاتالوگ
+                                        </a>
+                                        {% if search and (category_filter or brand_filter) %}
+                                        <a href="{{ url_for('catalog_view', search=search) }}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition text-xs border border-slate-300">
+                                            جستجوی «{{ search }}» در تمام کاتالوگ
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% else %}
                                 هنوز محصولی در کاتالوگ ثبت نشده است. روی «افزودن محصول» کلیک کنید.
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -448,6 +500,8 @@
 
             <!-- صفحه‌بندی هوشمند کاتالوگ -->
             {% if pagination and pagination.pages > 1 %}
+            {% set pag_cat = category_filter if (not has_fallback or fallback_scope == 'category') else '' %}
+            {% set pag_brand = brand_filter if (not has_fallback or fallback_scope == 'brand') else '' %}
             <div class="p-4 bg-slate-900/60 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="text-xs text-slate-400 font-medium">
                     نمایش صفحه <b class="text-indigo-400 font-black">{{ pagination.page }}</b> از <b class="text-indigo-400 font-black">{{ pagination.pages }}</b>
@@ -455,7 +509,7 @@
                 </div>
                 <div class="flex items-center gap-1.5 flex-wrap justify-center">
                     {% if pagination.has_prev %}
-                    <a href="{{ url_for('catalog_view', page=pagination.prev_num, search=search, category=category_filter, brand=brand_filter) }}"
+                    <a href="{{ url_for('catalog_view', page=pagination.prev_num, search=search, category=pag_cat, brand=pag_brand) }}"
                        class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm">
                         <span>‹</span> قبلی
                     </a>
@@ -472,7 +526,7 @@
                                 {{ p }}
                             </span>
                             {% else %}
-                            <a href="{{ url_for('catalog_view', page=p, search=search, category=category_filter, brand=brand_filter) }}"
+                            <a href="{{ url_for('catalog_view', page=p, search=search, category=pag_cat, brand=pag_brand) }}"
                                class="w-8 h-8 flex items-center justify-center bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-xs font-bold transition">
                                 {{ p }}
                             </a>
@@ -483,7 +537,7 @@
                     {% endfor %}
 
                     {% if pagination.has_next %}
-                    <a href="{{ url_for('catalog_view', page=pagination.next_num, search=search, category=category_filter, brand=brand_filter) }}"
+                    <a href="{{ url_for('catalog_view', page=pagination.next_num, search=search, category=pag_cat, brand=pag_brand) }}"
                        class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm">
                         بعدی <span>›</span>
                     </a>
@@ -1032,6 +1086,22 @@
             window._toastTimeout = setTimeout(() => {
                 toast.style.opacity = '0';
             }, 2500);
+        }
+
+        function openEditModalFromBtn(btn) {
+            const ds = btn.dataset;
+            openEditModal(
+                ds.id,
+                ds.name,
+                ds.category,
+                ds.brand,
+                ds.code,
+                ds.buy,
+                ds.sell,
+                ds.desc,
+                ds.s1,
+                ds.s2
+            );
         }
 
         function openEditModal(id, name, cat, brand, code, buy, sell, desc, stock_1, stock_2) {

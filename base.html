@@ -416,42 +416,17 @@
 
     <!-- Footer -->
     <footer class="py-5 text-center no-print border-t border-white/5 bg-[#080c14] mt-12">
-        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-2">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-3">
             <p class="text-xs text-slate-400 font-medium">سامانه جامع فروشگاه‌های تخصصی طهماسبی • نسخه ارتقایافته ۲۰۲۶</p>
-            <p class="text-[11px] text-slate-500">طراحی شده برای انبارداری بلادرنگ، تسویه هوشمند و محاسبه دقیق سود و پورسانت</p>
+            <div class="flex items-center gap-4">
+                <button type="button" onclick="handlePWAInstall()" class="text-xs text-indigo-400 hover:text-indigo-300 font-bold transition flex items-center gap-1.5 cursor-pointer">
+                    <span>📲</span>
+                    <span>راهنمای نصب PWA (آیفون / کامپیوتر)</span>
+                </button>
+                <p class="text-[11px] text-slate-500">انبارداری بلادرنگ • تسویه هوشمند • سود و پورسانت دقیق</p>
+            </div>
         </div>
     </footer>
-
-    <!-- Global Helpers with Full Persian & Arabic Digit Normalization -->
-    <script>
-        function toEnglishDigits(str) {
-            if (str === null || str === undefined) return '';
-            const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-            const a = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-            let res = str.toString();
-            for (let i = 0; i < 10; i++) {
-                res = res.replaceAll(p[i], i).replaceAll(a[i], i);
-            }
-            return res;
-        }
-
-        function parseNumeric(val) {
-            if (val === null || val === undefined) return 0;
-            const clean = toEnglishDigits(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
-            const num = parseFloat(clean);
-            return isNaN(num) ? 0 : num;
-        }
-
-        function formatNumber(input) {
-            if (!input) return;
-            const raw = toEnglishDigits(input.value);
-            const clean = raw.replace(/,/g, '').replace(/[^\d]/g, '');
-            if (clean !== '') {
-                input.value = Number(clean).toLocaleString('en-US');
-            } else {
-                input.value = '';
-            }
-        }
 
     <!-- iOS & Desktop Installation Guide Modal -->
     <div id="pwaInstallModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
@@ -463,36 +438,78 @@
                 <div class="flex items-center gap-3">
                     <img src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="آیکون" class="w-12 h-12 rounded-2xl shadow-md border border-white/10">
                     <div>
-                        <h3 class="text-base font-black text-white">نصب اپلیکیشن طهماسبی</h3>
-                        <p class="text-xs text-indigo-300">نسخه مستقل وب (PWA) برای تمام دستگاه‌ها</p>
+                        <h3 class="text-base font-black text-white">نصب اپلیکیشن طهماسبی (PWA)</h3>
+                        <p class="text-xs text-indigo-300">نسخه مستقل وب برای تمام دستگاه‌ها</p>
                     </div>
                 </div>
                 <button onclick="closePwaModal()" type="button" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">✕</button>
             </div>
 
-            <!-- Content for iOS -->
-            <div id="iosInstructions" class="space-y-3.5 text-xs text-slate-200">
+            <!-- تب‌های پلتفرم -->
+            <div class="flex items-center gap-1 p-1 bg-slate-800/90 rounded-2xl border border-white/10 mb-4">
+                <button type="button" id="tabBtnSafari" onclick="switchPwaTab('safari')" class="flex-1 py-2 px-1 rounded-xl font-black text-[11px] transition flex items-center justify-center gap-1 bg-indigo-600 text-white shadow">
+                    <span>🍏</span> سافاری آیفون
+                </button>
+                <button type="button" id="tabBtnChrome" onclick="switchPwaTab('chrome')" class="flex-1 py-2 px-1 rounded-xl font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-400 hover:text-white">
+                    <span>🌐</span> کروم آیفون
+                </button>
+                <button type="button" id="tabBtnDesktop" onclick="switchPwaTab('desktop')" class="flex-1 py-2 px-1 rounded-xl font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-400 hover:text-white">
+                    <span>💻</span> اندروید / PC
+                </button>
+            </div>
+
+            <!-- پنل ۱: راهنمای مرورگر سافاری آیفون -->
+            <div id="panelSafari" class="space-y-3.5 text-xs text-slate-200">
                 <div class="p-3 bg-indigo-950/40 rounded-2xl border border-indigo-500/30 text-indigo-200 text-xs leading-relaxed">
-                    🌟 <strong>آیفون و آیپد (iOS):</strong> برای اجرای تمام صفحه و بدون نوار آدرس، این ۳ گام ساده را در سافاری انجام دهید:
+                    🌟 <strong>آیفون و آیپد (مرورگر Safari):</strong> بهترین تجربه تمام‌صفحه و سریع در iOS
                 </div>
-                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
-                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۱</div>
-                    <div class="leading-relaxed">در مرورگر سافاری روی دکمه‌ی اشتراک‌گذاری <strong class="text-indigo-300 bg-slate-700/80 px-2 py-0.5 rounded">Share ⎋</strong> (پایین صفحه گوشی) بزنید.</div>
-                </div>
-                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
-                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۲</div>
-                    <div class="leading-relaxed">کمی به پایین اسکرول کرده و گزینه‌ی <strong class="text-indigo-300 bg-slate-700/80 px-2 py-0.5 rounded">Add to Home Screen ⊞</strong> را انتخاب کنید.</div>
-                </div>
-                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
-                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۳</div>
-                    <div class="leading-relaxed">در گوشه بالا سمت راست دکمه‌ی <strong class="text-emerald-400 bg-slate-700/80 px-2 py-0.5 rounded">Add</strong> را لمس کنید تا آیکون روی صفحه اصلی آیفون قرار گیرد.</div>
+                <div class="space-y-2.5">
+                    <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                        <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۱</div>
+                        <div class="leading-relaxed">در پایین مرورگر سافاری روی آیکون اشتراک‌گذاری <strong class="text-indigo-300 bg-slate-700/80 px-2 py-0.5 rounded">Share ⎋</strong> (مربع با فلش رو به بالا) بزنید.</div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                        <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۲</div>
+                        <div class="leading-relaxed">منو را کمی به پایین اسکرول کرده و گزینه‌ی <strong class="text-indigo-300 bg-slate-700/80 px-2 py-0.5 rounded">Add to Home Screen ⊞</strong> (افزودن به صفحه اصلی) را لمس کنید.</div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                        <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۳</div>
+                        <div class="leading-relaxed">در گوشه بالا سمت راست دکمه‌ی <strong class="text-emerald-400 bg-slate-700/80 px-2 py-0.5 rounded">Add</strong> را بزنید تا آیکون روی صفحه اصلی آیفون شما قرار گیرد.</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Content for PC / Mac / Android -->
-            <div id="desktopInstructions" class="space-y-3.5 text-xs text-slate-200 hidden">
+            <!-- پنل ۲: راهنمای مرورگر گوگل کروم آیفون -->
+            <div id="panelChrome" class="space-y-3.5 text-xs text-slate-200 hidden">
+                <div class="p-3 bg-blue-950/40 rounded-2xl border border-blue-500/30 text-blue-200 text-xs leading-relaxed">
+                    🌐 <strong>آیفون و آیپد (مرورگر Chrome):</strong> نصب آسان از داخل کروم
+                </div>
+                <div class="space-y-2.5">
+                    <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                        <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۱</div>
+                        <div class="leading-relaxed">در مرورگر گوگل کروم آیفون، روی آیکون <strong>اشتراک‌گذاری (Share)</strong> در بالای صفحه یا منوی <strong>سه نقطه (...)</strong> بزنید.</div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                        <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۲</div>
+                        <div class="leading-relaxed">در منوی باز شده، گزینه <strong class="text-blue-300 bg-slate-700/80 px-2 py-0.5 rounded">Add to Home Screen ⊞</strong> (افزودن به صفحه اصلی) را انتخاب کنید.</div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                        <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۳</div>
+                        <div class="leading-relaxed">در گوشه بالا دکمه‌ی <strong class="text-emerald-400 bg-slate-700/80 px-2 py-0.5 rounded">Add</strong> را تایید کنید تا برنامه اضافه شود.</div>
+                    </div>
+                </div>
+                <div class="p-3 bg-amber-500/15 border border-amber-500/30 rounded-2xl text-[11px] text-amber-200 leading-relaxed space-y-2">
+                    <div>💡 <strong>توصیه اپل:</strong> مرورگر Safari بیشترین سرعت، عملکرد آفلاین و تجربه تمام‌صفحه را در آیفون ارائه می‌دهد. با دکمه زیر می‌توانید آدرس را کپی کرده و در سافاری باز کنید:</div>
+                    <button type="button" onclick="copyCurrentUrlForSafari()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition text-center shadow-sm cursor-pointer">
+                        📋 کپی آدرس سایت جهت باز کردن در سافاری (Safari)
+                    </button>
+                </div>
+            </div>
+
+            <!-- پنل ۳: راهنمای کامپیوتر و اندروید -->
+            <div id="panelDesktop" class="space-y-3.5 text-xs text-slate-200 hidden">
                 <div class="p-3 bg-emerald-950/40 rounded-2xl border border-emerald-500/30 text-emerald-200 text-xs leading-relaxed">
-                    💻 <strong>کامپیوتر و لپ‌تاپ (ویندوز / مک) و گوشی‌های اندروید:</strong>
+                    💻 <strong>کامپیوتر (ویندوز / مک) و گوشی‌های اندروید:</strong>
                 </div>
                 <p class="text-slate-300 leading-relaxed">
                     می‌توانید برنامه را مستقیماً مانند یک نرم‌افزار حسابداری مستقل یا اپلیکیشن موبایل نصب کنید تا پنجره اختصاصی و دسترسی سریع داشته باشید.
@@ -519,18 +536,19 @@
     <script>
         function toEnglishDigits(str) {
             if (str === null || str === undefined) return '';
-            const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
-            const a = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-            let res = str.toString();
-            for (let i = 0; i < 10; i++) {
-                res = res.replaceAll(p[i], i).replaceAll(a[i], i);
-            }
-            return res;
+            const map = {
+                '۰':'0', '۱':'1', '۲':'2', '۳':'3', '۴':'4', '۵':'5', '۶':'6', '۷':'7', '۸':'8', '۹':'9',
+                '٠':'0', '١':'1', '٢':'2', '٣':'3', '٤':'4', '٥':'5', '٦':'6', '٧':'7', '٨':'8', '٩':'9'
+            };
+            return str.toString().replace(/[۰-۹٠-٩]/g, function(w) { return map[w] !== undefined ? map[w] : w; });
         }
 
         function parseNumeric(val) {
             if (val === null || val === undefined) return 0;
-            const clean = toEnglishDigits(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
+            if (typeof val === 'object' && val !== null && val.value !== undefined) {
+                val = val.value;
+            }
+            const clean = toEnglishDigits(val).replace(/[,،/٫\s]/g, '').replace(/[^\d.-]/g, '');
             const num = parseFloat(clean);
             return isNaN(num) ? 0 : num;
         }
@@ -538,7 +556,7 @@
         function formatNumber(input) {
             if (!input) return;
             const raw = toEnglishDigits(input.value);
-            const clean = raw.replace(/,/g, '').replace(/[^\d]/g, '');
+            const clean = raw.replace(/[,،/٫\s]/g, '').replace(/[^\d]/g, '');
             if (clean !== '') {
                 input.value = Number(clean).toLocaleString('en-US');
             } else {
@@ -549,13 +567,56 @@
         function unformatOnSubmit(form) {
             const inputs = form.querySelectorAll('.currency-input');
             inputs.forEach(input => { 
-                input.value = toEnglishDigits(input.value).replace(/,/g, ''); 
+                input.value = toEnglishDigits(input.value).replace(/[,،/٫\s]/g, ''); 
             });
+        }
+
+        function switchPwaTab(tab) {
+            const panels = {
+                safari: document.getElementById('panelSafari'),
+                chrome: document.getElementById('panelChrome'),
+                desktop: document.getElementById('panelDesktop')
+            };
+            const buttons = {
+                safari: document.getElementById('tabBtnSafari'),
+                chrome: document.getElementById('tabBtnChrome'),
+                desktop: document.getElementById('tabBtnDesktop')
+            };
+
+            for (let k in panels) {
+                if (panels[k]) {
+                    if (k === tab) {
+                        panels[k].classList.remove('hidden');
+                    } else {
+                        panels[k].classList.add('hidden');
+                    }
+                }
+                if (buttons[k]) {
+                    if (k === tab) {
+                        buttons[k].className = 'flex-1 py-2 px-1 rounded-xl font-black text-[11px] transition flex items-center justify-center gap-1 bg-indigo-600 text-white shadow';
+                    } else {
+                        buttons[k].className = 'flex-1 py-2 px-1 rounded-xl font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-400 hover:text-white';
+                    }
+                }
+            }
+        }
+
+        function copyCurrentUrlForSafari() {
+            const url = window.location.href;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() {
+                    alert('✅ آدرس با موفقیت کپی شد! اکنون مرورگر Safari را باز کرده و در نوار آدرس Paste کنید.');
+                }).catch(function() {
+                    prompt('آدرس سایت را کپی کرده و در Safari باز کنید:', url);
+                });
+            } else {
+                prompt('آدرس سایت را کپی کرده و در Safari باز کنید:', url);
+            }
         }
 
         // ==================== PWA Service Worker & Install Manager ====================
         let pwaDeferredPrompt = null;
-        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isIOSDevice = (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
         const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
         if ('serviceWorker' in navigator) {
@@ -605,6 +666,7 @@
         });
 
         function handlePWAInstall() {
+            const isIOSChrome = isIOSDevice && (navigator.userAgent.includes('CriOS') || (navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Safari')));
             if (pwaDeferredPrompt) {
                 pwaDeferredPrompt.prompt();
                 pwaDeferredPrompt.userChoice.then(function(choiceResult) {
@@ -614,18 +676,19 @@
                     }
                     pwaDeferredPrompt = null;
                 });
-            } else if (isIOSDevice) {
-                document.getElementById('iosInstructions').classList.remove('hidden');
-                document.getElementById('desktopInstructions').classList.add('hidden');
-                const modal = document.getElementById('pwaInstallModal');
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
             } else {
-                document.getElementById('iosInstructions').classList.add('hidden');
-                document.getElementById('desktopInstructions').classList.remove('hidden');
+                if (isIOSChrome) {
+                    switchPwaTab('chrome');
+                } else if (isIOSDevice) {
+                    switchPwaTab('safari');
+                } else {
+                    switchPwaTab('desktop');
+                }
                 const modal = document.getElementById('pwaInstallModal');
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
             }
         }
 

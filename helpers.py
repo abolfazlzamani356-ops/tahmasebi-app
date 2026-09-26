@@ -2,6 +2,7 @@ import re
 import json
 import jdatetime
 from datetime import datetime
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import selectinload
 from models import (
     db, User, Invoice, InvoiceItem, InventoryItem, StockLog, AuditLog,
@@ -31,7 +32,7 @@ RETURN_REASONS = [
     'سایر موارد'
 ]
 
-def normalize_persian_text(text):
+def normalize_persian_text(text, unify_alif=False):
     """
     نرمال‌سازی پیشرفته و جامع متون فارسی و عربی جهت جستجوی بدون خطای کاتالوگ، انبار و مشتریان
     """
@@ -51,9 +52,101 @@ def normalize_persian_text(text):
     arabic_digits = '٠١٢٣٤٥٦٧٨٩'
     for i in range(10):
         s = s.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+    if unify_alif:
+        s = s.replace('آ', 'ا').replace('أ', 'ا').replace('إ', 'ا')
     # حذف فاصله‌های متوالی
     s = re.sub(r'\s+', ' ', s)
     return s.strip()
+
+def get_persian_word_variants(word):
+    """
+    تولید انواع شکل‌های املایی کلمه (با کلاه و بدون کلاه، ی عربی/فارسی، ک عربی/فارسی، پسوند یی/ی، بدون نیم‌فاصله)
+    جهت جستجوی فراگیر و منعطف در دیتابیس
+    """
+    if not word:
+        return []
+    base = normalize_persian_text(word)
+    if not base:
+        return []
+    variants = set()
+    variants.add(base)
+    variants.add(base.lower())
+    variants.add(base.upper())
+    
+    # الف با و بدون کلاه
+    alif_unify = base.replace('آ', 'ا').replace('أ', 'ا').replace('إ', 'ا')
+    variants.add(alif_unify)
+    variants.add(alif_unify.lower())
+    if 'ا' in base:
+        variants.add(base.replace('ا', 'آ'))
+    
+    # بدون فاصله و با نیم‌فاصله
+    variants.add(base.replace(' ', ''))
+    variants.add(base.replace(' ', '\u200c'))
+    variants.add(alif_unify.replace(' ', ''))
+    variants.add(alif_unify.replace(' ', '\u200c'))
+    
+    # ریشه‌یابی و حذف پسوندهای رایج فارسی (مثال: ایتالیایی -> ایتالیا و ایتالی)
+    for sfx in ['هایی', 'های', 'ها', 'یی', 'ی', 'ان', 'ات']:
+        if base.endswith(sfx) and len(base) > len(sfx) + 1:
+            stem = base[:-len(sfx)]
+            variants.add(stem)
+            variants.add(stem.replace('آ', 'ا'))
+            if sfx == 'یی':
+                variants.add(stem + 'ا')
+            if sfx in ['یی', 'ی'] and stem.endswith('ا') and len(stem) > 2:
+                variants.add(stem[:-1])
+                variants.add(stem[:-1] + 'ی')
+    if base.endswith('ا') and len(base) > 2:
+        variants.add(base + 'یی')
+        variants.add(base + 'ی')
+    
+    # شکل‌های عربی متناظر (ی/ي و ک/ك و ه/ة) برای انطباق قطعی با دیتابیس در صورت ورود غیرفارسی
+    arabic_extras = set()
+    for v in list(variants):
+        if 'ی' in v:
+            arabic_extras.add(v.replace('ی', 'ي'))
+        if 'ک' in v:
+            arabic_extras.add(v.replace('ک', 'ك'))
+        if 'ی' in v and 'ک' in v:
+            arabic_extras.add(v.replace('ی', 'ي').replace('ک', 'ك'))
+        if 'ه' in v:
+            arabic_extras.add(v.replace('ه', 'ة'))
+    variants.update(arabic_extras)
+
+    return [v for v in variants if v]
+
+def build_catalog_search_filter(model_cls, search_text):
+    """
+    ساخت فیلتر کوئری فوق هوشمند چندکلمه‌ای و چندفیلدی با نرمال‌سازی کامل فارسی
+    هر کلمه از جستجو باید در حداقل یکی از فیلدهای محصول (نام، برند، دسته، کد، بارکد، توضیحات) پیدا شود.
+    """
+    if not search_text:
+        return None
+    raw_tokens = [t.strip() for t in re.split(r'[\s\-_/]+', str(search_text)) if t.strip()]
+    if not raw_tokens:
+        return None
+
+    token_conditions = []
+    for token in raw_tokens:
+        variants = get_persian_word_variants(token)
+        field_conditions = []
+        for var in variants:
+            field_conditions.append(model_cls.name.contains(var))
+            field_conditions.append(model_cls.brand.contains(var))
+            field_conditions.append(model_cls.category.contains(var))
+            if hasattr(model_cls, 'code'):
+                field_conditions.append(model_cls.code.contains(var))
+            if hasattr(model_cls, 'barcode'):
+                field_conditions.append(model_cls.barcode.contains(var))
+            if hasattr(model_cls, 'description'):
+                field_conditions.append(model_cls.description.contains(var))
+        if field_conditions:
+            token_conditions.append(or_(*field_conditions))
+
+    if not token_conditions:
+        return None
+    return and_(*token_conditions)
 
 def safe_float(val, default=0.0):
     """

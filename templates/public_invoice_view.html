@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فاکتور خرید و گارانتی رسمی • فروشگاه طهماسبی و کی‌آردی کابین</title>
+    <script src="{{ url_for('static', filename='libs/tailwind/tailwind.js') }}"></script>
+    <link href="{{ url_for('static', filename='libs/fonts/vazirmatn.css') }}" rel="stylesheet">
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; padding: 0 !important; }
+            .invoice-card { border: none !important; box-shadow: none !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen py-6 px-3 md:px-8 selection:bg-amber-500 selection:text-slate-950">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- دکمه‌های کنترل و دانلود برای موبایل و دسکتاپ -->
+        <div class="no-print mb-6 flex flex-wrap items-center justify-between gap-4 bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl border border-slate-700 shadow-xl">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-amber-500/20">
+                    🧾
+                </div>
+                <div>
+                    <h2 class="text-sm font-black text-white">سامانه هوشمند استعلام و گارانتی فاکتور</h2>
+                    <p class="text-[11px] text-slate-400">فروشگاه تجهیزات بهداشتی و ساختمانی طهماسبی • KRD Cabin</p>
+                </div>
+            </div>
+            
+            {% if invoice %}
+            <div class="flex items-center gap-2">
+                <button onclick="window.print()" class="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow-lg shadow-emerald-500/20 transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    <span>چاپ یا دریافت فایل PDF فاکتور</span>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if error %}
+        <div class="bg-rose-950/40 border border-rose-500/50 p-8 rounded-3xl text-center space-y-3">
+            <div class="text-4xl">⚠️</div>
+            <h3 class="text-lg font-bold text-rose-300">{{ error }}</h3>
+            <p class="text-xs text-slate-400">لطفاً از صحت لینک پیامک اطمینان حاصل کرده یا با شماره پشتیبانی ۰۹۳۹۱۲۰۶۰۰۶ تماس حاصل فرمایید.</p>
+        </div>
+        {% else %}
+
+        <!-- کارت فاکتور رسمی چاپی -->
+        <div class="invoice-card bg-white text-slate-900 p-6 md:p-10 rounded-3xl border border-slate-200 shadow-2xl print:p-0 print:border-none print:shadow-none print:rounded-none">
+            
+            <!-- سربرگ فاکتور -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-slate-900 pb-6 mb-6 gap-4">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-2xl">✨</span>
+                        <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ settings.store_name if settings and settings.store_name else 'مجموعه تخصصی تجهیزات بهداشتی و ساختمانی طهماسبی' }}</h1>
+                    </div>
+                    <p class="text-xs text-amber-700 font-bold">تولید و پخش تخصصی روشویی‌های کابینتی و آینه • KRD CABIN</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">مرکز پخش هود، سینک، گاز صفحه‌ای، شیرآلات، توالت فرنگی و اکسسوری مدرن</p>
+                </div>
+
+                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs space-y-1 w-full sm:w-auto text-left min-w-[210px]">
+                    <div class="flex justify-between items-center gap-3">
+                        <span class="font-bold text-slate-600">شماره سند:</span>
+                        <span class="font-mono font-black text-indigo-700 text-sm tracking-wider">{{ invoice.invoice_number }}</span>
+                    </div>
+                    <div class="flex justify-between items-center gap-3">
+                        <span class="font-bold text-slate-600">تاریخ ثبت:</span>
+                        <span class="font-sans font-bold text-slate-800">{{ invoice.shamsi_date_time }}</span>
+                    </div>
+                    <div class="flex justify-between items-center gap-3">
+                        <span class="font-bold text-slate-600">وضعیت سند:</span>
+                        <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                            {{ 'پیش‌فاکتور' if invoice.status == 'proforma' else 'فاکتور قطعی و رسمی ✅' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- مشخصات خریدار و اعتبارنامه گارانتی -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-1.5">
+                    <div class="font-black text-slate-500 mb-1 flex items-center gap-1.5">
+                        <span class="text-indigo-600">👤</span> مشخصات خریدار محترم:
+                    </div>
+                    <p class="text-sm font-black text-slate-900">{{ invoice.customer_name }}</p>
+                    <p class="text-slate-600"><span class="font-bold">شماره تماس:</span> <span class="font-mono font-bold" dir="ltr">{{ invoice.customer_phone or 'ثبت نشده' }}</span></p>
+                    <p class="text-slate-600"><span class="font-bold">شعبه صادرکننده:</span> {{ invoice.shop.name if invoice.shop else 'شعبه مرکزی' }}</p>
+                </div>
+
+                <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-300 text-xs space-y-1.5 text-amber-950">
+                    <div class="font-black text-amber-800 mb-1 flex items-center gap-1.5">
+                        <span>🛡️</span> ضمانت اصالت و خدمات پس از فروش:
+                    </div>
+                    <p class="font-bold">کلیه اقلام این فاکتور مشمول گارانتی رسمی اصالت کالا و سلامت فیزیکی می‌باشند.</p>
+                    <div class="text-[11px] pt-1 border-t border-amber-200 flex flex-wrap gap-x-4 gap-y-1">
+                        <span>📞 پشتیبانی: <b class="font-mono">09391206006</b></span>
+                        <span>🌐 وب‌سایت: <b class="font-mono">krdcabin.com</b></span>
+                        <span>📸 اینستاگرام: <b class="font-mono">@krdcabin</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول اقلام خریداری شده -->
+            <div class="overflow-x-auto mb-6">
+                <table class="w-full text-right border-collapse text-xs border border-slate-300 rounded-xl overflow-hidden">
+                    <thead>
+                        <tr class="bg-slate-900 text-white font-bold">
+                            <th class="p-3 border border-slate-700 text-center w-12">#</th>
+                            <th class="p-3 border border-slate-700">شرح کالای خریداری شده</th>
+                            <th class="p-3 border border-slate-700 text-center w-20">تعداد</th>
+                            <th class="p-3 border border-slate-700 text-left w-36">قیمت واحد (تومان)</th>
+                            <th class="p-3 border border-slate-700 text-left w-36">مبلغ کل (تومان)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if invoice.items %}
+                            {% for item in invoice.items %}
+                            <tr class="border-b border-slate-200 hover:bg-slate-50 transition">
+                                <td class="p-3 border text-center font-bold text-slate-500">{{ loop.index }}</td>
+                                <td class="p-3 border">
+                                    <span class="font-black text-slate-900 text-sm block">{{ item.item_name }}</span>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        {% if item.category %}<span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{{ item.category }}</span>{% endif %}
+                                        <span class="text-[10px] text-emerald-600 font-bold">دارای گارانتی اصالت</span>
+                                    </div>
+                                </td>
+                                <td class="p-3 border text-center font-black text-sm">{{ item.quantity }}</td>
+                                <td class="p-3 border text-left font-mono">
+                                    {% if item.discount and item.discount > 0 %}
+                                        <div class="text-[11px] line-through text-slate-400">{{ "{:,}".format(item.unit_sell_price) }}</div>
+                                        <div class="font-bold text-emerald-700">{{ "{:,}".format((item.total_price // item.quantity) if item.quantity > 0 else (item.unit_sell_price - item.discount)) }}</div>
+                                    {% else %}
+                                        <span class="font-bold">{{ "{:,}".format(item.unit_sell_price) }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 border text-left font-mono font-black text-slate-900 text-sm">
+                                    {{ "{:,}".format(item.total_price) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td class="p-3 border text-center font-bold">۱</td>
+                                <td class="p-3 border">
+                                    <div class="font-bold mb-1">{{ invoice.categories_json|replace('"', '')|replace('[', '')|replace(']', '') }}</div>
+                                    <div class="text-slate-600 whitespace-pre-line">{{ invoice.items_desc or 'تجهیزات تخصصی بهداشتی و ساختمانی طهماسبی' }}</div>
+                                </td>
+                                <td class="p-3 border text-center font-bold">۱</td>
+                                <td class="p-3 border text-left font-mono font-bold">{{ "{:,}".format(invoice.total_amount) }}</td>
+                                <td class="p-3 border text-left font-mono font-black text-slate-900">{{ "{:,}".format(invoice.total_amount) }}</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- بخش محاسبات و جمع نهایی -->
+            <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-3xl flex flex-col sm:flex-row justify-between items-center gap-6 shadow-lg mb-6">
+                <div class="space-y-1.5 text-xs text-slate-300">
+                    <div><span class="text-amber-400 font-bold">روش تسویه:</span> 
+                        {% if invoice.payment_method == 'pos' %}کارتخوان حضوری
+                        {% elif invoice.payment_method == 'card_to_card' %}کارت به کارت
+                        {% elif invoice.payment_method == 'cash' %}نقدی
+                        {% elif invoice.payment_method == 'cheque' %}چک صیادی
+                        {% else %}پرداخت ترکیبی
+                        {% endif %}
+                    </div>
+                    {% if invoice.discount_amount and invoice.discount_amount > 0 %}
+                    <div class="text-amber-300">تخفیف اعمال شده: <b class="font-mono">{{ "{:,}".format(invoice.discount_amount) }}</b> تومان</div>
+                    {% endif %}
+                    <div class="text-emerald-400 font-bold">وضعیت حساب: {{ 'کاملاً تسویه شده ✅' if invoice.is_settled else 'دارای مانده حساب دفتری ⏳' }}</div>
+                </div>
+
+                <div class="text-center sm:text-left bg-slate-950/60 p-4 rounded-2xl border border-slate-700/60 min-w-[240px]">
+                    <span class="text-[11px] text-slate-400 block font-bold mb-1">مبلغ نهایی فاکتور (قابل پرداخت):</span>
+                    <div class="text-2xl font-black text-amber-400 font-mono tracking-tight">{{ "{:,}".format(invoice.total_amount) }} <span class="text-xs font-sans text-white">تومان</span></div>
+                </div>
+            </div>
+
+            <!-- پاورقی و مهر فروشگاه -->
+            <div class="border-t border-slate-200 pt-6 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-4">
+                <div class="text-center sm:text-right space-y-1">
+                    <p class="font-bold text-slate-700">با سپاس و قدردانی از حسن انتخاب و اعتماد شما به مجموعه طهماسبی و کی‌آردی کابین</p>
+                    <p class="text-[11px]">جهت هرگونه پیگیری یا گارانتی، ارائه شماره فاکتور <span class="font-mono font-bold text-slate-800">{{ invoice.invoice_number }}</span> الزامی است.</p>
+                </div>
+                <div class="text-center border border-dashed border-slate-300 px-6 py-3 rounded-2xl bg-slate-50">
+                    <span class="text-[11px] text-slate-400 block mb-1">تاییدیه الکترونیکی سیستم</span>
+                    <span class="font-black text-slate-800 text-xs">مهر و امضای دیجیتال فروشگاه</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- دکمه انتهای صفحه برای موبایل -->
+        <div class="no-print mt-6 text-center">
+            <button onclick="window.print()" class="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black px-6 py-3 rounded-2xl text-sm shadow-xl shadow-emerald-500/20 transition cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span>ذخیره نسخه PDF / چاپ فاکتور</span>
+            </button>
+        </div>
+
+        {% endif %}
+    </div>
+
+</body>
+</html>

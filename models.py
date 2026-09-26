@@ -102,6 +102,10 @@ class Settings(db.Model):
     store_name = db.Column(db.String(150), default='مجموعه فروشگاه‌های تخصصی طهماسبی')
     store_phone = db.Column(db.String(50), default='021-12345678')
     store_warranty_text = db.Column(db.Text, default='کلیه اقلام دارای گارانتی اصالت کالا و ۱۰ روز مهلت تست فنی می‌باشند.')
+    sms_api_key = db.Column(db.String(255), default='mDVL1257srjKMnY7X9Yj87Y1ssazFsEncwDtt3kMF9NtAcBa')
+    sms_template_id = db.Column(db.String(50), default='355952')
+    sms_enabled = db.Column(db.Boolean, default=True)
+    public_domain = db.Column(db.String(100), default='tahmasebistore.ir')
 
 class BankAccount(db.Model):
     __tablename__ = 'bank_accounts'
@@ -268,6 +272,8 @@ class Invoice(db.Model):
     
     shop_id = db.Column(db.Integer, db.ForeignKey('shops.id'), nullable=False)
     has_custom_items = db.Column(db.Boolean, default=False, index=True) # آیا فاکتور دارای اقلام سفارشی/خارج از کاتالوگ است
+    sms_sent = db.Column(db.Boolean, default=False) # آیا پیامک گارانتی ارسال شده است
+    sms_sent_at = db.Column(db.String(40), nullable=True) # زمان ارسال پیامک
     seller = db.relationship('User', foreign_keys=[seller_id])
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')

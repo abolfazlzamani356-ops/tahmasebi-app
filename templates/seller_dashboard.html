@@ -640,6 +640,9 @@
                             <a href="{{ url_for('edit_invoice', invoice_id=inv.id) }}" class="text-blue-600 hover:text-blue-800 font-bold text-[11px] bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition">✏️ ویرایش</a>
                             <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-bold text-[11px] bg-indigo-50 px-2 py-1 rounded-lg">🖨️ A4</a>
                             <a href="{{ url_for('print_invoice_thermal', invoice_id=inv.id) }}" target="_blank" class="text-slate-700 hover:text-slate-900 font-bold text-[11px] bg-slate-100 px-2 py-1 rounded-lg">🧾 فیش</a>
+                            <a href="{{ url_for('send_invoice_sms_action', invoice_id=inv.id) }}" onclick="return confirm('آیا مایل به ارسال پیامک گارانتی و فاکتور به مشتری هستید؟')" class="{% if inv.sms_sent %}text-emerald-700 bg-emerald-50 border-emerald-300{% else %}text-amber-700 bg-amber-50 border-amber-300{% endif %} hover:shadow-sm font-bold text-[11px] border px-2 py-1 rounded-lg transition" title="ارسال پیامک گارانتی و لینک دانلود فاکتور">
+                                {% if inv.sms_sent %}✅ پیامک شد{% else %}📱 پیامک{% endif %}
+                            </a>
                         </div>
                     </td>
                 </tr>

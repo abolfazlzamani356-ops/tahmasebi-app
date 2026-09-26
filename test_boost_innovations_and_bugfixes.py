@@ -102,6 +102,10 @@ class TahmasebiBoostInnovationsAndBugfixesTest(unittest.TestCase):
             db.session.commit()
 
         # مشتری تست
+        Customer.query.filter(Customer.phone == "09990001122").delete()
+        Invoice.query.filter(Invoice.invoice_number == "TEST-DEL-INV-001").delete()
+        db.session.commit()
+
         cust = Customer(name="مشتری تست حذف فاکتور", phone="09990001122", total_purchases=20000000, outstanding_balance=5000000)
         db.session.add(cust)
         db.session.commit()
@@ -183,6 +187,10 @@ class TahmasebiBoostInnovationsAndBugfixesTest(unittest.TestCase):
             seller.set_password('123456')
             db.session.add(seller)
             db.session.commit()
+
+        Customer.query.filter(Customer.phone == "09887776655").delete()
+        Invoice.query.filter(Invoice.invoice_number == "TEST-CHK-999").delete()
+        db.session.commit()
 
         cust = Customer(name="مشتری چک صیادی", phone="09887776655", outstanding_balance=0)
         db.session.add(cust)

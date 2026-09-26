@@ -638,4 +638,117 @@ def get_inventory_ai_insights():
         'estimated_stock_profit': total_inventory_sell_value - total_inventory_value
     }
 
+def send_invoice_sms(invoice, base_url=None):
+    """
+    ارسال بلادرنگ پیامک گارانتی، اصالت و لینک مشاهده فاکتور از طریق وب‌سرویس سریع SMS.ir
+    """
+    import requests
+    from models import Settings, db
+
+    if not invoice:
+        return False, "فاکتور یافت نشد."
+
+    phone = str(invoice.customer_phone or '').strip()
+    if not phone:
+        return False, "شماره تماس مشتری برای این فاکتور ثبت نشده است."
+
+    # تبدیل اعداد فارسی/عربی به انگلیسی و حذف کاراکترهای اضافی
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+    for i in range(10):
+        phone = phone.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
+    phone = re.sub(r'[^\d]', '', phone)
+
+    if not phone.startswith('09') or len(phone) != 11:
+        return False, f"شماره همراه مشتری ({phone}) نامعتبر است. شماره همراه باید با 09 شروع شده و ۱۱ رقمی باشد."
+
+    settings = Settings.query.first()
+    api_key = (settings.sms_api_key if settings and settings.sms_api_key else 'mDVL1257srjKMnY7X9Yj87Y1ssazFsEncwDtt3kMF9NtAcBa').strip()
+    template_id_str = str(settings.sms_template_id if settings and settings.sms_template_id else '355952').strip()
+    sms_enabled = settings.sms_enabled if settings and settings.sms_enabled is not None else True
+
+    if not sms_enabled:
+        return False, "سامانه پیامکی در تنظیمات سیستم غیرفعال است."
+
+    try:
+        template_id = int(template_id_str)
+    except Exception:
+        template_id = 355952
+
+    domain = (settings.public_domain if settings and settings.public_domain else 'tahmasebistore.ir').strip()
+    if not domain.startswith('http://') and not domain.startswith('https://'):
+        domain = f"https://{domain}"
+
+    domain = domain.rstrip('/')
+    invoice_link = f"{domain}/invoice/view/{invoice.invoice_number}"
+
+    cust_name = (invoice.customer_name or 'مشتری محترم').strip()[:40]
+    inv_num = str(invoice.invoice_number or invoice.id).strip()[:40]
+
+    payload = {
+        "mobile": phone,
+        "templateId": template_id,
+        "parameters": [
+            {"name": "NAME", "value": cust_name},
+            {"name": "INVOICE", "value": inv_num},
+            {"name": "CODE", "value": inv_num},
+            {"name": "LINK", "value": invoice_link}
+        ]
+    }
+
+    headers = {
+        "X-API-KEY": api_key,
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        resp = requests.post("https://api.sms.ir/v1/send/verify", json=payload, headers=headers, timeout=12)
+        resp_json = {}
+        try:
+            resp_json = resp.json()
+        except Exception:
+            pass
+
+        # در SMS.ir وضعیت 1 یا 200 یا کد ۲۰۰/۲۰۱ نشان‌دهنده موفقیت است
+        is_success = resp.status_code in [200, 201] and (
+            resp_json.get('status') == 1 or 
+            resp_json.get('isSuccessful') is True or 
+            'data' in resp_json
+        )
+
+        if is_success:
+            now_str = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
+            invoice.sms_sent = True
+            invoice.sms_sent_at = now_str
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+            log_activity(
+                f"ارسال پیامک گارانتی فاکتور {inv_num} به {phone} (شناسه قالب {template_id})",
+                user_name="سامانه هوشمند SMS.ir",
+                category="پیامک",
+                details=f"لینک فاکتور: {invoice_link}"
+            )
+            return True, f"پیامک گارانتی و لینک فاکتور با موفقیت به {phone} ارسال شد."
+        else:
+            err_msg = resp_json.get('message') or resp.text or f"کد وضعیت {resp.status_code}"
+            log_activity(
+                f"خطا در ارسال پیامک فاکتور {inv_num} به {phone}: {err_msg}",
+                user_name="سامانه هوشمند SMS.ir",
+                category="پیامک",
+                details=str(resp_json)
+            )
+            return False, f"سامانه پیامکی: {err_msg}"
+
+    except requests.exceptions.Timeout:
+        log_activity(f"تایم‌اوت ارتباط با وب‌سرویس پیامک برای فاکتور {inv_num}", "سامانه هوشمند SMS.ir", "پیامک")
+        return False, "تایم‌اوت ارتباط با سرور پیامک (لطفاً مجدداً امتحان فرمایید)."
+    except Exception as e:
+        log_activity(f"خطای سیستمی ارسال پیامک فاکتور {inv_num}: {str(e)}", "سامانه هوشمند SMS.ir", "پیامک")
+        return False, f"خطای شبکه در ارسال پیامک: {str(e)}"
+
+
 

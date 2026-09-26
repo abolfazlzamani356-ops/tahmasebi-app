@@ -27,7 +27,8 @@ from helpers import (
     get_current_shamsi, log_activity, record_stock_change,
     calculate_seller_exact_stats, get_or_create_customer,
     parse_smart_invoice_text, get_inventory_ai_insights,
-    safe_int, safe_float, normalize_persian_text, calculate_store_financial_summary
+    safe_int, safe_float, normalize_persian_text, calculate_store_financial_summary,
+    send_invoice_sms
 )
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -179,6 +180,12 @@ def initialize_database():
             ("product_catalog", "barcode", "TEXT"),
             ("audit_logs", "ip_address", "TEXT"),
             ("audit_logs", "details", "TEXT"),
+            ("settings", "sms_api_key", "TEXT DEFAULT 'mDVL1257srjKMnY7X9Yj87Y1ssazFsEncwDtt3kMF9NtAcBa'"),
+            ("settings", "sms_template_id", "TEXT DEFAULT '355952'"),
+            ("settings", "sms_enabled", "BOOLEAN DEFAULT 1"),
+            ("settings", "public_domain", "TEXT DEFAULT 'tahmasebistore.ir'"),
+            ("invoices", "sms_sent", "BOOLEAN DEFAULT 0"),
+            ("invoices", "sms_sent_at", "TEXT"),
         ]
 
         for table, col, col_def in migrations:
@@ -1173,6 +1180,17 @@ def add_invoice():
 
         db.session.commit()
         
+        # ارسال خودکار پیامک گارانتی و لینک فاکتور به مشتری (در صورت فاکتور فروش قطعی)
+        if new_inv.status == 'final' and new_inv.invoice_type == 'sale' and new_inv.customer_phone:
+            try:
+                sms_success, sms_msg = send_invoice_sms(new_inv)
+                if sms_success:
+                    flash('پیامک گارانتی و لینک فاکتور با موفقیت به خریدار ارسال شد.', 'info')
+                else:
+                    app.logger.info(f"SMS auto-send notice: {sms_msg}")
+            except Exception as ex:
+                app.logger.warning(f"SMS auto-trigger exception: {ex}")
+
         log_activity(f"ثبت سند {new_inv.invoice_number} ({status}) به مبلغ {total_amount:,} تومان با پرداخت ترکیبی", session.get('full_name'), "فروش")
         flash(f'فاکتور {new_inv.invoice_number} با موفقیت در سامانه ثبت شد و تغییرات انبار و حسابداری اعمال گردید.', 'success')
         return redirect(url_for('seller_dashboard'))
@@ -1196,6 +1214,15 @@ def convert_proforma(invoice_id):
             record_stock_change(row.inventory_item_id, inv.shop_id, 'sale', -row.quantity, inv.invoice_number, session.get('full_name'), f"تبدیل پیش‌فاکتور به قطعی {inv.invoice_number}", commit=False)
 
     db.session.commit()
+
+    # ارسال خودکار پیامک گارانتی پس از قطعی شدن پیش‌فاکتور
+    if inv.invoice_type == 'sale' and inv.customer_phone:
+        try:
+            sms_success, sms_msg = send_invoice_sms(inv)
+            if sms_success:
+                flash('پیامک گارانتی و لینک فاکتور برای خریدار ارسال گردید.', 'info')
+        except Exception as ex:
+            app.logger.warning(f"SMS trigger error: {ex}")
     log_activity(f"تبدیل پیش‌فاکتور {inv.invoice_number} به فاکتور قطعی و کسر انبار", session.get('full_name'), "فروش")
     flash(f'پیش‌فاکتور {inv.invoice_number} به فاکتور قطعی تبدیل و از انبار کسر شد.', 'success')
     return redirect(url_for('seller_dashboard'))
@@ -1608,6 +1635,32 @@ def print_invoice_thermal(invoice_id):
     settings = Settings.query.first()
     return render_template('print_pos.html', invoice=invoice, settings=settings)
 
+# ==================== مشاهده و دانلود عمومی فاکتور مشتری و خدمات پیامک ====================
+@app.route('/invoice/view/<string:invoice_number>')
+def public_view_invoice(invoice_number):
+    """مشاهده عمومی فاکتور چاپی معتبر و دانلود PDF بدون نیاز به ورود، جهت باز شدن از لینک پیامک"""
+    clean_num = invoice_number.strip()
+    invoice = Invoice.query.filter_by(invoice_number=clean_num).first()
+    if not invoice and clean_num.isdigit():
+        invoice = Invoice.query.get(int(clean_num))
+    if not invoice:
+        return render_template('public_invoice_view.html', invoice=None, error="فاکتور مورد نظر در سامانه یافت نشد.")
+    settings = Settings.query.first()
+    return render_template('public_invoice_view.html', invoice=invoice, settings=settings)
+
+@app.route('/invoice/send_sms/<int:invoice_id>', methods=['POST', 'GET'])
+def send_invoice_sms_action(invoice_id):
+    """ارسال دستی یا مجدد پیامک گارانتی و لینک فاکتور توسط فروشنده یا ادمین"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    inv = Invoice.query.get_or_404(invoice_id)
+    success, msg = send_invoice_sms(inv)
+    if success:
+        flash(f'پیامک گارانتی و لینک فاکتور با موفقیت به {inv.customer_phone} ارسال شد.', 'success')
+    else:
+        flash(f'ارسال پیامک با خطا مواجه شد: {msg}', 'error')
+    return redirect(request.referrer or url_for('seller_dashboard'))
+
 # ==================== داشبورد مدیریت کل ====================
 @app.route('/admin')
 @app.route('/admin_dashboard')
@@ -1809,6 +1862,8 @@ def admin_dashboard():
             'items_desc': inv.items_desc or '',
             'categories_json': inv.categories_json or '',
             'has_custom_items': getattr(inv, 'has_custom_items', False),
+            'sms_sent': getattr(inv, 'sms_sent', False),
+            'sms_sent_at': getattr(inv, 'sms_sent_at', '') or '',
             'real_profit': inv.real_profit or 0,
             'actual_buy_cost': inv.actual_buy_cost or 0,
             'items': [{

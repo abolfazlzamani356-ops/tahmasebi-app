@@ -892,6 +892,9 @@
                         {% endif %}
                         <a href="{{ url_for('edit_invoice', invoice_id=inv.id) }}" class="text-blue-400 hover:text-blue-300 font-bold bg-blue-500/10 px-2 py-1 rounded-lg text-[10px]">✏️ ویرایش</a>
                         <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/10 px-2 py-1 rounded-lg text-[10px]">🖨️ چاپ</a>
+                        <a href="{{ url_for('send_invoice_sms_action', invoice_id=inv.id) }}" onclick="return confirm('آیا مایل به ارسال پیامک گارانتی و فاکتور به مشتری هستید؟')" class="{% if inv.sms_sent %}text-emerald-400 bg-emerald-500/10 border-emerald-500/30{% else %}text-amber-400 bg-amber-500/10 border-amber-500/30{% endif %} hover:shadow font-bold border px-2 py-1 rounded-lg text-[10px] transition" title="ارسال پیامک گارانتی و فاکتور">
+                            {% if inv.sms_sent %}✅ پیامک شد{% else %}📱 پیامک{% endif %}
+                        </a>
                     </div>
                 </td>
                 <td class="p-3">

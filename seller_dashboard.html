@@ -639,34 +639,54 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
 {% endif %}
 
 <!-- سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی -->
-<div id="leaderboard" class="glass-card glass-card-glow-indigo text-white p-8 mb-8">
+<div id="leaderboard" class="glass-card text-white p-6 sm:p-8 mb-8 border border-indigo-500/30 shadow-2xl">
     <div class="text-center mb-6">
-        <span class="text-3xl">🏆</span>
-
-        <h3 class="text-xl font-black mt-1">سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی</h3>
-        <p class="text-xs text-slate-400">بر اساس بیشترین فروش خالص و بالاترین رضایت مشتریان در {{ current_month_name }}</p>
+        <span class="text-4xl inline-block mb-1">🏆</span>
+        <h3 class="text-xl font-black text-white tracking-wide">سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی</h3>
+        <p class="text-xs text-slate-300 font-medium mt-1">بر اساس بیشترین فروش خالص وصول‌شده و بالاترین رضایت مشتریان در {{ current_month_name }}</p>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {% for rank_item in leaderboard %}
-        <div class="glass-card p-5 text-center relative overflow-hidden">
-            {% if loop.index == 1 %}
-                <div class="absolute top-0 right-0 bg-amber-500 text-slate-950 text-[10px] font-black px-3 py-1 rounded-bl-xl shadow">🥇 رتبه اول</div>
-            {% elif loop.index == 2 %}
-                <div class="absolute top-0 right-0 bg-slate-300 text-slate-950 text-[10px] font-black px-3 py-1 rounded-bl-xl shadow">🥈 رتبه دوم</div>
-            {% elif loop.index == 3 %}
-                <div class="absolute top-0 right-0 bg-amber-700 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl shadow">🥉 رتبه سوم</div>
-            {% endif %}
+        <div class="p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden flex flex-col justify-between text-center shadow-xl {% if loop.index == 1 %}bg-gradient-to-b from-amber-500/20 via-[#161f33] to-[#0f172a] border-amber-400/60 shadow-amber-950/50 hover:border-amber-300{% elif loop.index == 2 %}bg-gradient-to-b from-slate-300/20 via-[#161f33] to-[#0f172a] border-slate-300/50 shadow-slate-950/50 hover:border-slate-200{% elif loop.index == 3 %}bg-gradient-to-b from-orange-500/20 via-[#161f33] to-[#0f172a] border-orange-400/50 shadow-orange-950/50 hover:border-orange-300{% else %}bg-[#161f33]/95 border-white/15 hover:border-white/30 shadow-black/40{% endif %}">
             
-            <div class="text-3xl mb-2 mt-2">
-                {% if loop.index == 1 %}👑{% elif loop.index == 2 %}⭐{% elif loop.index == 3 %}🎖️{% else %}👤{% endif %}
+            <!-- نشان رتبه در گوشه بالا -->
+            <div class="absolute top-0 right-0">
+                {% if loop.index == 1 %}
+                    <div class="bg-amber-400 text-slate-950 text-xs font-black px-3.5 py-1 rounded-bl-xl shadow-md flex items-center gap-1">🥇 رتبه ۱ • قهرمان فروش</div>
+                {% elif loop.index == 2 %}
+                    <div class="bg-slate-200 text-slate-950 text-xs font-black px-3.5 py-1 rounded-bl-xl shadow-md flex items-center gap-1">🥈 رتبه ۲</div>
+                {% elif loop.index == 3 %}
+                    <div class="bg-orange-400 text-slate-950 text-xs font-black px-3.5 py-1 rounded-bl-xl shadow-md flex items-center gap-1">🥉 رتبه ۳</div>
+                {% else %}
+                    <div class="bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1 rounded-bl-xl border-b border-l border-white/10">رتبه {{ loop.index }}</div>
+                {% endif %}
             </div>
-            <h4 class="font-bold text-sm text-slate-100">{{ rank_item.user.full_name }}</h4>
-            <p class="text-[10px] text-slate-400 mb-3">{{ rank_item.user.shop.name if rank_item.user.shop else '' }}</p>
-            <div class="bg-black/30 p-2.5 rounded-xl text-xs font-black text-glow-emerald mb-2 border border-emerald-500/20">
-                {{ "{:,}".format(rank_item.net_sales) }} تومان
+            
+            <div class="mt-4 mb-3">
+                <div class="text-4xl mb-2 flex items-center justify-center">
+                    {% if loop.index == 1 %}👑{% elif loop.index == 2 %}⭐{% elif loop.index == 3 %}🎖️{% else %}👤{% endif %}
+                </div>
+                <h4 class="font-black text-base text-white tracking-wide mb-1">{{ rank_item.user.full_name }}</h4>
+                <span class="inline-block bg-white/10 text-slate-200 border border-white/10 text-[11px] font-bold px-2.5 py-0.5 rounded-lg mb-3">
+                    {{ rank_item.user.shop.name if rank_item.user.shop else 'فروشگاه طهماسبی' }}
+                </span>
             </div>
-            <div class="text-[11px] text-amber-400 font-bold">رضایت مشتری: ★ {{ rank_item.avg_rating }}</div>
+
+            <div class="space-y-2 mt-auto">
+                <div class="bg-black/50 p-3 rounded-xl border border-white/10 flex flex-col items-center justify-center">
+                    <span class="text-[10px] text-slate-300 font-bold mb-0.5">فروش خالص وصول‌شده:</span>
+                    <span class="text-emerald-400 font-mono font-black text-sm sm:text-base tracking-wide">{{ "{:,}".format(rank_item.net_sales) }} تومان</span>
+                </div>
+                <div class="flex items-center justify-center gap-1 text-xs font-black text-amber-300 bg-amber-500/10 border border-amber-500/20 py-1.5 px-2 rounded-xl">
+                    <span>امتیاز مشتریان:</span>
+                    <span>★ {{ rank_item.avg_rating }}</span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-span-1 sm:col-span-2 lg:col-span-4 text-center py-10 text-slate-300 text-sm font-bold bg-[#161f33]/60 rounded-2xl border border-white/10">
+            📦 اطلاعات رتبه‌بندی برای این ماه هنوز ثبت نشده است.
         </div>
         {% endfor %}
     </div>

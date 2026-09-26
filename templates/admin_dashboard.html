@@ -180,21 +180,21 @@
             
             <!-- ریز مؤلفه‌های مالی به صورت چیپ‌های شیک -->
             <div class="flex flex-wrap items-center gap-2.5 pt-2">
-                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
-                    <span class="text-slate-400 font-medium">سود ناخالص:</span>
-                    <strong class="text-emerald-400 mr-1">+ {{ "{:,}".format(estimated_gross_profit) }} ت</strong>
+                <div class="bg-[#1a2234] border border-white/10 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm">
+                    <span class="text-slate-200 font-bold">سود ناخالص:</span>
+                    <strong class="text-emerald-400 font-mono font-black">+ {{ "{:,}".format(estimated_gross_profit) }} ت</strong>
                 </div>
-                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
-                    <span class="text-slate-400 font-medium">حقوق و پورسانت:</span>
-                    <strong class="text-rose-400 mr-1">- {{ "{:,}".format(total_payroll) }} ت</strong>
+                <div class="bg-[#1a2234] border border-white/10 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm">
+                    <span class="text-slate-200 font-bold">حقوق و پورسانت:</span>
+                    <strong class="text-rose-400 font-mono font-black">- {{ "{:,}".format(total_payroll) }} ت</strong>
                 </div>
-                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
-                    <span class="text-slate-400 font-medium">اجاره شعب:</span>
-                    <strong class="text-amber-400 mr-1">- {{ "{:,}".format(total_rent) }} ت</strong>
+                <div class="bg-[#1a2234] border border-white/10 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm">
+                    <span class="text-slate-200 font-bold">اجاره شعب:</span>
+                    <strong class="text-amber-400 font-mono font-black">- {{ "{:,}".format(total_rent) }} ت</strong>
                 </div>
-                <div class="bg-[#1a2234] border border-white/5 px-3 py-1.5 rounded-xl text-xs">
-                    <span class="text-slate-400 font-medium">هزینه‌های تنخواه:</span>
-                    <strong class="text-orange-400 mr-1">- {{ "{:,}".format(total_expenses) }} ت</strong>
+                <div class="bg-[#1a2234] border border-white/10 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm">
+                    <span class="text-slate-200 font-bold">هزینه‌های تنخواه:</span>
+                    <strong class="text-orange-400 font-mono font-black">- {{ "{:,}".format(total_expenses) }} ت</strong>
                 </div>
             </div>
         </div>
@@ -222,97 +222,99 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
     <div class="glass-card p-4 border-r-4 border-r-indigo-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">فروش کل مجموعه</span>
+            <span class="text-xs text-slate-200 font-black">فروش کل مجموعه</span>
             <span class="text-lg">🛒</span>
         </div>
-        <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-slate-400 mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
+        <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[11px] text-slate-300 font-medium mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-emerald-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">سود ناخالص کالاها</span>
+            <span class="text-xs text-slate-200 font-black">سود ناخالص کالاها</span>
             <span class="text-lg">💰</span>
         </div>
-        <h3 class="text-xl font-black text-emerald-400 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-slate-400 mt-1">اختلاف خرید و فروش فاکتورها</p>
+        <h3 class="text-xl font-black text-emerald-400 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[11px] text-slate-300 font-medium mt-1">اختلاف خرید و فروش فاکتورها</p>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-rose-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">حقوق و پورسانت پرسنل</span>
+            <span class="text-xs text-slate-200 font-black">حقوق و پورسانت پرسنل</span>
             <span class="text-lg">👥</span>
         </div>
-        <h3 class="text-xl font-black text-rose-400 mt-2">{{ "{:,}".format(total_payroll) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-slate-400 mt-1">ثابت: {{ "{:,}".format(total_base_salaries) }} | پورسانت: {{ "{:,}".format(total_commissions) }}</p>
+        <h3 class="text-xl font-black text-rose-400 mt-2">{{ "{:,}".format(total_payroll) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[11px] text-slate-300 font-medium mt-1">ثابت: {{ "{:,}".format(total_base_salaries) }} | پورسانت: {{ "{:,}".format(total_commissions) }}</p>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-purple-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">اجاره شعب ۱ و ۲</span>
-            <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">ویرایش ✏️</button>
+            <span class="text-xs text-slate-200 font-black">اجاره شعب ۱ و ۲</span>
+            <button onclick="document.getElementById('rentSettingsModal').classList.remove('hidden')" class="text-[11px] text-purple-300 hover:text-purple-200 font-bold bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">ویرایش ✏️</button>
         </div>
-        <h3 class="text-xl font-black text-purple-400 mt-2">{{ "{:,}".format(total_rent) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-slate-400 mt-1">کسر مستقیم از سود ناخالص</p>
+        <h3 class="text-xl font-black text-purple-400 mt-2">{{ "{:,}".format(total_rent) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[11px] text-slate-300 font-medium mt-1">کسر مستقیم از سود ناخالص</p>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-amber-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">هزینه‌های جاری تنخواه</span>
+            <span class="text-xs text-slate-200 font-black">هزینه‌های جاری تنخواه</span>
             <span class="text-lg">💸</span>
         </div>
-        <h3 class="text-xl font-black text-amber-400 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></h3>
-        <p class="text-[10px] text-slate-400 mt-1">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} ت</p>
+        <h3 class="text-xl font-black text-amber-400 mt-2">{{ "{:,}".format(total_expenses) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[11px] text-slate-300 font-medium mt-1">مانده تنخواه: {{ "{:,}".format(total_petty_deposits - total_expenses) }} ت</p>
     </div>
 </div>
 
 <!-- Charts Section -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <div class="glass-card p-5">
-        <h3 class="text-sm font-bold text-slate-800 mb-3">📊 مقایسه فروش پرسنل فروشگاه‌های طهماسبی</h3>
+        <h3 class="text-sm font-black text-white mb-3 flex items-center gap-2"><span>📊</span> مقایسه فروش پرسنل فروشگاه‌های طهماسبی</h3>
         <div class="h-64"><canvas id="sellerSalesChart"></canvas></div>
     </div>
     <div class="glass-card p-5">
-        <h3 class="text-sm font-bold text-slate-800 mb-3">🥧 سهم دسته‌بندی کالاها (هود، گاز، سینک، روشویی...)</h3>
+        <h3 class="text-sm font-black text-white mb-3 flex items-center gap-2"><span>🥧</span> سهم دسته‌بندی کالاها (هود، گاز، سینک، روشویی...)</h3>
         <div class="h-64"><canvas id="categoryChart"></canvas></div>
     </div>
 </div>
 
-<!-- Top Selling Items Widget -->
+<!-- Top Selling Items Widget (High Contrast, Ultra-Readable Ranking Cards) -->
 <div class="glass-card p-6 mb-8">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-4 mb-4 gap-2">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-4 mb-5 gap-3">
         <div>
-            <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
                 <span>🔥</span> اقلام پرفروش و محبوب فروشگاه‌های طهماسبی
             </h3>
-            <p class="text-[11px] text-slate-400 mt-0.5">محصولاتی که بیشترین تعداد فاکتور قطعی و خروج از انبار را داشته‌اند</p>
+            <p class="text-xs text-slate-300 mt-1">محصولاتی که بیشترین تعداد فاکتور قطعی و خروج از انبار را داشته‌اند</p>
         </div>
-        <span class="text-xs bg-indigo-50 text-indigo-700 font-bold px-3 py-1.5 rounded-xl border border-indigo-100">رتبه‌بندی بلادرنگ</span>
+        <span class="text-xs bg-indigo-500/20 text-indigo-300 font-bold px-3 py-1.5 rounded-xl border border-indigo-500/30 flex items-center gap-1.5 shadow-sm">
+            ⚡ رتبه‌بندی بلادرنگ
+        </span>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {% for top in top_selling_items %}
-        <div class="p-4 rounded-2xl border transition relative overflow-hidden flex flex-col justify-between {% if loop.index == 1 %}bg-gradient-to-br from-amber-50/80 to-amber-100/40 border-amber-300 shadow-sm{% elif loop.index == 2 %}bg-gradient-to-br from-slate-50 to-slate-100/70 border-slate-300{% elif loop.index == 3 %}bg-gradient-to-br from-orange-50/80 to-orange-100/40 border-orange-200{% else %}bg-slate-50/70 border-slate-200{% endif %}">
-            <div class="flex justify-between items-start mb-2.5">
-                <span class="text-xs font-black px-2 py-0.5 rounded-lg {% if loop.index == 1 %}bg-amber-400 text-amber-950 shadow-sm{% elif loop.index == 2 %}bg-slate-300 text-slate-800{% elif loop.index == 3 %}bg-orange-300 text-orange-950{% else %}bg-slate-200 text-slate-700{% endif %}">
+        <div class="p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden flex flex-col justify-between shadow-xl {% if loop.index == 1 %}bg-gradient-to-b from-amber-500/20 via-[#161f33] to-[#0f172a] border-2 border-amber-400/70 hover:border-amber-300 shadow-amber-950/50{% elif loop.index == 2 %}bg-gradient-to-b from-slate-300/20 via-[#161f33] to-[#0f172a] border-2 border-slate-300/60 hover:border-slate-200 shadow-slate-950/50{% elif loop.index == 3 %}bg-gradient-to-b from-orange-500/20 via-[#161f33] to-[#0f172a] border-2 border-orange-400/60 hover:border-orange-300 shadow-orange-950/50{% else %}bg-[#161f33] border border-white/20 hover:border-white/40 shadow-black/50{% endif %}">
+            <div class="flex justify-between items-start mb-3">
+                <span class="text-xs font-black px-3 py-1 rounded-lg shadow-md {% if loop.index == 1 %}bg-amber-400 text-slate-950{% elif loop.index == 2 %}bg-slate-200 text-slate-950{% elif loop.index == 3 %}bg-orange-400 text-slate-950{% else %}bg-slate-700 text-slate-100 border border-white/10{% endif %}">
                     {% if loop.index == 1 %}🥇 رتبه ۱{% elif loop.index == 2 %}🥈 رتبه ۲{% elif loop.index == 3 %}🥉 رتبه ۳{% else %}رتبه {{ loop.index }}{% endif %}
                 </span>
-                <span class="category-pill text-[10px]">{{ top.category }}</span>
+                <span class="bg-indigo-500/25 text-indigo-200 border border-indigo-500/40 text-xs font-bold px-2.5 py-0.5 rounded-lg">{{ top.category }}</span>
             </div>
             <div>
-                <h4 class="text-xs font-black text-slate-900 leading-snug mb-1">{{ top.item_name }}</h4>
-                <div class="flex justify-between items-center text-xs mt-3 pt-2 border-t border-slate-200/70">
-                    <span class="text-slate-500 font-medium">تعداد فاکتور شده:</span>
-                    <span class="font-black text-indigo-700 text-sm">{{ top.total_qty }} عدد</span>
+                <h4 class="text-sm font-black text-white leading-normal line-clamp-2 min-h-[2.75rem] mb-3 mt-1" title="{{ top.item_name }}">{{ top.item_name }}</h4>
+                <div class="flex justify-between items-center text-xs py-2 border-t border-white/10">
+                    <span class="text-slate-100 font-bold flex items-center gap-1.5">📦 تعداد فاکتور شده:</span>
+                    <span class="font-black text-amber-300 text-sm font-mono tracking-tight">{{ top.total_qty }} عدد</span>
                 </div>
-                <div class="flex justify-between items-center text-[11px] mt-1">
-                    <span class="text-slate-400">گردش ریالی:</span>
-                    <span class="font-bold text-emerald-700">{{ "{:,}".format(top.total_revenue) }} تومان</span>
+                <div class="flex justify-between items-center text-xs pt-2 pb-0.5 border-t border-white/5">
+                    <span class="text-slate-100 font-bold flex items-center gap-1.5">💰 گردش ریالی:</span>
+                    <span class="font-black text-emerald-400 text-sm font-mono tracking-tight">{{ "{:,}".format(top.total_revenue) }} تومان</span>
                 </div>
             </div>
         </div>
         {% else %}
-        <div class="col-span-4 text-center py-8 text-slate-400 text-xs">
-            هنوز فاکتور قطعی برای استخراج اقلام پرفروش ثبت نشده است.
+        <div class="col-span-1 sm:col-span-2 lg:col-span-4 text-center py-10 text-slate-300 text-sm font-bold bg-[#161f33]/60 rounded-2xl border border-white/10">
+            📦 هنوز فاکتور قطعی برای استخراج اقلام پرفروش در این ماه ثبت نشده است.
         </div>
         {% endfor %}
     </div>
@@ -320,78 +322,83 @@
 
 <!-- Sellers Commission Table -->
 <div class="glass-card p-6 mb-8 overflow-x-auto">
-    <h3 class="text-md font-bold text-slate-200 mb-4 flex justify-between items-center">
-        <span>👥 پورسانت پرسنل و کارنامه فروش در {{ selected_month_name }}</span>
-        <span class="text-xs text-indigo-600 font-bold">پله ۱ تارگت: {{ "{:,}".format(settings.tier1_min) }} (+{{ settings.tier1_bonus }}%) | پله ۲: {{ "{:,}".format(settings.tier2_min) }} (+{{ settings.tier2_bonus }}%)</span>
-    </h3>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <h3 class="text-base font-black text-white flex items-center gap-2">
+            <span>👥</span> پورسانت پرسنل و کارنامه فروش در {{ selected_month_name }}
+        </h3>
+        <span class="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
+            🎯 پله ۱: {{ "{:,}".format(settings.tier1_min) }} (+{{ settings.tier1_bonus }}%) | پله ۲: {{ "{:,}".format(settings.tier2_min) }} (+{{ settings.tier2_bonus }}%)
+        </span>
+    </div>
     <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
-            <tr class="bg-slate-50 text-slate-700 font-bold">
-                <th class="p-3 border-b">نام پرسنل</th>
-                <th class="p-3 border-b">شعبه</th>
-                <th class="p-3 border-b">تعداد فاکتور</th>
-                <th class="p-3 border-b">فروش خالص (تومان)</th>
-                <th class="p-3 border-b">درصد پایه</th>
-                <th class="p-3 border-b">درصد با پله تارگت</th>
-                <th class="p-3 border-b">پورسانت قطعی (تومان)</th>
-                <th class="p-3 border-b">رضایت مشتری</th>
-                <th class="p-3 border-b text-center">عملیات حساب</th>
+            <tr class="bg-[#161f33] text-slate-200 font-bold border-b border-white/10">
+                <th class="p-3 border-b border-white/10">نام پرسنل</th>
+                <th class="p-3 border-b border-white/10">شعبه</th>
+                <th class="p-3 border-b border-white/10">تعداد فاکتور</th>
+                <th class="p-3 border-b border-white/10">فروش خالص (تومان)</th>
+                <th class="p-3 border-b border-white/10">درصد پایه</th>
+                <th class="p-3 border-b border-white/10">درصد با پله تارگت</th>
+                <th class="p-3 border-b border-white/10">پورسانت قطعی (تومان)</th>
+                <th class="p-3 border-b border-white/10">رضایت مشتری</th>
+                <th class="p-3 border-b border-white/10 text-center">عملیات حساب</th>
             </tr>
         </thead>
         <tbody>
             {% for item in sellers_data %}
-            <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-900">
+            <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                <td class="p-3 font-bold text-white">
                     <div class="flex items-center gap-2.5">
                         {% if item.user.avatar_data or item.user.avatar %}
                             <img src="{{ item.user.avatar_data if item.user.avatar_data else url_for('serve_avatar', filename=item.user.avatar) }}" 
                                  onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (item.user.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
                                  class="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm flex-shrink-0">
-                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-700 to-indigo-900 text-indigo-200 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
                                 {{ item.user.full_name[0] }}
                             </div>
                         {% else %}
-                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-700 to-indigo-900 text-indigo-200 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
                                 {{ item.user.full_name[0] }}
                             </div>
                         {% endif %}
                         <div>
                             <span class="text-white font-bold">{{ item.user.full_name }}</span>
-                            <div class="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-400 font-mono mt-0.5">
+                            <div class="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-300 font-mono mt-0.5">
                                 {% if item.user.national_id %}<span title="کد ملی">🪪 {{ item.user.national_id }}</span>{% endif %}
                                 {% if item.user.phone %}<span title="شماره تماس">📱 {{ item.user.phone }}</span>{% endif %}
                                 {% if item.user.sheba_number %}<span class="text-emerald-400 font-bold" title="شماره شبا">💳 {{ item.user.sheba_number }}</span>{% endif %}
                             </div>
                         </div>
                         {% if item.user.can_manage_inventory %}
-                            <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
+                            <span class="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-500/40">👑 مدیر انبار</span>
                         {% endif %}
                     </div>
                 </td>
-                <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ item.user.shop.name if item.user.shop else '-' }}</span></td>
-                <td class="p-3 font-medium">{{ item.stats.sales_count }} فاکتور</td>
-                <td class="p-3 font-bold text-blue-700 text-sm">{{ "{:,}".format(item.stats.net_sales) }}</td>
+                <td class="p-3"><span class="bg-slate-800 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-xl text-[11px] font-bold">{{ item.user.shop.name if item.user.shop else '-' }}</span></td>
+                <td class="p-3 font-bold text-slate-200">{{ item.stats.sales_count }} فاکتور</td>
+                <td class="p-3 font-black text-cyan-300 text-sm font-mono">{{ "{:,}".format(item.stats.net_sales) }}</td>
                 <td class="p-3">
                     <form method="POST" action="{{ url_for('update_commission', user_id=item.user.id) }}" class="flex items-center gap-1">
                         <input type="hidden" name="month" value="{{ selected_month }}">
-                        <input type="number" step="0.01" min="0.01" max="5.0" name="commission_rate" value="{{ item.user.commission_rate }}" class="w-16 p-1 border rounded-lg text-center font-bold text-xs">
-                        <span>%</span>
-                        <button type="submit" class="bg-slate-800 text-white px-2 py-1 rounded-lg text-[11px] hover:bg-slate-900">ثبت</button>
+                        <input type="number" step="0.01" min="0.01" max="5.0" name="commission_rate" value="{{ item.user.commission_rate }}" class="w-16 p-1 border border-slate-700 bg-slate-900 text-white rounded-lg text-center font-bold text-xs">
+                        <span class="text-slate-300 font-bold">%</span>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded-lg text-[11px] font-bold transition">ثبت</button>
                     </form>
                 </td>
-                <td class="p-3 font-bold text-indigo-700 text-sm">
+                <td class="p-3 font-black text-amber-300 text-sm font-mono">
                     {{ item.stats.effective_rate }}%
                     {% if item.stats.effective_rate > item.user.commission_rate %}
-                        <span class="text-[10px] text-emerald-600 block">⭐ پاداش پله‌ای</span>
+                        <span class="text-[10px] text-emerald-400 block font-normal">⭐ پاداش پله‌ای</span>
                     {% endif %}
                 </td>
-                <td class="p-3 font-black text-emerald-600 text-sm">{{ "{:,}".format(item.stats.settled_commission) }}</td>
-                <td class="p-3 text-amber-500 font-bold">★ {{ item.stats.avg_rating }}</td>
+                <td class="p-3 font-black text-emerald-400 text-sm font-mono">{{ "{:,}".format(item.stats.settled_commission) }}</td>
+                <td class="p-3 text-amber-400 font-black">★ {{ item.stats.avg_rating }}</td>
                 <td class="p-3 text-center">
-                        <button type="button" data-address="{{ item.user.address or '' }}" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}', '{{ item.user.national_id or '' }}', '{{ item.user.birth_date or '' }}', '{{ item.user.emergency_phone or '' }}', '{{ item.user.sheba_number or '' }}', this.getAttribute('data-address'))" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
-                        <button type="button" onclick="openPasswordModal({{ item.user.id }}, '{{ item.user.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" data-address="{{ item.user.address or '' }}" onclick="openEditUserModal({{ item.user.id }}, '{{ item.user.full_name }}', '{{ item.user.username }}', '{{ item.user.phone or '' }}', '{{ item.user.card_number or '' }}', {{ item.user.base_salary or 0 }}, {{ item.user.commission_rate }}, {{ item.user.shop_id or 1 }}, {{ 'true' if item.user.can_manage_inventory else 'false' }}, '{{ item.user.role }}', '{{ item.user.national_id or '' }}', '{{ item.user.birth_date or '' }}', '{{ item.user.emergency_phone or '' }}', '{{ item.user.sheba_number or '' }}', this.getAttribute('data-address'))" class="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" onclick="openPasswordModal({{ item.user.id }}, '{{ item.user.full_name }}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=item.user.id) }}" onsubmit="return confirm('پرسنل ({{ item.user.full_name }}) حذف شود؟ سوابق فاکتورهای گذشته محفوظ می‌ماند.')">
-                            <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
+                            <button type="submit" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
                         </form>
                     </div>
                 </td>
@@ -403,73 +410,73 @@
 
 <!-- جدول اختصاصی پرسنل خدمات، تحویل بار و نظافت -->
 <div class="glass-card p-6 mb-8 overflow-x-auto">
-    <div class="flex justify-between items-center mb-4 border-b pb-3">
+    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-3">
         <div>
-            <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
                 <span>🚚</span> پرسنل خدمات، تحویل بار و نظافت (حقوق ثابت ماهانه - ۰٪ پورسانت)
             </h3>
-            <p class="text-[11px] text-slate-400 mt-0.5">پرسنل زحمت‌کش خدمات و باربری طهماسبی که دارای حقوق ثابت ماهیانه بوده و مبالغ پرداختی به ایشان از سود خالص ماه کسر می‌گردد</p>
+            <p class="text-xs text-slate-300 mt-0.5">پرسنل زحمت‌کش خدمات و باربری طهماسبی که دارای حقوق ثابت ماهیانه بوده و مبالغ پرداختی به ایشان از سود خالص ماه کسر می‌گردد</p>
         </div>
-        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-200 transition">➕ افزودن نیروی خدمات</button>
+        <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-500/40 transition shadow">➕ افزودن نیروی خدمات</button>
     </div>
     <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
-            <tr class="bg-slate-50 text-slate-700 font-bold">
-                <th class="p-3 border-b">نام پرسنل</th>
-                <th class="p-3 border-b">نقش و مسئولیت</th>
-                <th class="p-3 border-b">شعبه محل خدمت</th>
-                <th class="p-3 border-b">حقوق پایه ماهانه (تومان)</th>
-                <th class="p-3 border-b">شماره تماس / کارت بانکی</th>
-                <th class="p-3 border-b text-center">عملیات حساب</th>
+            <tr class="bg-[#161f33] text-slate-200 font-bold border-b border-white/10">
+                <th class="p-3 border-b border-white/10">نام پرسنل</th>
+                <th class="p-3 border-b border-white/10">نقش و مسئولیت</th>
+                <th class="p-3 border-b border-white/10">شعبه محل خدمت</th>
+                <th class="p-3 border-b border-white/10">حقوق پایه ماهانه (تومان)</th>
+                <th class="p-3 border-b border-white/10">شماره تماس / کارت بانکی</th>
+                <th class="p-3 border-b border-white/10 text-center">عملیات حساب</th>
             </tr>
         </thead>
         <tbody>
             {% for u in logistics_staff %}
-            <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-900">
+            <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                <td class="p-3 font-bold text-white">
                     <div class="flex items-center gap-2.5">
                         {% if u.avatar_data or u.avatar %}
                             <img src="{{ u.avatar_data if u.avatar_data else url_for('serve_avatar', filename=u.avatar) }}" 
                                  onerror="if (!this.dataset.tried) { this.dataset.tried = '1'; this.src = '{{ url_for('static', filename='uploads/avatars/' + (u.avatar or '')) }}'; } else { this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); }" 
                                  class="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500 shadow-sm flex-shrink-0">
-                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
+                            <div class="w-8 h-8 rounded-full bg-blue-900/60 text-blue-200 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm hidden">
                                 🚚
                             </div>
                         {% else %}
-                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
+                            <div class="w-8 h-8 rounded-full bg-blue-900/60 text-blue-200 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
                                 🚚
                             </div>
                         {% endif %}
                         <div>
                             <span class="text-white font-bold">{{ u.full_name }}</span>
-                            <div class="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-400 font-mono mt-0.5">
+                            <div class="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-300 font-mono mt-0.5">
                                 {% if u.national_id %}<span title="کد ملی">🪪 {{ u.national_id }}</span>{% endif %}
                                 {% if u.phone %}<span title="شماره تماس">📱 {{ u.phone }}</span>{% endif %}
                                 {% if u.sheba_number %}<span class="text-emerald-400 font-bold" title="شماره شبا">💳 {{ u.sheba_number }}</span>{% endif %}
                             </div>
                         </div>
                         {% if u.can_manage_inventory %}
-                            <span class="bg-amber-100 text-amber-900 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-300">👑 مدیر انبار</span>
+                            <span class="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold mr-1 border border-amber-500/40">👑 مدیر انبار</span>
                         {% endif %}
                     </div>
                 </td>
-                <td class="p-3"><span class="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-xl text-[11px] font-bold">🚚 تحویل بار، انبارداری و خدمات</span></td>
-                <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-xl text-[11px]">{{ u.shop.name if u.shop else '-' }}</span></td>
-                <td class="p-3 font-black text-emerald-700 text-sm">{{ "{:,}".format(u.base_salary or 0) }} تومان</td>
-                <td class="p-3 text-slate-600 font-mono text-[11px]">{{ u.phone or '-' }} {% if u.card_number %}| {{ u.card_number }}{% endif %}</td>
+                <td class="p-3"><span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded-xl text-[11px] font-bold">🚚 تحویل بار، انبارداری و خدمات</span></td>
+                <td class="p-3"><span class="bg-slate-800 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-xl text-[11px] font-bold">{{ u.shop.name if u.shop else '-' }}</span></td>
+                <td class="p-3 font-black text-emerald-400 text-sm font-mono">{{ "{:,}".format(u.base_salary or 0) }} تومان</td>
+                <td class="p-3 text-slate-200 font-mono text-[11px]">{{ u.phone or '-' }} {% if u.card_number %}| {{ u.card_number }}{% endif %}</td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" data-address="{{ u.address or '' }}" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}', '{{ u.national_id or '' }}', '{{ u.birth_date or '' }}', '{{ u.emergency_phone or '' }}', '{{ u.sheba_number or '' }}', this.getAttribute('data-address'))" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
-                        <button type="button" onclick="openPasswordModal({{ u.id }}, '{{ u.full_name }}')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
+                        <button type="button" data-address="{{ u.address or '' }}" onclick="openEditUserModal({{ u.id }}, '{{ u.full_name }}', '{{ u.username }}', '{{ u.phone or '' }}', '{{ u.card_number or '' }}', {{ u.base_salary or 0 }}, {{ u.commission_rate }}, {{ u.shop_id or 1 }}, {{ 'true' if u.can_manage_inventory else 'false' }}, '{{ u.role }}', '{{ u.national_id or '' }}', '{{ u.birth_date or '' }}', '{{ u.emergency_phone or '' }}', '{{ u.sheba_number or '' }}', this.getAttribute('data-address'))" class="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">✏️ ویرایش</button>
+                        <button type="button" onclick="openPasswordModal({{ u.id }}, '{{ u.full_name }}')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🔑 تغییر رمز</button>
                         <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}" onsubmit="return confirm('پرسنل ({{ u.full_name }}) حذف شود؟')">
-                            <button type="submit" class="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
+                            <button type="submit" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition">🗑️ حذف</button>
                         </form>
                     </div>
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="p-4 text-center text-slate-400 font-medium">هیچ نیروی خدمات یا باربری ثبت نشده است.</td>
+                <td colspan="6" class="p-4 text-center text-slate-300 font-medium">هیچ نیروی خدمات یا باربری ثبت نشده است.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -478,43 +485,43 @@
 
 <!-- Petty Cash Log Table -->
 <div class="glass-card p-6 mb-8 overflow-x-auto">
-    <div class="flex justify-between items-center mb-4 border-b pb-3">
-        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
+    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-3">
+        <h3 class="text-base font-black text-white flex items-center gap-2">
             <span>💵</span> ریز گردش واریزی‌ها و هزینه‌های تنخواه در {{ selected_month_name }}
         </h3>
-        <span class="text-xs text-slate-500">واریزی‌ها: {{ "{:,}".format(total_petty_deposits) }} تومان | هزینه‌ها: {{ "{:,}".format(total_expenses) }} تومان</span>
+        <span class="text-xs bg-slate-800 text-slate-200 px-3 py-1 rounded-xl border border-slate-700">واریزی‌ها: {{ "{:,}".format(total_petty_deposits) }} تومان | هزینه‌ها: {{ "{:,}".format(total_expenses) }} تومان</span>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-200">
-            <h4 class="font-bold text-emerald-900 mb-2">📥 واریزی‌های شارژ تنخواه به شعب:</h4>
-            <div class="max-h-40 overflow-y-auto space-y-1 custom-scrollbar">
+        <div class="bg-gradient-to-br from-emerald-950/40 via-slate-900 to-emerald-950/20 p-4 rounded-2xl border border-emerald-500/30">
+            <h4 class="font-black text-emerald-300 mb-2.5 flex items-center gap-1.5">📥 واریزی‌های شارژ تنخواه به شعب:</h4>
+            <div class="max-h-40 overflow-y-auto space-y-1.5 custom-scrollbar">
                 {% for dep in petty_deposits %}
-                <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border text-[11px]">
+                <div class="flex justify-between items-center bg-[#161f33] p-2.5 rounded-xl border border-white/10 text-[11px]">
                     <div>
-                        <span class="font-bold text-slate-800">{{ dep.title }}</span>
-                        <span class="text-slate-400 block text-[9px]">{{ dep.shop.name if dep.shop else '' }} • توسط: {{ dep.created_by }}</span>
+                        <span class="font-bold text-white">{{ dep.title }}</span>
+                        <span class="text-slate-300 block text-[9px] mt-0.5">{{ dep.shop.name if dep.shop else '' }} • توسط: {{ dep.created_by }}</span>
                     </div>
-                    <span class="font-black text-emerald-700">{{ "{:,}".format(dep.amount) }} تومان</span>
+                    <span class="font-black text-emerald-400 font-mono">{{ "{:,}".format(dep.amount) }} تومان</span>
                 </div>
                 {% else %}
-                <p class="text-slate-400 text-center py-2">واریزی تنخواهی در این ماه ثبت نشده است.</p>
+                <p class="text-slate-400 text-center py-3">واریزی تنخواهی در این ماه ثبت نشده است.</p>
                 {% endfor %}
             </div>
         </div>
 
-        <div class="bg-rose-50/50 p-4 rounded-2xl border border-rose-200">
-            <h4 class="font-bold text-rose-900 mb-2">📤 هزینه‌های جاری ثبت‌شده (خرج از تنخواه):</h4>
-            <div class="max-h-40 overflow-y-auto space-y-1 custom-scrollbar">
+        <div class="bg-gradient-to-br from-rose-950/40 via-slate-900 to-rose-950/20 p-4 rounded-2xl border border-rose-500/30">
+            <h4 class="font-black text-rose-300 mb-2.5 flex items-center gap-1.5">📤 هزینه‌های جاری ثبت‌شده (خرج از تنخواه):</h4>
+            <div class="max-h-40 overflow-y-auto space-y-1.5 custom-scrollbar">
                 {% for exp in expenses %}
-                <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border text-[11px]">
+                <div class="flex justify-between items-center bg-[#161f33] p-2.5 rounded-xl border border-white/10 text-[11px]">
                     <div>
-                        <span class="font-bold text-slate-800">{{ exp.title }} ({{ exp.category }})</span>
-                        <span class="text-slate-400 block text-[9px]">{{ exp.shop.name if exp.shop else '' }} • ثبت: {{ exp.created_by }}</span>
+                        <span class="font-bold text-white">{{ exp.title }} ({{ exp.category }})</span>
+                        <span class="text-slate-300 block text-[9px] mt-0.5">{{ exp.shop.name if exp.shop else '' }} • ثبت: {{ exp.created_by }}</span>
                     </div>
-                    <span class="font-black text-rose-600">{{ "{:,}".format(exp.amount) }} تومان</span>
+                    <span class="font-black text-rose-400 font-mono">{{ "{:,}".format(exp.amount) }} تومان</span>
                 </div>
                 {% else %}
-                <p class="text-slate-400 text-center py-2">هزینه‌ای در این ماه ثبت نشده است.</p>
+                <p class="text-slate-400 text-center py-3">هزینه‌ای در این ماه ثبت نشده است.</p>
                 {% endfor %}
             </div>
         </div>
@@ -523,46 +530,48 @@
 
 <!-- Cheques Table -->
 <div class="glass-card p-6 mb-8 overflow-x-auto">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <h3 class="text-base font-black text-white flex items-center gap-2">
             <span>🗓️</span> دفترچه چک‌های صیادی مشتریان (با آلارم سررسید)
         </h3>
-        <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-xl font-bold">هشدار چک‌های سررسید نزدیک</span>
+        <span class="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
+            ⏰ هشدار چک‌های سررسید نزدیک
+        </span>
     </div>
     <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>
-            <tr class="bg-slate-50 text-slate-700 font-bold">
-                <th class="p-3 border-b">شماره صیادی</th>
-                <th class="p-3 border-b">نام بانک</th>
-                <th class="p-3 border-b">خریدار صادرکننده</th>
-                <th class="p-3 border-b">تلفن خریدار</th>
-                <th class="p-3 border-b">مبلغ چک (تومان)</th>
-                <th class="p-3 border-b">تاریخ سررسید</th>
-                <th class="p-3 border-b">وضعیت چک</th>
-                <th class="p-3 border-b text-center">عملیات</th>
+            <tr class="bg-[#161f33] text-slate-200 font-bold border-b border-white/10">
+                <th class="p-3 border-b border-white/10">شماره صیادی</th>
+                <th class="p-3 border-b border-white/10">نام بانک</th>
+                <th class="p-3 border-b border-white/10">خریدار صادرکننده</th>
+                <th class="p-3 border-b border-white/10">تلفن خریدار</th>
+                <th class="p-3 border-b border-white/10">مبلغ چک (تومان)</th>
+                <th class="p-3 border-b border-white/10">تاریخ سررسید</th>
+                <th class="p-3 border-b border-white/10">وضعیت چک</th>
+                <th class="p-3 border-b border-white/10 text-center">عملیات</th>
             </tr>
         </thead>
         <tbody>
             {% for chk in cheques %}
-            <tr class="border-b hover:bg-slate-50 transition">
-                <td class="p-3 font-mono font-bold">{{ chk.sayad_number }}</td>
-                <td class="p-3">{{ chk.bank_name }}</td>
-                <td class="p-3 font-bold text-slate-800">{{ chk.customer_name }}</td>
-                <td class="p-3 text-slate-500" dir="ltr">{{ chk.customer_phone or '-' }}</td>
-                <td class="p-3 font-bold text-indigo-700">{{ "{:,}".format(chk.amount) }}</td>
-                <td class="p-3 font-bold text-amber-700" dir="ltr">{{ chk.due_shamsi_date }}</td>
+            <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                <td class="p-3 font-mono font-bold text-slate-200">{{ chk.sayad_number }}</td>
+                <td class="p-3 text-slate-200">{{ chk.bank_name }}</td>
+                <td class="p-3 font-bold text-white">{{ chk.customer_name }}</td>
+                <td class="p-3 text-slate-300 font-mono" dir="ltr">{{ chk.customer_phone or '-' }}</td>
+                <td class="p-3 font-black text-indigo-300 font-mono text-sm">{{ "{:,}".format(chk.amount) }}</td>
+                <td class="p-3 font-bold text-amber-300 font-mono" dir="ltr">{{ chk.due_shamsi_date }}</td>
                 <td class="p-3">
                     {% if chk.status == 'passed' %}
-                        <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-xl font-bold text-[10px]">وصول شده</span>
+                        <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-xl font-bold text-[10px]">وصول شده</span>
                     {% elif chk.status == 'bounced' %}
-                        <span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-xl font-bold text-[10px]">برگشت خورده</span>
+                        <span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded-xl font-bold text-[10px]">برگشت خورده</span>
                     {% else %}
-                        <span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-xl font-bold text-[10px]">در انتظار وصول</span>
+                        <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-xl font-bold text-[10px]">در انتظار وصول</span>
                     {% endif %}
                 </td>
                 <td class="p-3 text-center">
                     <form method="POST" action="{{ url_for('update_cheque_status', cheque_id=chk.id) }}">
-                        <select name="status" onchange="this.form.submit()" class="p-1.5 border rounded-xl text-[10px] bg-white font-bold">
+                        <select name="status" onchange="this.form.submit()" class="p-1.5 border border-slate-700 rounded-xl text-[10px] bg-slate-900 text-white font-bold">
                             <option value="pending" {% if chk.status == 'pending' %}selected{% endif %}>در انتظار</option>
                             <option value="passed" {% if chk.status == 'passed' %}selected{% endif %}>وصول شد</option>
                             <option value="bounced" {% if chk.status == 'bounced' %}selected{% endif %}>برگشت</option>
@@ -571,7 +580,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="text-center p-6 text-slate-400">چک صیادی ثبت نشده است.</td></tr>
+            <tr><td colspan="8" class="text-center p-6 text-slate-300 font-medium">چک صیادی ثبت نشده است.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -579,12 +588,12 @@
 
 <!-- مدیریت حساب‌ها، کارت‌های بانکی و شماره شبا -->
 <div class="glass-card p-6 mb-8">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3 border-b pb-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3 border-b border-white/10 pb-4">
         <div>
-            <h3 class="text-md font-bold text-slate-900 flex items-center gap-2">
+            <h3 class="text-base font-black text-white flex items-center gap-2">
                 <span>💳</span> حساب‌های بانکی، کارت‌ها و شماره‌های شبا فروشگاه
             </h3>
-            <p class="text-xs text-slate-500 mt-1">شماره کارت‌ها و شماره‌های شبای فعال در اینجا، در فرم صدور فاکتور فروشندگان به صورت خودکار بالا می‌آیند.</p>
+            <p class="text-xs text-slate-300 mt-1">شماره کارت‌ها و شماره‌های شبای فعال در اینجا، در فرم صدور فاکتور فروشندگان به صورت خودکار بالا می‌آیند.</p>
         </div>
         <button type="button" onclick="document.getElementById('addBankModal').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl transition shadow">
             ➕ افزودن شماره کارت / شبا جدید
@@ -815,12 +824,15 @@
         </thead>
         <tbody>
             {% for inv in all_invoices %}
-            <tr class="border-b border-white/5 hover:bg-white/5 transition">
+            <tr class="border-b border-white/5 hover:bg-white/5 transition {% if inv.real_profit and inv.real_profit < 0 %}bg-rose-950/20{% endif %}">
                 <td class="p-3 font-bold text-slate-200">
                     <div class="flex items-center gap-1 flex-wrap">
                         <span>{{ inv.invoice_number }}</span>
                         {% if inv.has_custom_items %}
                         <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded text-[9px] font-black" title="دارای اقلام خارج از کاتالوگ">✨ سفارشی</span>
+                        {% endif %}
+                        {% if inv.real_profit and inv.real_profit < 0 %}
+                        <span class="bg-rose-500/20 text-rose-300 border border-rose-500/50 px-1.5 py-0.5 rounded text-[9px] font-black animate-pulse" title="بهای خرید بیش از فروش است (زیان)">⚠️ زیان ({{ "{:,}".format(inv.real_profit) }} ت)</span>
                         {% endif %}
                     </div>
                 </td>
@@ -836,8 +848,13 @@
                 <td class="p-3 text-slate-300">{{ inv.shop_name }}</td>
                 <td class="p-3 font-bold text-indigo-300">{{ inv.seller_name }}</td>
                 <td class="p-3 text-slate-200">{{ inv.customer_name }} <span class="text-slate-400 block text-[10px]">{{ inv.customer_phone or '' }}</span></td>
-                <td class="p-3 font-black {% if inv.invoice_type == 'return' %}text-rose-400{% else %}text-emerald-400{% endif %}">
-                    {% if inv.invoice_type == 'return' %}-{% endif %}{{ "{:,}".format(inv.total_amount) }}
+                <td class="p-3">
+                    <div class="font-black font-mono {% if inv.invoice_type == 'return' %}text-rose-400{% else %}text-white{% endif %} text-xs">
+                        {% if inv.invoice_type == 'return' %}-{% endif %}{{ "{:,}".format(inv.total_amount) }} <span class="text-[9px] font-normal text-slate-400">تومان</span>
+                    </div>
+                    <div class="text-[10px] font-mono mt-0.5 font-bold {% if inv.real_profit and inv.real_profit < 0 %}text-rose-400{% elif inv.real_profit and inv.real_profit > 0 %}text-emerald-400{% else %}text-slate-400{% endif %}" title="سود ناخالص واقعی فاکتور (فروش منهای بهای خرید)">
+                        سود: {% if inv.real_profit and inv.real_profit > 0 %}+{% endif %}{{ "{:,}".format(inv.real_profit or 0) }} ت
+                    </div>
                 </td>
                 <td class="p-3">
                     {% if not inv.is_settled or (inv.remaining_balance and inv.remaining_balance > 0) %}
@@ -930,23 +947,23 @@
             </thead>
             <tbody>
                 {% for log in logs %}
-                <tr class="border-b hover:bg-slate-50 text-[11px]">
+                <tr class="border-b border-white/5 hover:bg-white/5 text-[11px] transition">
                     <td class="p-2.5">
                         <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold 
-                            {% if 'امنیت' in log.category %}bg-rose-100 text-rose-700
-                            {% elif 'فروش' in log.category %}bg-emerald-100 text-emerald-700
-                            {% elif 'انبار' in log.category %}bg-amber-100 text-amber-800
-                            {% elif 'پرسنل' in log.category or 'حقوق' in log.category %}bg-blue-100 text-blue-700
-                            {% else %}bg-slate-100 text-slate-700{% endif %}">
+                            {% if 'امنیت' in log.category %}bg-rose-500/20 text-rose-300 border border-rose-500/30
+                            {% elif 'فروش' in log.category %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30
+                            {% elif 'انبار' in log.category %}bg-amber-500/20 text-amber-300 border border-amber-500/30
+                            {% elif 'پرسنل' in log.category or 'حقوق' in log.category %}bg-blue-500/20 text-blue-300 border border-blue-500/30
+                            {% else %}bg-slate-800 text-slate-300 border border-slate-700{% endif %}">
                             {{ log.category or 'عمومی' }}
                         </span>
                     </td>
-                    <td class="p-2.5 font-medium text-slate-800">{{ log.action }}</td>
-                    <td class="p-2.5 text-indigo-700 font-bold">{{ log.user_name }}</td>
-                    <td class="p-2.5 text-slate-400 font-medium text-[10px]" dir="ltr">{{ log.shamsi_date_time }}</td>
+                    <td class="p-2.5 font-medium text-white">{{ log.action }}</td>
+                    <td class="p-2.5 text-indigo-300 font-bold">{{ log.user_name }}</td>
+                    <td class="p-2.5 text-slate-300 font-medium text-[10px] font-mono" dir="ltr">{{ log.shamsi_date_time }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4" class="text-center p-4 text-slate-400">هنوز رویدادی در لاگ سیستم ثبت نشده است.</td></tr>
+                <tr><td colspan="4" class="text-center p-4 text-slate-300 font-medium">هنوز رویدادی در لاگ سیستم ثبت نشده است.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -1096,8 +1113,10 @@
             <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">فروش مشترک:</span><span id="dtSplit" class="font-bold text-indigo-700"></span></div>
             <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">نام خریدار:</span><span id="dtCustomer" class="font-bold text-slate-800"></span></div>
             <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">تلفن خریدار:</span><span id="dtPhone" class="font-bold text-slate-800" dir="ltr"></span></div>
-            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">مبلغ کل فاکتور:</span><span id="dtAmount" class="font-black text-emerald-600 text-sm"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">مبلغ کل فاکتور:</span><span id="dtAmount" class="font-black text-slate-900 text-sm"></span></div>
             <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">نحوه تسویه:</span><span id="dtPayment" class="font-bold text-slate-800"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">بهای خرید اقلام (هزینه):</span><span id="dtBuyCost" class="font-mono font-bold text-slate-800 text-xs"></span></div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border"><span class="text-slate-500 block mb-0.5">سود ناخالص واقعی فاکتور:</span><span id="dtRealProfit" class="font-mono font-black text-xs"></span></div>
         </div>
 
         <div id="dtCardBox" class="hidden bg-blue-50 p-3 rounded-2xl border border-blue-200 text-xs space-y-1">
@@ -1456,6 +1475,16 @@
         document.getElementById('dtAmount').innerText = Number(inv.total_amount).toLocaleString() + ' تومان';
         document.getElementById('dtPayment').innerText = inv.payment_method;
 
+        const buyCost = Number(inv.actual_buy_cost || 0);
+        const realProf = Number(inv.real_profit || 0);
+        const elBuyCost = document.getElementById('dtBuyCost');
+        if (elBuyCost) elBuyCost.innerText = buyCost.toLocaleString() + ' تومان';
+        const elProf = document.getElementById('dtRealProfit');
+        if (elProf) {
+            elProf.innerText = (realProf > 0 ? '+' : '') + realProf.toLocaleString() + ' تومان';
+            elProf.className = 'font-mono font-black text-xs ' + (realProf < 0 ? 'text-rose-600' : (realProf > 0 ? 'text-emerald-600' : 'text-slate-600'));
+        }
+
         if (inv.payment_method === 'card_to_card') {
             document.getElementById('dtCardBox').classList.remove('hidden');
             document.getElementById('dtDestCard').innerText = inv.dest_card_number || '-';
@@ -1489,14 +1518,14 @@
             itemsList.innerHTML = '';
             inv.items.forEach(it => {
                 const row = document.createElement('div');
-                row.className = 'p-2 rounded-xl border ' + (it.is_custom ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white border-slate-200') + ' flex justify-between items-center text-[11px]';
+                row.className = 'p-2.5 rounded-xl border ' + (it.is_custom ? 'bg-amber-500/15 border-amber-500/30' : 'bg-[#1a2234] border-white/10') + ' flex justify-between items-center text-xs mb-1.5 shadow-sm';
                 row.innerHTML = `
                     <div>
-                        <span class="font-bold text-slate-800">${it.item_name} (${it.quantity} عدد)</span>
-                        ${it.is_custom ? '<span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[9px] font-bold mr-1">✨ سفارشی</span>' : ''}
-                        <span class="text-slate-400 block text-[10px]">خرید: ${Number(it.unit_buy_price || 0).toLocaleString()} ت | فروش: ${Number(it.total_price || 0).toLocaleString()} ت</span>
+                        <span class="font-black text-white text-xs">${it.item_name} (${it.quantity} عدد)</span>
+                        ${it.is_custom ? '<span class="bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded text-[10px] font-black mr-1 shadow-sm">✨ سفارشی</span>' : ''}
+                        <span class="text-slate-300 block text-[11px] font-mono mt-0.5">خرید: ${Number(it.unit_buy_price || 0).toLocaleString()} ت | فروش: ${Number(it.total_price || 0).toLocaleString()} ت</span>
                     </div>
-                    <div class="text-left font-mono font-bold ${it.row_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                    <div class="text-left font-mono font-black text-xs ${it.row_profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
                         سود: ${Number(it.row_profit || 0).toLocaleString()} ت
                     </div>
                 `;

@@ -4,8 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}سامانه هوشمند فروشگاه‌های طهماسبی{% endblock %}</title>
-    <!-- TailwindCSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PWA Primary Meta Tags & Manifest -->
+    <link rel="manifest" href="{{ url_for('serve_manifest') }}">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="فروشگاه طهماسبی">
+    <meta name="application-name" content="فروشگاه طهماسبی">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='icons/favicon.png') }}">
+    <!-- Local Ultra-Fast Assets (No External CDN Latency / No Blocking in Iran) -->
+    <script src="{{ url_for('static', filename='libs/tailwind/tailwind.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -25,10 +36,10 @@
             }
         }
     </script>
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Font Vazirmatn -->
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <!-- Chart.js Local -->
+    <script src="{{ url_for('static', filename='libs/chartjs/chart.umd.min.js') }}"></script>
+    <!-- Font Vazirmatn Local -->
+    <link href="{{ url_for('static', filename='libs/fonts/vazirmatn.css') }}" rel="stylesheet">
     
     <style>
         /* ==================== 1. BASE & BACKGROUND ==================== */
@@ -86,40 +97,10 @@
             color: #cbd5e1 !important;
         }
         .text-slate-500, .text-slate-400 {
-            color: #cbd5e1 !important; /* Enhanced high-contrast readable slate */
+            color: #94a3b8 !important;
         }
         .text-slate-300 {
-            color: #e2e8f0 !important;
-        }
-
-        /* High-Contrast Glow Effects for Metrics and Leaderboards */
-        .text-glow-emerald {
-            color: #34d399 !important;
-            text-shadow: 0 0 10px rgba(52, 211, 153, 0.45);
-        }
-        .text-glow-amber {
-            color: #fbbf24 !important;
-            text-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
-        }
-        .text-glow-indigo {
-            color: #818cf8 !important;
-            text-shadow: 0 0 10px rgba(129, 140, 248, 0.45);
-        }
-        .text-glow-cyan {
-            color: #22d3ee !important;
-            text-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
-        }
-        .glass-card-glow-amber {
-            border: 1px solid rgba(245, 158, 11, 0.4) !important;
-            box-shadow: 0 10px 30px -5px rgba(245, 158, 11, 0.25), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
-        }
-        .glass-card-glow-silver {
-            border: 1px solid rgba(203, 213, 225, 0.4) !important;
-            box-shadow: 0 10px 30px -5px rgba(148, 163, 184, 0.25), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
-        }
-        .glass-card-glow-bronze {
-            border: 1px solid rgba(249, 115, 22, 0.4) !important;
-            box-shadow: 0 10px 30px -5px rgba(249, 115, 22, 0.25), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
+            color: #cbd5e1 !important;
         }
 
         /* Vibrant Financial Metrics */
@@ -343,9 +324,17 @@
                 </div>
             </div>
 
-            {% if session.get('user_id') %}
-            <!-- Navigation Links -->
-            <div class="flex flex-wrap items-center gap-1.5">
+            <div class="flex items-center gap-2">
+                <!-- PWA Install Button (Cross-platform: iOS, Android, Windows, Mac) -->
+                <button id="pwaInstallBtn" onclick="handlePWAInstall()" type="button" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-black shadow-lg shadow-emerald-500/25 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer" title="نصب اپلیکیشن روی گوشی یا کامپیوتر">
+                    <span>📲</span>
+                    <span class="hidden sm:inline">نصب برنامه</span>
+                    <span class="sm:hidden">نصب</span>
+                </button>
+
+                {% if session.get('user_id') %}
+                <!-- Navigation Links -->
+                <div class="flex flex-wrap items-center gap-1.5">
                 <a href="{{ url_for('index') }}" class="nav-pill {% if request.endpoint in ['index', 'seller_dashboard', 'admin_dashboard'] %}active{% endif %}">
                     <span>📊</span> داشبورد
                 </a>
@@ -398,6 +387,7 @@
                 </a>
             </div>
             {% endif %}
+            </div>
         </div>
     </nav>
 
@@ -432,15 +422,233 @@
         </div>
     </footer>
 
-    <!-- Global Helpers -->
+    <!-- Global Helpers with Full Persian & Arabic Digit Normalization -->
     <script>
-        function formatNumber(input) {
-            let value = input.value.replace(/\D/g, '');
-            if (value !== '') input.value = Number(value).toLocaleString();
+        function toEnglishDigits(str) {
+            if (str === null || str === undefined) return '';
+            const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+            const a = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+            let res = str.toString();
+            for (let i = 0; i < 10; i++) {
+                res = res.replaceAll(p[i], i).replaceAll(a[i], i);
+            }
+            return res;
         }
+
+        function parseNumeric(val) {
+            if (val === null || val === undefined) return 0;
+            const clean = toEnglishDigits(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatNumber(input) {
+            if (!input) return;
+            const raw = toEnglishDigits(input.value);
+            const clean = raw.replace(/,/g, '').replace(/[^\d]/g, '');
+            if (clean !== '') {
+                input.value = Number(clean).toLocaleString('en-US');
+            } else {
+                input.value = '';
+            }
+        }
+
+    <!-- iOS & Desktop Installation Guide Modal -->
+    <div id="pwaInstallModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div class="relative w-full max-w-md bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl text-right overflow-hidden">
+            <!-- Background Glow -->
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+                <div class="flex items-center gap-3">
+                    <img src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="آیکون" class="w-12 h-12 rounded-2xl shadow-md border border-white/10">
+                    <div>
+                        <h3 class="text-base font-black text-white">نصب اپلیکیشن طهماسبی</h3>
+                        <p class="text-xs text-indigo-300">نسخه مستقل وب (PWA) برای تمام دستگاه‌ها</p>
+                    </div>
+                </div>
+                <button onclick="closePwaModal()" type="button" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">✕</button>
+            </div>
+
+            <!-- Content for iOS -->
+            <div id="iosInstructions" class="space-y-3.5 text-xs text-slate-200">
+                <div class="p-3 bg-indigo-950/40 rounded-2xl border border-indigo-500/30 text-indigo-200 text-xs leading-relaxed">
+                    🌟 <strong>آیفون و آیپد (iOS):</strong> برای اجرای تمام صفحه و بدون نوار آدرس، این ۳ گام ساده را در سافاری انجام دهید:
+                </div>
+                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۱</div>
+                    <div class="leading-relaxed">در مرورگر سافاری روی دکمه‌ی اشتراک‌گذاری <strong class="text-indigo-300 bg-slate-700/80 px-2 py-0.5 rounded">Share ⎋</strong> (پایین صفحه گوشی) بزنید.</div>
+                </div>
+                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۲</div>
+                    <div class="leading-relaxed">کمی به پایین اسکرول کرده و گزینه‌ی <strong class="text-indigo-300 bg-slate-700/80 px-2 py-0.5 rounded">Add to Home Screen ⊞</strong> را انتخاب کنید.</div>
+                </div>
+                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                    <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">۳</div>
+                    <div class="leading-relaxed">در گوشه بالا سمت راست دکمه‌ی <strong class="text-emerald-400 bg-slate-700/80 px-2 py-0.5 rounded">Add</strong> را لمس کنید تا آیکون روی صفحه اصلی آیفون قرار گیرد.</div>
+                </div>
+            </div>
+
+            <!-- Content for PC / Mac / Android -->
+            <div id="desktopInstructions" class="space-y-3.5 text-xs text-slate-200 hidden">
+                <div class="p-3 bg-emerald-950/40 rounded-2xl border border-emerald-500/30 text-emerald-200 text-xs leading-relaxed">
+                    💻 <strong>کامپیوتر و لپ‌تاپ (ویندوز / مک) و گوشی‌های اندروید:</strong>
+                </div>
+                <p class="text-slate-300 leading-relaxed">
+                    می‌توانید برنامه را مستقیماً مانند یک نرم‌افزار حسابداری مستقل یا اپلیکیشن موبایل نصب کنید تا پنجره اختصاصی و دسترسی سریع داشته باشید.
+                </p>
+                <div class="flex items-start gap-3 bg-slate-800/70 p-3 rounded-2xl border border-white/5">
+                    <div class="text-lg">🖥️</div>
+                    <div class="leading-relaxed">
+                        در مرورگر کروم یا مایکروسافت اج (Edge)، روی علامت <strong>نصب (➕ یا آیکون کامپیوتر)</strong> در سمت راست نوار آدرس کلیک کنید، یا دکمه زیر را بزنید:
+                    </div>
+                </div>
+                <button id="directPromptBtn" onclick="triggerNativeInstall()" type="button" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 text-white font-bold transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer">
+                    <span>⚡</span>
+                    <span>نصب مستقیم برنامه روی این دستگاه</span>
+                </button>
+            </div>
+
+            <button onclick="closePwaModal()" type="button" class="w-full mt-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition border border-white/10 cursor-pointer">
+                متوجه شدم / بستن
+            </button>
+        </div>
+    </div>
+
+    <!-- Global Helpers with Full Persian & Arabic Digit Normalization -->
+    <script>
+        function toEnglishDigits(str) {
+            if (str === null || str === undefined) return '';
+            const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+            const a = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+            let res = str.toString();
+            for (let i = 0; i < 10; i++) {
+                res = res.replaceAll(p[i], i).replaceAll(a[i], i);
+            }
+            return res;
+        }
+
+        function parseNumeric(val) {
+            if (val === null || val === undefined) return 0;
+            const clean = toEnglishDigits(val).replace(/,/g, '').replace(/[^\d.-]/g, '');
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatNumber(input) {
+            if (!input) return;
+            const raw = toEnglishDigits(input.value);
+            const clean = raw.replace(/,/g, '').replace(/[^\d]/g, '');
+            if (clean !== '') {
+                input.value = Number(clean).toLocaleString('en-US');
+            } else {
+                input.value = '';
+            }
+        }
+
         function unformatOnSubmit(form) {
             const inputs = form.querySelectorAll('.currency-input');
-            inputs.forEach(input => { input.value = input.value.replace(/,/g, ''); });
+            inputs.forEach(input => { 
+                input.value = toEnglishDigits(input.value).replace(/,/g, ''); 
+            });
+        }
+
+        // ==================== PWA Service Worker & Install Manager ====================
+        let pwaDeferredPrompt = null;
+        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then(function(registration) {
+                        console.log('PWA ServiceWorker registered:', registration.scope);
+                    })
+                    .catch(function(err) {
+                        console.warn('PWA ServiceWorker registration failed:', err);
+                    });
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            pwaDeferredPrompt = e;
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn && !isStandaloneMode) {
+                btn.classList.remove('hidden');
+                btn.classList.add('inline-flex');
+            }
+        });
+
+        window.addEventListener('appinstalled', function() {
+            console.log('Tahmasebi App installed successfully!');
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn) btn.classList.add('hidden');
+            pwaDeferredPrompt = null;
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn && !isStandaloneMode) {
+                if (isIOSDevice) {
+                    btn.classList.remove('hidden');
+                    btn.classList.add('inline-flex');
+                } else {
+                    setTimeout(function() {
+                        if (!isStandaloneMode && btn) {
+                            btn.classList.remove('hidden');
+                            btn.classList.add('inline-flex');
+                        }
+                    }, 1200);
+                }
+            }
+        });
+
+        function handlePWAInstall() {
+            if (pwaDeferredPrompt) {
+                pwaDeferredPrompt.prompt();
+                pwaDeferredPrompt.userChoice.then(function(choiceResult) {
+                    if (choiceResult.outcome === 'accepted') {
+                        const btn = document.getElementById('pwaInstallBtn');
+                        if (btn) btn.classList.add('hidden');
+                    }
+                    pwaDeferredPrompt = null;
+                });
+            } else if (isIOSDevice) {
+                document.getElementById('iosInstructions').classList.remove('hidden');
+                document.getElementById('desktopInstructions').classList.add('hidden');
+                const modal = document.getElementById('pwaInstallModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                document.getElementById('iosInstructions').classList.add('hidden');
+                document.getElementById('desktopInstructions').classList.remove('hidden');
+                const modal = document.getElementById('pwaInstallModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function triggerNativeInstall() {
+            if (pwaDeferredPrompt) {
+                pwaDeferredPrompt.prompt();
+                pwaDeferredPrompt.userChoice.then(function(choice) {
+                    if (choice.outcome === 'accepted') {
+                        closePwaModal();
+                    }
+                    pwaDeferredPrompt = null;
+                });
+            } else {
+                alert('برای نصب روی کامپیوتر یا موبایل، روی علامت ➕ یا نماد نصب در سمت راست نوار آدرس مرورگر کلیک کنید.');
+            }
+        }
+
+        function closePwaModal() {
+            const modal = document.getElementById('pwaInstallModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
     </script>
     {% block scripts %}{% endblock %}

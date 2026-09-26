@@ -722,6 +722,20 @@ def serve_avatar(filename):
 
     return ('تصویر پرسنلی یافت نشد', 404)
 
+@app.route('/sw.js')
+def serve_sw():
+    response = make_response(send_from_directory('static', 'sw.js'))
+    response.headers['Content-Type'] = 'application/javascript'
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+@app.route('/manifest.json')
+def serve_manifest():
+    response = make_response(send_from_directory('static', 'manifest.json'))
+    response.headers['Content-Type'] = 'application/manifest+json'
+    return response
+
 @app.route('/')
 def index():
     if 'user_id' not in session:

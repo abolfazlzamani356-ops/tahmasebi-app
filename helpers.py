@@ -296,10 +296,11 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
 
     net_sales = max(net_sales, 0)
 
-    # محاسبه پاداش تارگت پله‌ای
+    # محاسبه پاداش تارگت پله‌ای (تنها در صورتی که پرسنل مشمول پورسانت باشد و درصد پایه > 0 باشد)
     bonus = 0.0
     tier_achieved = 0
-    if settings and not is_admin:
+    has_commission = (not is_admin) and ((base_commission_rate or 0) > 0)
+    if settings and has_commission:
         if net_sales >= settings.tier2_min:
             bonus = settings.tier2_bonus
             tier_achieved = 2
@@ -307,7 +308,7 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             bonus = settings.tier1_bonus
             tier_achieved = 1
 
-    effective_rate = 0.0 if is_admin else round(min(base_commission_rate + bonus, 5.0), 2)
+    effective_rate = 0.0 if not has_commission else round(min(base_commission_rate + bonus, 5.0), 2)
 
     # پورسانت قطعی (فقط روی مبلغ واقعی تسویه‌شده)
     total_commission_calculated = 0 if is_admin else int((net_sales * effective_rate) / 100)

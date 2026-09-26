@@ -442,21 +442,42 @@
             </div>
 
             <!-- فروش شراکتی و همکار -->
-            <div class="mb-3 bg-slate-50 p-3 rounded-2xl border">
-                <label class="block text-[11px] font-bold text-indigo-900 mb-1">🤝 فروش مشترک (تقسیم پورسانت با همکار):</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <select name="second_seller_id" class="w-full p-2 border rounded-xl text-xs bg-white">
-                        <option value="">فروش تکی (بدون همکار)</option>
+            <div class="mb-4 bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                        <span>🤝</span> فروش مشترک و شراکت پورسانت:
+                    </label>
+                    <span id="newSellerSingleNotice" class="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-300">
+                        ✨ فروش تکی (۱۰۰٪ سهم خودتان)
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <select name="second_seller_id" id="newSellerSecondSeller" class="w-full p-2.5 border rounded-xl text-xs bg-white font-bold" onchange="toggleNewInvoicePartner(this.value)">
+                        <option value="">-- فروش تکی (بدون همکار) --</option>
                         {% for colleague in colleagues %}
                         <option value="{{ colleague.id }}">همکار: {{ colleague.full_name }}</option>
                         {% endfor %}
                     </select>
-                    <select name="split_ratio" class="w-full p-2 border rounded-xl text-xs bg-white font-bold">
-                        <option value="100">سهم کامل (۱۰۰٪ من)</option>
-                        <option value="50">نصف-نصف (۵۰٪ - ۵۰٪)</option>
-                        <option value="60">۶۰٪ من - ۴۰٪ همکار</option>
-                        <option value="70">۷۰٪ من - ۳۰٪ همکار</option>
-                    </select>
+
+                    <div id="newSellerPartnerSection" class="opacity-40 pointer-events-none transition-all duration-200">
+                        <div class="flex items-center gap-1.5">
+                            <input type="number" id="newPartnerShareInput" name="partner_share" min="0" max="100" step="1" value="0" placeholder="سهم همکار"
+                                   class="w-20 p-2 border border-indigo-200 rounded-xl text-center font-black font-mono text-xs bg-white text-indigo-700"
+                                   oninput="syncNewInvoicePartnerShares(this.value)">
+                            <span class="text-[11px] font-bold text-slate-500">% سهم همکار</span>
+
+                            <div class="flex items-center gap-1 mr-auto">
+                                <button type="button" onclick="setNewPartnerQuick(50)" class="px-1.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold">۵۰٪</button>
+                                <button type="button" onclick="setNewPartnerQuick(40)" class="px-1.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold">۴۰٪</button>
+                                <button type="button" onclick="setNewPartnerQuick(30)" class="px-1.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold">۳۰٪</button>
+                            </div>
+                        </div>
+                        <input type="hidden" name="split_ratio" id="newSplitRatioHidden" value="100">
+                    </div>
+                </div>
+                <div id="newSellerShareBadge" class="hidden mt-2 pt-2 border-t border-indigo-100 flex items-center justify-between text-[11px] font-bold">
+                    <span id="newBadgePrimary" class="text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg font-mono">سهم شما: ۱۰۰٪</span>
+                    <span id="newBadgePartner" class="text-indigo-700 bg-indigo-100 border border-indigo-300 px-2 py-0.5 rounded-lg font-mono">سهم همکار: ۰٪</span>
                 </div>
             </div>
 
@@ -1504,6 +1525,58 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             .catch(err => {
                 alert('خطا در استعلام بارکد');
             });
+    }
+
+    // منطق فروش شراکتی و همکار در صدور فاکتور
+    function toggleNewInvoicePartner(val) {
+        const isSingle = (!val || val === '');
+        const pSection = document.getElementById('newSellerPartnerSection');
+        const pInput = document.getElementById('newPartnerShareInput');
+        const notice = document.getElementById('newSellerSingleNotice');
+        const badge = document.getElementById('newSellerShareBadge');
+        const hidden = document.getElementById('newSplitRatioHidden');
+
+        if (isSingle) {
+            if (pSection) pSection.classList.add('opacity-40', 'pointer-events-none');
+            if (pInput) pInput.value = 0;
+            if (hidden) hidden.value = 100;
+            if (notice) notice.classList.remove('hidden');
+            if (badge) badge.classList.add('hidden');
+        } else {
+            if (pSection) pSection.classList.remove('opacity-40', 'pointer-events-none');
+            let current = parseInt(pInput ? pInput.value : 0) || 0;
+            if (current <= 0 || current >= 100) {
+                current = 50;
+                if (pInput) pInput.value = current;
+            }
+            syncNewInvoicePartnerShares(current);
+            if (notice) notice.classList.add('hidden');
+            if (badge) badge.classList.remove('hidden');
+        }
+    }
+
+    function syncNewInvoicePartnerShares(val) {
+        let pShare = parseInt(val);
+        if (isNaN(pShare)) pShare = 0;
+        if (pShare < 0) pShare = 0;
+        if (pShare > 100) pShare = 100;
+
+        const myShare = 100 - pShare;
+        const hidden = document.getElementById('newSplitRatioHidden');
+        const badgePrimary = document.getElementById('newBadgePrimary');
+        const badgePartner = document.getElementById('newBadgePartner');
+
+        if (hidden) hidden.value = myShare;
+        if (badgePrimary) badgePrimary.innerText = 'سهم شما: ' + myShare + '%';
+        if (badgePartner) badgePartner.innerText = 'سهم همکار: ' + pShare + '%';
+    }
+
+    function setNewPartnerQuick(share) {
+        const pInput = document.getElementById('newPartnerShareInput');
+        if (pInput) {
+            pInput.value = share;
+            syncNewInvoicePartnerShares(share);
+        }
     }
 </script>
 {% endblock %}

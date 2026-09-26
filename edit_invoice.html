@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}ویرایش فاکتور {{ invoice.invoice_number }} • فروشگاه‌های طهماسبی{% endblock %}
 
@@ -81,59 +81,177 @@
 
             <div id="invoiceItemsContainer" class="space-y-3">
                 {% for item in invoice.items %}
-                <div class="invoice-item-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
-                    <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-6">
-                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2 border rounded-xl text-xs bg-slate-50 font-bold">
+                {% set orig_p = item.unit_sell_price if item.unit_sell_price > 0 else ((item.total_price // item.quantity) if item.quantity > 0 else 0) %}
+                {% set final_unit_p = (item.total_price // item.quantity) if item.quantity > 0 else item.unit_sell_price %}
+                {% set has_disc = (orig_p > final_unit_p) %}
+                {% set disc_pct = (((orig_p - final_unit_p) * 100 / orig_p) | round(1)) if (has_disc and orig_p > 0) else '' %}
+                <div class="invoice-item-row bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
+                    <!-- سطر ۱: انتخاب از انبار یا نام کالا -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">📦 انتخاب از انبار مغازه طهماسبی:</label>
+                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
                                 {% for inv in inventory_items %}
-                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}" {% if item.inventory_item_id == inv.id %}selected{% endif %}>
+                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-buy-price="{{ inv.buy_price }}" data-cat="{{ inv.category }}" {% if item.inventory_item_id == inv.id %}selected{% endif %}>
                                     {{ inv.name }} (موجودی: {{ inv.stock_quantity }})
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-span-6">
-                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ..." class="item-name w-full p-2 border rounded-xl text-xs font-bold">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">✍️ یا نام دلخواه کالا (سفارشی / خارج از انبار):</label>
+                            <input type="text" name="item_custom_name[]" value="{{ item.item_name }}" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ یا دستی..." class="item-name w-full p-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-4">
-                            <input type="text" name="item_category[]" value="{{ item.category }}" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border rounded-xl text-xs">
+                    <!-- سطر ۲: دسته‌بندی و تعداد (با فضای باز و استپر بزرگ + و -) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">🏷️ دسته‌بندی کالا:</label>
+                            <input type="text" name="item_category[]" value="{{ item.category }}" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border border-slate-300 rounded-xl text-xs bg-white text-slate-800">
                         </div>
-                        <div class="col-span-3 flex items-center gap-1">
-                            <span class="text-[11px] text-slate-500">تعداد:</span>
-                            <input type="number" name="item_quantity[]" value="{{ item.quantity }}" min="1" onchange="calcTotal()" class="item-qty w-full p-2 border rounded-xl text-xs text-center font-bold">
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-amber-700 mb-1">🔢 تعداد درخواستی:</label>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="stepQty(this, -1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">−</button>
+                                <input type="number" name="item_quantity[]" value="{{ item.quantity }}" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty flex-1 h-9 p-1 border border-amber-400 bg-white rounded-xl text-sm text-center font-black text-amber-800 focus:ring-2 focus:ring-amber-500">
+                                <button type="button" onclick="stepQty(this, 1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">+</button>
+                            </div>
                         </div>
-                        <div class="col-span-4">
-                            <input type="text" name="item_price[]" value="{{ '{:,}'.format(item.unit_sell_price) }}" placeholder="قیمت واحد" onkeyup="formatNumber(this); calcTotal()" class="currency-input item-price w-full p-2 border rounded-xl text-xs font-bold text-emerald-700 text-left" dir="ltr">
+                    </div>
+
+                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت نهایی و بهای خرید ما -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
+                                <input type="text" name="item_original_price[]" value="{{ '{:,}'.format(orig_p) if orig_p > 0 else '' }}" placeholder="قیمت مصوب" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 bg-white rounded-xl text-xs font-bold text-slate-700 text-left font-mono" dir="ltr" title="قیمت رسمی قبل از تخفیف">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-amber-700 mb-0.5">درصد تخفیف (٪):</label>
+                                <div class="relative flex items-center">
+                                    <input type="text" name="item_discount_percent[]" value="{{ disc_pct }}" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-300 bg-amber-50 rounded-xl text-xs font-black text-amber-800 text-center font-mono" dir="ltr">
+                                    <span class="absolute left-2 text-xs text-amber-600 font-bold pointer-events-none">٪</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-span-1 text-center">
-                            <button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button>
+                        <div>
+                            <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
+                            <input type="text" name="item_price[]" value="{{ '{:,}'.format(final_unit_p) if final_unit_p > 0 else '' }}" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr" title="قیمت فروش نهایی به مشتری">
+                        </div>
+
+                        <!-- بهای خرید ما (تومان) -->
+                        <div class="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-700 font-normal">(برای اقلام خارج از لیست / انبار)</span>:</label>
+                                <input type="text" name="item_buy_price[]" value="{{ '{:,}'.format(item.unit_buy_price) if (item.unit_buy_price and item.unit_buy_price > 0) else '' }}" placeholder="قیمت خرید خودمون..." onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" oninput="onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه">
+                            </div>
+                            <div class="sm:w-44 flex flex-col justify-center items-center bg-white border border-slate-200 rounded-xl p-2 text-center">
+                                <span class="text-[9px] text-slate-500 font-medium">سود تخمینی ردیف:</span>
+                                <span class="item-profit-display text-xs font-black text-emerald-700 font-mono">{{ '{:,}'.format(item.row_profit) if item.row_profit else '۰' }} ت</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- سطر ۴: تخفیف، جمع ردیف و حذف -->
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span class="item-discount-badge {% if not has_disc %}hidden{% endif %} bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-bold border border-amber-300 text-[10px]">
+                            {% if has_disc %}🏷️ {{ "{:,}".format(item.discount or (orig_p - final_unit_p) * item.quantity) }} ت تخفیف ({{ disc_pct }}٪){% endif %}
+                        </span>
+                        <div class="mr-auto flex items-center gap-2">
+                            <div class="font-bold flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                                <span class="text-slate-500 text-[10px]">جمع ردیف:</span>
+                                <span class="item-row-total-display font-mono text-emerald-700 font-black text-xs">{{ "{:,}".format(item.total_price) }} ت</span>
+                            </div>
+                            <button type="button" onclick="removeInvoiceItemRow(this)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1" title="حذف این ردیف">
+                                <span>✕</span>
+                                <span class="hidden sm:inline">حذف</span>
+                            </button>
                         </div>
                     </div>
                 </div>
                 {% else %}
-                <div class="invoice-item-row bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
-                    <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-6">
-                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2 border rounded-xl text-xs bg-slate-50 font-bold">
+                <div class="invoice-item-row bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
+                    <!-- سطر ۱: انتخاب از انبار یا نام کالا -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">📦 انتخاب از انبار مغازه طهماسبی:</label>
+                            <select name="item_inventory_id[]" onchange="onInventorySelect(this)" class="item-select w-full p-2.5 border border-slate-300 rounded-xl text-xs bg-slate-50 font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">-- انتخاب از انبار مغازه طهماسبی --</option>
                                 {% for inv in inventory_items %}
-                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-cat="{{ inv.category }}">{{ inv.name }} (موجودی: {{ inv.stock_quantity }})</option>
+                                <option value="{{ inv.id }}" data-price="{{ inv.sell_price }}" data-buy-price="{{ inv.buy_price }}" data-cat="{{ inv.category }}">{{ inv.name }} (موجودی: {{ inv.stock_quantity }})</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-span-6">
-                            <input type="text" name="item_custom_name[]" list="catalogDatalist" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ..." class="item-name w-full p-2 border rounded-xl text-xs font-bold">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">✍️ یا نام دلخواه کالا (سفارشی / خارج از انبار):</label>
+                            <input type="text" name="item_custom_name[]" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="یا انتخاب/تایپ از کاتالوگ یا دستی..." class="item-name w-full p-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
-                    <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-4"><input type="text" name="item_category[]" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border rounded-xl text-xs"></div>
-                        <div class="col-span-3 flex items-center gap-1"><span class="text-[11px] text-slate-500">تعداد:</span><input type="number" name="item_quantity[]" value="1" min="1" onchange="calcTotal()" class="item-qty w-full p-2 border rounded-xl text-xs text-center font-bold"></div>
-                        <div class="col-span-4"><input type="text" name="item_price[]" placeholder="قیمت واحد" onkeyup="formatNumber(this); calcTotal()" class="currency-input item-price w-full p-2 border rounded-xl text-xs font-bold text-emerald-700 text-left" dir="ltr"></div>
-                        <div class="col-span-1 text-center"><button type="button" onclick="removeInvoiceItemRow(this)" class="text-rose-500 hover:text-rose-700 font-black text-sm">✕</button></div>
+
+                    <!-- سطر ۲: دسته‌بندی و تعداد (با فضای باز و استپر بزرگ + و -) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-slate-600 mb-1">🏷️ دسته‌بندی کالا:</label>
+                            <input type="text" name="item_category[]" placeholder="دسته‌بندی (هود، گاز...)" class="item-cat w-full p-2 border border-slate-300 rounded-xl text-xs bg-white text-slate-800">
+                        </div>
+                        <div class="sm:col-span-6">
+                            <label class="block text-[10px] font-bold text-amber-700 mb-1">🔢 تعداد درخواستی:</label>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="stepQty(this, -1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">−</button>
+                                <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty flex-1 h-9 p-1 border border-amber-400 bg-white rounded-xl text-sm text-center font-black text-amber-800 focus:ring-2 focus:ring-amber-500">
+                                <button type="button" onclick="stepQty(this, 1)" class="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-base flex items-center justify-center transition active:scale-95 shadow-sm">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت نهایی و بهای خرید ما -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
+                                <input type="text" name="item_original_price[]" placeholder="قیمت مصوب" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" oninput="onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 bg-white rounded-xl text-xs font-bold text-slate-700 text-left font-mono" dir="ltr">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-amber-700 mb-0.5">درصد تخفیف (٪):</label>
+                                <div class="relative flex items-center">
+                                    <input type="text" name="item_discount_percent[]" placeholder="تخفیف ٪" onkeyup="onPriceOrDiscountChange(this, 'percent')" oninput="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-300 bg-amber-50 rounded-xl text-xs font-black text-amber-800 text-center font-mono" dir="ltr">
+                                    <span class="absolute left-2 text-xs text-amber-600 font-bold pointer-events-none">٪</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
+                            <input type="text" name="item_price[]" placeholder="قیمت نهایی با تخفیف" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" oninput="onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr">
+                        </div>
+
+                        <!-- بهای خرید ما (تومان) -->
+                        <div class="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-700 font-normal">(برای اقلام خارج از لیست / انبار)</span>:</label>
+                                <input type="text" name="item_buy_price[]" value="" placeholder="قیمت خرید خودمون..." onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" oninput="onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه">
+                            </div>
+                            <div class="sm:w-44 flex flex-col justify-center items-center bg-white border border-slate-200 rounded-xl p-2 text-center">
+                                <span class="text-[9px] text-slate-500 font-medium">سود تخمینی ردیف:</span>
+                                <span class="item-profit-display text-xs font-black text-emerald-700 font-mono">۰ ت</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- سطر ۴: تخفیف، جمع ردیف و حذف -->
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span class="item-discount-badge hidden bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-bold border border-amber-300 text-[10px]"></span>
+                        <div class="mr-auto flex items-center gap-2">
+                            <div class="font-bold flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                                <span class="text-slate-500 text-[10px]">جمع ردیف:</span>
+                                <span class="item-row-total-display font-mono text-emerald-700 font-black text-xs">۰ ت</span>
+                            </div>
+                            <button type="button" onclick="removeInvoiceItemRow(this)" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1" title="حذف این ردیف">
+                                <span>✕</span>
+                                <span class="hidden sm:inline">حذف</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -141,13 +259,26 @@
 
             <datalist id="catalogDatalist">
                 {% for p in catalog_products %}
-                <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
                 {% endfor %}
             </datalist>
 
-            <div class="mt-3 pt-3 border-t flex justify-between items-center text-xs font-bold">
-                <span class="text-slate-600">جمع کل محاسبه‌شده:</span>
-                <span id="calculatedTotalDisplay" class="text-indigo-700 font-black text-sm">{{ "{:,}".format(invoice.total_amount) }} تومان</span>
+            <!-- خلاصه اقلام و تخفیفات -->
+            <div class="mt-3 pt-3 border-t border-slate-200 space-y-1.5 text-xs font-bold">
+                <div class="flex justify-between items-center text-slate-600 text-xs">
+                    <span>مجموع اقلام قبل از تخفیف:</span>
+                    <span id="subtotalDisplay" class="font-mono text-slate-800 font-bold">{{ "{:,}".format(invoice.subtotal_amount or invoice.total_amount) }} تومان</span>
+                </div>
+                <div id="totalDiscountRow" class="flex justify-between items-center text-amber-700 text-xs {% if not invoice.discount_amount or invoice.discount_amount <= 0 %}hidden{% endif %}">
+                    <span>مجموع تخفیف‌های داده‌شده:</span>
+                    <span id="totalDiscountDisplay" class="font-mono bg-amber-100 border border-amber-300 text-amber-800 px-2 py-0.5 rounded-lg">
+                        {{ "{:,}".format(invoice.discount_amount) }} تومان
+                    </span>
+                </div>
+                <div class="flex justify-between items-center text-slate-900 pt-1.5 border-t border-dashed border-slate-200">
+                    <span class="text-slate-700 font-bold">مبلغ نهایی قابل پرداخت فاکتور:</span>
+                    <span id="calculatedTotalDisplay" class="text-emerald-700 font-black text-base font-mono">{{ "{:,}".format(invoice.total_amount) }} تومان</span>
+                </div>
             </div>
         </div>
 
@@ -263,20 +394,63 @@
             </div>
         </div>
 
-        <!-- همکار و رضایت مشتری -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 text-xs">
-            <div>
-                <label class="block font-bold text-slate-700 mb-1">فروش مشترک با همکار (اختیاری):</label>
-                <select name="second_seller_id" class="w-full p-2.5 border rounded-xl bg-white">
-                    <option value="none">-- فروش تکی (بدون همکار) --</option>
-                    {% for c in colleagues %}
-                    <option value="{{ c.id }}" {% if invoice.second_seller_id == c.id %}selected{% endif %}>{{ c.full_name }} ({{ c.shop.name if c.shop else '' }})</option>
-                    {% endfor %}
-                </select>
+        <!-- نحوه فروش و شراکت پورسانت -->
+        <div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 mb-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-800 mb-1.5 flex items-center gap-1.5">
+                        <span>🤝</span> نحوه فروش و همکار:
+                    </label>
+                    <select name="second_seller_id" id="secondSellerSelect" class="w-full p-2.5 border rounded-xl bg-white font-bold text-slate-800" onchange="handlePartnerToggle(this.value)">
+                        <option value="none">-- فروش تکی (۱۰۰٪ سهم خودتان) --</option>
+                        {% for c in colleagues %}
+                        <option value="{{ c.id }}" {% if invoice.second_seller_id == c.id %}selected{% endif %}>همکار: {{ c.full_name }} ({{ c.shop.name if c.shop else '' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div id="partnerShareSection" class="transition-all duration-200">
+                    <label class="block font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                        <span>🎯 تعیین درصد سهم همکار از سود/پورسانت:</span>
+                        <span id="partnerSharePercentLabel" class="text-indigo-600 font-mono font-black text-sm">
+                            {{ (100 - invoice.split_ratio) if invoice.second_seller_id else 0 }}%
+                        </span>
+                    </label>
+                    
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="partnerShareInput" name="partner_share" min="0" max="100" step="1" 
+                               value="{{ (100 - invoice.split_ratio) if invoice.second_seller_id else 0 }}" 
+                               class="w-24 p-2.5 border border-indigo-200 rounded-xl text-center font-black font-mono text-sm bg-white text-indigo-700 shadow-sm"
+                               oninput="syncSharesFromPartnerInput(this.value)">
+                        <span class="font-bold text-slate-500 text-xs">% به همکار</span>
+                        
+                        <!-- دکمه‌های سریع برای انتخاب درصد همکار -->
+                        <div class="flex items-center gap-1 mr-auto flex-wrap">
+                            <button type="button" onclick="setPartnerShareQuick(50)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold shadow-sm transition">۵۰٪ (نصف-نصف)</button>
+                            <button type="button" onclick="setPartnerShareQuick(40)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold shadow-sm transition">۴۰٪</button>
+                            <button type="button" onclick="setPartnerShareQuick(30)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold shadow-sm transition">۳۰٪</button>
+                            <button type="button" onclick="setPartnerShareQuick(20)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold shadow-sm transition">۲۰٪</button>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" name="split_ratio" id="splitRatioHidden" value="{{ invoice.split_ratio if invoice.second_seller_id else 100 }}">
+                </div>
             </div>
-            <div>
-                <label class="block font-bold text-slate-700 mb-1">سهم شما در صورت شراکت (%):</label>
-                <input type="number" name="split_ratio" value="{{ invoice.split_ratio }}" min="10" max="90" class="w-full p-2.5 border rounded-xl text-center font-bold">
+
+            <!-- نوار راهنمای زنده تقسیم سود -->
+            <div id="splitShareBadge" class="mt-3 pt-2.5 border-t border-indigo-100 flex items-center justify-between text-xs font-bold">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-600">تقسیم سهم:</span>
+                    <span id="badgePrimaryShare" class="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-lg font-mono">
+                        سهم شما: {{ invoice.split_ratio if invoice.second_seller_id else 100 }}%
+                    </span>
+                    <span id="badgePartnerShare" class="{% if invoice.second_seller_id %}bg-indigo-100 text-indigo-800 border border-indigo-300{% else %}hidden{% endif %} px-2.5 py-0.5 rounded-lg font-mono">
+                        سهم همکار: {{ (100 - invoice.split_ratio) if invoice.second_seller_id else 0 }}%
+                    </span>
+                </div>
+                <span id="singleSaleNotice" class="text-emerald-700 text-[11px] {% if invoice.second_seller_id %}hidden{% endif %}">
+                    ✨ فروش انفرادی - ۱۰۰٪ سود به شما اختصاص دارد
+                </span>
             </div>
         </div>
 
@@ -324,42 +498,231 @@
         }
     }
 
+    function toEnglishDigits(str) {
+        if (!str && str !== 0) return '';
+        const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        const arabicDigits  = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        return String(str).replace(/[۰-۹]/g, w => persianDigits.indexOf(w))
+                          .replace(/[٠-٩]/g, w => arabicDigits.indexOf(w));
+    }
+
+    function parseNumeric(val) {
+        if (!val && val !== 0) return 0;
+        const clean = toEnglishDigits(val).toString().replace(/,/g, '').replace(/[^\d.-]/g, '');
+        const parsed = parseFloat(clean);
+        return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function stepQty(btn, change) {
+        const row = btn.closest('.item-row') || btn.closest('.invoice-item-row');
+        if (!row) return;
+        const qtyInput = row.querySelector('.item-qty');
+        if (!qtyInput) return;
+        let current = parseInt(toEnglishDigits(qtyInput.value)) || 1;
+        current = Math.max(1, current + change);
+        qtyInput.value = current;
+        onPriceOrDiscountChange(qtyInput, 'qty');
+    }
+
     function onInventorySelect(selectElem) {
         const row = selectElem.closest('.invoice-item-row');
         const opt = selectElem.selectedOptions[0];
         if (opt && opt.value) {
-            const price = opt.getAttribute('data-price') || 0;
+            const price = parseNumeric(opt.getAttribute('data-price') || 0);
+            const buyPrice = parseNumeric(opt.getAttribute('data-buy-price') || 0);
             const cat = opt.getAttribute('data-cat') || '';
             const name = opt.text.split(' (موجودی:')[0].trim();
             
             row.querySelector('.item-name').value = name;
             row.querySelector('.item-cat').value = cat;
-            const priceInput = row.querySelector('.item-price');
-            priceInput.value = Number(price).toLocaleString('en-US');
-            calcTotal();
+            
+            const origInput = row.querySelector('.item-orig-price');
+            const finalInput = row.querySelector('.item-price');
+            const pctInput = row.querySelector('.item-discount-pct');
+            const buyInput = row.querySelector('.item-buy-price');
+            
+            if (origInput) origInput.value = price > 0 ? price.toLocaleString('en-US') : '';
+            if (finalInput) finalInput.value = price > 0 ? price.toLocaleString('en-US') : '';
+            if (pctInput) pctInput.value = '';
+            if (buyInput && buyPrice > 0) buyInput.value = buyPrice.toLocaleString('en-US');
+            
+            onPriceOrDiscountChange(origInput || finalInput, 'orig');
         }
+    }
+
+    let catalogSearchDebounceTimer = null;
+    function searchCatalogAsync(inputElem) {
+        const val = inputElem.value.trim();
+        if (val.length < 2) return;
+        clearTimeout(catalogSearchDebounceTimer);
+        catalogSearchDebounceTimer = setTimeout(() => {
+            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=30')
+                .then(res => res.json())
+                .then(items => {
+                    if (!items || !items.length) return;
+                    const datalist = document.getElementById('catalogDatalist');
+                    if (!datalist) return;
+                    datalist.innerHTML = '';
+                    items.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.name;
+                        opt.setAttribute('data-price', p.sell_price || 0);
+                        opt.setAttribute('data-buy-price', p.buy_price || 0);
+                        opt.setAttribute('data-category', p.category || '');
+                        opt.textContent = `${p.category || 'کالا'} | ${Number(p.sell_price || 0).toLocaleString('en-US')} ت`;
+                        datalist.appendChild(opt);
+                    });
+                })
+                .catch(() => {});
+        }, 150);
     }
 
     function onSelectCatalogItem(inputElem) {
         const val = inputElem.value.trim();
+        if (!val) return;
         const datalist = document.getElementById('catalogDatalist');
-        if (!datalist) return;
-        const options = datalist.querySelectorAll('option');
-        for (let opt of options) {
-            if (opt.value === val) {
-                const row = inputElem.closest('.invoice-item-row');
-                const price = opt.getAttribute('data-price');
-                const cat = opt.getAttribute('data-category');
-                if (price && Number(price) > 0) {
-                    row.querySelector('.item-price').value = Number(price).toLocaleString('en-US');
+        let matched = false;
+        if (datalist) {
+            const options = datalist.querySelectorAll('option');
+            for (let opt of options) {
+                if (opt.value === val) {
+                    matched = true;
+                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'), opt.getAttribute('data-buy-price'));
+                    break;
                 }
-                if (cat) {
-                    row.querySelector('.item-cat').value = cat;
-                }
-                calcTotal();
-                break;
             }
         }
+        if (!matched && val.length >= 2) {
+            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=1')
+                .then(r => r.json())
+                .then(items => {
+                    if (items && items.length > 0 && items[0].name === val) {
+                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category, items[0].buy_price);
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+
+    function applyCatalogOptionToRow(inputElem, priceVal, cat, buyPriceVal) {
+        const row = inputElem.closest('.invoice-item-row');
+        if (!row) return;
+        const price = parseNumeric(priceVal || 0);
+        const buyPrice = parseNumeric(buyPriceVal || 0);
+        const origInput = row.querySelector('.item-orig-price');
+        const finalInput = row.querySelector('.item-price');
+        const pctInput = row.querySelector('.item-discount-pct');
+        const buyInput = row.querySelector('.item-buy-price');
+        
+        if (origInput && price > 0) origInput.value = price.toLocaleString('en-US');
+        if (finalInput && price > 0) finalInput.value = price.toLocaleString('en-US');
+        if (pctInput) pctInput.value = '';
+        if (buyInput && buyPrice > 0) buyInput.value = buyPrice.toLocaleString('en-US');
+        if (cat) {
+            const catInp = row.querySelector('.item-cat');
+            if (catInp) catInp.value = cat;
+        }
+        onPriceOrDiscountChange(origInput || finalInput, 'orig');
+    }
+
+    function onPriceOrDiscountChange(elem, trigger) {
+        const row = elem.closest('.invoice-item-row');
+        if (!row) return;
+
+        const origInput = row.querySelector('.item-orig-price');
+        const pctInput = row.querySelector('.item-discount-pct');
+        const finalInput = row.querySelector('.item-price');
+        const buyInput = row.querySelector('.item-buy-price');
+        const profitDisplay = row.querySelector('.item-profit-display');
+        const qtyInput = row.querySelector('.item-qty');
+        const discountBadge = row.querySelector('.item-discount-badge');
+        const rowTotalDisplay = row.querySelector('.item-row-total-display');
+
+        let origVal = parseNumeric(origInput.value);
+        let pctVal = parseNumeric(pctInput.value);
+        let finalVal = parseNumeric(finalInput.value);
+        const qty = Math.max(1, parseNumeric(qtyInput.value) || 1);
+
+        if (trigger === 'orig') {
+            if (origVal > 0 && (finalVal <= 0 || !finalInput.value)) {
+                finalInput.value = origVal.toLocaleString('en-US');
+                finalVal = origVal;
+                pctInput.value = '';
+            } else if (origVal > 0 && pctVal > 0) {
+                finalVal = Math.round(origVal * (1 - (pctVal / 100)));
+                finalInput.value = finalVal.toLocaleString('en-US');
+            } else if (origVal > 0 && finalVal > 0) {
+                if (origVal > finalVal) {
+                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                    pctInput.value = pctVal;
+                } else {
+                    pctInput.value = '';
+                }
+            }
+        } else if (trigger === 'percent') {
+            if (origVal > 0) {
+                if (pctVal > 0 && pctVal <= 100) {
+                    finalVal = Math.round(origVal * (1 - (pctVal / 100)));
+                    finalInput.value = finalVal > 0 ? finalVal.toLocaleString('en-US') : '0';
+                } else if (pctVal === 0) {
+                    finalInput.value = origVal.toLocaleString('en-US');
+                    finalVal = origVal;
+                }
+            } else if (finalVal > 0 && pctVal > 0 && pctVal < 100) {
+                origVal = Math.round(finalVal / (1 - (pctVal / 100)));
+                origInput.value = origVal.toLocaleString('en-US');
+            }
+        } else if (trigger === 'final') {
+            if (origVal <= 0 && finalVal > 0) {
+                origInput.value = finalVal.toLocaleString('en-US');
+                origVal = finalVal;
+                pctInput.value = '';
+            } else if (origVal > 0 && finalVal > 0) {
+                if (origVal > finalVal) {
+                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                    pctInput.value = pctVal;
+                } else {
+                    pctInput.value = '';
+                }
+            }
+        }
+
+        const effectivePrice = finalVal > 0 ? finalVal : origVal;
+        const rowTotal = effectivePrice * qty;
+        const unitDiscount = Math.max(0, origVal - effectivePrice);
+        const totalRowDiscount = unitDiscount * qty;
+
+        if (rowTotalDisplay) {
+            rowTotalDisplay.innerText = rowTotal.toLocaleString('en-US') + ' ت';
+        }
+
+        if (discountBadge) {
+            if (totalRowDiscount > 0) {
+                discountBadge.classList.remove('hidden');
+                discountBadge.innerText = `🏷️ ${totalRowDiscount.toLocaleString('en-US')} ت تخفیف (${pctVal || Math.round((totalRowDiscount / (origVal * qty)) * 100)}٪)`;
+            } else {
+                discountBadge.classList.add('hidden');
+            }
+        }
+
+        // محاسبه و نمایش سود تخمینی ردیف
+        let buyVal = buyInput ? parseNumeric(buyInput.value) : 0;
+        if (buyVal <= 0 && effectivePrice > 0) {
+            buyVal = Math.round(effectivePrice * 0.75);
+        }
+        const unitProfit = effectivePrice - buyVal;
+        const totalRowProfit = unitProfit * qty;
+        if (profitDisplay) {
+            if (totalRowProfit >= 0) {
+                profitDisplay.innerText = '+' + totalRowProfit.toLocaleString('en-US') + ' ت';
+                profitDisplay.className = 'item-profit-display text-xs font-black text-emerald-700 font-mono';
+            } else {
+                profitDisplay.innerText = '-' + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
+                profitDisplay.className = 'item-profit-display text-xs font-black text-rose-600 font-mono';
+            }
+        }
+
+        calcTotal();
     }
 
     function addInvoiceItemRow() {
@@ -371,6 +734,19 @@
             if (input.classList.contains('item-qty')) input.value = 1;
             else input.value = '';
         });
+        const badge = clone.querySelector('.item-discount-badge');
+        if (badge) {
+            badge.classList.add('hidden');
+            badge.innerText = '';
+        }
+        const profitDisp = clone.querySelector('.item-profit-display');
+        if (profitDisp) {
+            profitDisp.innerText = '۰ ت';
+            profitDisp.className = 'item-profit-display text-xs font-black text-emerald-700 font-mono';
+        }
+        const rowTot = clone.querySelector('.item-row-total-display');
+        if (rowTot) rowTot.innerText = '۰ ت';
+
         clone.querySelector('select').selectedIndex = 0;
         container.appendChild(clone);
     }
@@ -386,16 +762,54 @@
     }
 
     function calcTotal() {
-        let total = 0;
-        document.querySelectorAll('.invoice-item-row').forEach(row => {
-            const qty = parseInt(row.querySelector('.item-qty').value) || 0;
-            const priceRaw = (row.querySelector('.item-price').value || '').replace(/,/g, '');
-            const price = parseInt(priceRaw) || 0;
-            total += (qty * price);
+        let grossSum = 0;
+        let netSum = 0;
+        let totalDiscount = 0;
+
+        const rows = document.querySelectorAll('.invoice-item-row');
+        rows.forEach(row => {
+            const qty = Math.max(1, parseNumeric(row.querySelector('.item-qty').value) || 1);
+            let origPrice = parseNumeric(row.querySelector('.item-orig-price').value);
+            let finalPrice = parseNumeric(row.querySelector('.item-price').value);
+
+            if (finalPrice <= 0 && origPrice > 0) finalPrice = origPrice;
+            if (origPrice <= 0 && finalPrice > 0) origPrice = finalPrice;
+
+            const rowGross = origPrice * qty;
+            const rowNet = finalPrice * qty;
+            const rowDiscount = Math.max(0, rowGross - rowNet);
+
+            grossSum += rowGross;
+            netSum += rowNet;
+            totalDiscount += rowDiscount;
         });
+
+        const subtotalElem = document.getElementById('subtotalDisplay');
+        const discountRow = document.getElementById('totalDiscountRow');
+        const discountElem = document.getElementById('totalDiscountDisplay');
+        const totalDisplay = document.getElementById('calculatedTotalDisplay');
+        const totalAmountInp = document.getElementById('totalAmountInput');
+
+        if (subtotalElem) subtotalElem.innerText = grossSum.toLocaleString('en-US') + ' تومان';
         
-        document.getElementById('totalAmountInput').value = total > 0 ? total.toLocaleString('en-US') : '';
-        document.getElementById('calculatedTotalDisplay').innerText = total.toLocaleString('en-US') + ' تومان';
+        if (discountRow && discountElem) {
+            if (totalDiscount > 0) {
+                discountRow.classList.remove('hidden');
+                const totalDiscPct = grossSum > 0 ? (Math.round((totalDiscount / grossSum) * 1000) / 10) : 0;
+                discountElem.innerText = `${totalDiscount.toLocaleString('en-US')} تومان (${totalDiscPct}٪)`;
+            } else {
+                discountRow.classList.add('hidden');
+            }
+        }
+
+        if (totalDisplay) {
+            totalDisplay.innerText = netSum.toLocaleString('en-US') + ' تومان';
+        }
+
+        if (totalAmountInp) {
+            totalAmountInp.value = netSum > 0 ? netSum.toLocaleString('en-US') : '';
+        }
+
         calcPaymentBalances();
     }
 
@@ -419,39 +833,103 @@
     }
 
     function calcPaymentBalances() {
-        const totalRaw = (document.getElementById('totalAmountInput').value || '').replace(/,/g, '');
-        const total = parseInt(totalRaw) || 0;
-
-        const pos = parseInt((document.getElementById('paidPosInput').value || '').replace(/,/g, '')) || 0;
-        const card = parseInt((document.getElementById('paidCardInput').value || '').replace(/,/g, '')) || 0;
-        const cash = parseInt((document.getElementById('paidCashInput').value || '').replace(/,/g, '')) || 0;
+        const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
+        const pos = parseNumeric(document.getElementById('paidPosInput')?.value);
+        const card = parseNumeric(document.getElementById('paidCardInput')?.value);
+        const cash = parseNumeric(document.getElementById('paidCashInput')?.value);
 
         let chequesTotal = 0;
         document.querySelectorAll('.cheque-amt').forEach(input => {
-            chequesTotal += parseInt((input.value || '').replace(/,/g, '')) || 0;
+            chequesTotal += parseNumeric(input.value);
         });
 
         const covered = pos + card + cash + chequesTotal;
         const remaining = Math.max(0, total - covered);
 
-        document.getElementById('coveredTotalDisplay').innerText = covered.toLocaleString('en-US') + ' تومان';
-        document.getElementById('remainingBalanceDisplay').innerText = remaining.toLocaleString('en-US') + ' تومان';
+        const covElem = document.getElementById('coveredTotalDisplay');
+        const remElem = document.getElementById('remainingBalanceDisplay');
+        if (covElem) covElem.innerText = covered.toLocaleString('en-US') + ' تومان';
+        if (remElem) remElem.innerText = remaining.toLocaleString('en-US') + ' تومان';
     }
 
     function formatNumber(input) {
-        let value = input.value.replace(/,/g, '').replace(/[^0-9]/g, '');
-        if (value) input.value = Number(value).toLocaleString('en-US');
+        let clean = toEnglishDigits(input.value).replace(/\D/g, '');
+        if (clean) input.value = Number(clean).toLocaleString('en-US');
         else input.value = '';
     }
 
     function unformatOnSubmit(form) {
         form.querySelectorAll('.currency-input').forEach(input => {
-            input.value = input.value.replace(/,/g, '');
+            input.value = toEnglishDigits(input.value).replace(/,/g, '').trim();
         });
     }
 
+    // منطق فروش شراکتی و همکار
+    function handlePartnerToggle(sellerVal) {
+        const isSingle = (!sellerVal || sellerVal === 'none' || sellerVal === '');
+        const pSection = document.getElementById('partnerShareSection');
+        const pInput = document.getElementById('partnerShareInput');
+        const badgePartner = document.getElementById('badgePartnerShare');
+        const singleNotice = document.getElementById('singleSaleNotice');
+        const hiddenSplit = document.getElementById('splitRatioHidden');
+        const badgePrimary = document.getElementById('badgePrimaryShare');
+
+        if (isSingle) {
+            if (pSection) pSection.classList.add('opacity-40', 'pointer-events-none');
+            if (pInput) pInput.value = 0;
+            if (hiddenSplit) hiddenSplit.value = 100;
+            if (badgePrimary) badgePrimary.innerText = 'سهم شما: ۱۰۰٪';
+            if (badgePartner) badgePartner.classList.add('hidden');
+            if (singleNotice) singleNotice.classList.remove('hidden');
+        } else {
+            if (pSection) pSection.classList.remove('opacity-40', 'pointer-events-none');
+            let currentP = parseInt(pInput ? pInput.value : 0) || 0;
+            if (currentP <= 0 || currentP >= 100) {
+                currentP = 50;
+                if (pInput) pInput.value = currentP;
+            }
+            syncSharesFromPartnerInput(currentP);
+            if (badgePartner) badgePartner.classList.remove('hidden');
+            if (singleNotice) singleNotice.classList.add('hidden');
+        }
+    }
+
+    function syncSharesFromPartnerInput(val) {
+        let pShare = parseInt(val);
+        if (isNaN(pShare)) pShare = 0;
+        if (pShare < 0) pShare = 0;
+        if (pShare > 100) pShare = 100;
+
+        const myShare = 100 - pShare;
+        const hiddenSplit = document.getElementById('splitRatioHidden');
+        const lbl = document.getElementById('partnerSharePercentLabel');
+        const badgePrimary = document.getElementById('badgePrimaryShare');
+        const badgePartner = document.getElementById('badgePartnerShare');
+
+        if (hiddenSplit) hiddenSplit.value = myShare;
+        if (lbl) lbl.innerText = pShare + '%';
+        if (badgePrimary) badgePrimary.innerText = 'سهم شما: ' + myShare + '%';
+        if (badgePartner) badgePartner.innerText = 'سهم همکار: ' + pShare + '%';
+    }
+
+    function setPartnerShareQuick(share) {
+        const pInput = document.getElementById('partnerShareInput');
+        if (pInput) {
+            pInput.value = share;
+            syncSharesFromPartnerInput(share);
+        }
+    }
+
     // مقداردهی اولیه در لود صفحه
-    calcPaymentBalances();
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.invoice-item-row').forEach(row => {
+            const finalInput = row.querySelector('.item-price');
+            if (finalInput) onPriceOrDiscountChange(finalInput, 'init');
+        });
+        calcTotal();
+        calcPaymentBalances();
+        handlePartnerToggle(document.getElementById('secondSellerSelect')?.value);
+    });
 </script>
 {% endblock %}
 

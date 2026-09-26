@@ -962,7 +962,16 @@ def add_invoice():
         dest_card = request.form.get('dest_card_number', '').strip()
         dest_sheba = request.form.get('dest_sheba_number', '').strip()
 
-        split_ratio = max(0, min(100, safe_int(request.form.get('split_ratio'), 100)))
+        partner_share_raw = request.form.get('partner_share')
+        split_ratio_raw = request.form.get('split_ratio')
+        if not second_seller_id:
+            split_ratio = 100
+        elif partner_share_raw is not None and str(partner_share_raw).strip() != '':
+            p_share = max(0, min(100, safe_int(partner_share_raw, 0)))
+            split_ratio = 100 - p_share
+        else:
+            split_ratio = max(0, min(100, safe_int(split_ratio_raw, 100)))
+
         customer_rating = safe_int(request.form.get('customer_rating'), 5)
 
         new_inv = Invoice(
@@ -1423,7 +1432,17 @@ def edit_invoice(invoice_id):
         inv.due_settlement_date = request.form.get('due_settlement_date')
         inv.is_settled = (remaining_balance <= 0)
         inv.second_seller_id = second_seller_id
-        inv.split_ratio = max(0, min(100, safe_int(request.form.get('split_ratio'), 100)))
+        partner_share_raw = request.form.get('partner_share')
+        split_ratio_raw = request.form.get('split_ratio')
+        if not second_seller_id:
+            inv.second_seller_id = None
+            inv.split_ratio = 100
+        elif partner_share_raw is not None and str(partner_share_raw).strip() != '':
+            p_share = max(0, min(100, safe_int(partner_share_raw, 0)))
+            inv.split_ratio = 100 - p_share
+        else:
+            inv.split_ratio = max(0, min(100, safe_int(split_ratio_raw, 100)))
+
         inv.customer_rating = safe_int(request.form.get('customer_rating'), 5)
 
         # ۴. پاکسازی اقلام و چک‌های قبلی
@@ -3376,12 +3395,16 @@ def update_commission(user_id):
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     month = request.form.get('month', 1)
-    rate = float(request.form.get('commission_rate', 1.0))
-    if 0.01 <= rate <= 5.0:
-        user.commission_rate = round(rate, 2)
-        db.session.commit()
-        log_activity(f"تغییر درصد پایه {user.full_name} به {user.commission_rate}%", session.get('full_name'), "حقوق")
-        flash(f'درصد پایه {user.full_name} به {user.commission_rate}% تغییر یافت.', 'success')
+    comm_raw = request.form.get('commission_rate', '0.0')
+    try:
+        rate = float(comm_raw) if (comm_raw is not None and str(comm_raw).strip() != '') else 0.0
+        if 0.0 <= rate <= 10.0:
+            user.commission_rate = round(rate, 2)
+            db.session.commit()
+            log_activity(f"تغییر درصد پایه {user.full_name} به {user.commission_rate}%", session.get('full_name'), "حقوق")
+            flash(f'درصد پایه {user.full_name} به {user.commission_rate}% تغییر یافت.', 'success')
+    except Exception as e:
+        flash(f'خطا در تغییر درصد پورسانت: {e}', 'error')
     return redirect(url_for('admin_dashboard', month=month))
 
 @app.route('/admin/user/set_password/<int:user_id>', methods=['POST'])
@@ -3449,13 +3472,16 @@ def edit_user(user_id):
     base_sal_raw = request.form.get('base_salary', '0').replace(',', '')
     user.base_salary = int(base_sal_raw) if base_sal_raw else 0
     
-    comm_raw = request.form.get('commission_rate', '1.0')
-    try:
-        comm_val = float(comm_raw)
-        if 0.01 <= comm_val <= 10.0:
-            user.commission_rate = round(comm_val, 2)
-    except ValueError:
-        pass
+    comm_raw = request.form.get('commission_rate', '')
+    if comm_raw is not None and str(comm_raw).strip() != '':
+        try:
+            comm_val = float(comm_raw)
+            if 0.0 <= comm_val <= 10.0:
+                user.commission_rate = round(comm_val, 2)
+        except ValueError:
+            pass
+    else:
+        user.commission_rate = 0.0
         
     shop_id_val = request.form.get('shop_id')
     if shop_id_val:
@@ -3544,9 +3570,11 @@ def add_user():
         return redirect(url_for('admin_dashboard'))
     
     role = request.form.get('role', 'seller')
-    comm_raw = request.form.get('commission_rate', '1.0')
+    comm_raw = request.form.get('commission_rate', '')
     try:
-        comm_rate = float(comm_raw) if comm_raw else 0.0
+        comm_rate = float(comm_raw) if (comm_raw is not None and str(comm_raw).strip() != '') else 0.0
+        if comm_rate < 0.0:
+            comm_rate = 0.0
     except ValueError:
         comm_rate = 0.0
 

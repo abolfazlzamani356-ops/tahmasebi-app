@@ -286,11 +286,13 @@
                         <div>
                             <label class="block text-xs font-bold text-slate-300 mb-1">مدل انتخابی هوش مصنوعی (Vision Engine)</label>
                             <select name="gemini_model" id="gemini_model_select" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-purple-500">
-                                <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' or not settings.gemini_model %}selected{% endif %}>Gemini 2.5 Flash (پیشنهادی - نهایت سرعت و دقت بالا)</option>
-                                <option value="gemini-1.5-pro" {% if settings.gemini_model == 'gemini-1.5-pro' %}selected{% endif %}>Gemini 1.5 Pro (قدرتمندترین مدل برای دست‌خط‌های دشوار و شلوغ)</option>
-                                <option value="gemini-1.5-flash" {% if settings.gemini_model == 'gemini-1.5-flash' %}selected{% endif %}>Gemini 1.5 Flash (اقتصادی و سبک)</option>
+                                <option value="gemini-3.8-flash" {% if settings.gemini_model == 'gemini-3.8-flash' or not settings.gemini_model %}selected{% endif %}>Gemini 3.8 Flash (جدیدترین و پیشرفته‌ترین - نهایت هوشمندی و دقت، پیشنهاد اصلی)</option>
+                                <option value="gemini-3.5-flash-lite" {% if settings.gemini_model == 'gemini-3.5-flash-lite' %}selected{% endif %}>Gemini 3.5 Flash-Lite (فوق‌العاده سریع و سبک)</option>
+                                <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' %}selected{% endif %}>Gemini 2.5 Flash (نسخه باثبات نسل ۲)</option>
+                                <option value="gemini-1.5-pro" {% if settings.gemini_model == 'gemini-1.5-pro' %}selected{% endif %}>Gemini 1.5 Pro (برای دست‌خط‌های شلوغ و متراکم)</option>
+                                <option value="gemini-1.5-flash" {% if settings.gemini_model == 'gemini-1.5-flash' %}selected{% endif %}>Gemini 1.5 Flash (اقتصادی و قدیمی)</option>
                             </select>
-                            <span class="text-[11px] text-slate-400 block mt-1">مدل پردازش چندوجهی بینایی ماشین گوگل</span>
+                            <span class="text-[11px] text-slate-400 block mt-1">مدل پردازش چندوجهی بینایی ماشین گوگل (نسخه ۳.۸ به عنوان پرچمدار روز گوگل تنظیم شده است)</span>
                         </div>
                     </div>
 
@@ -465,14 +467,14 @@
             const data = await resp.json();
             if (data.success) {
                 resDiv.className = 'text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20';
-                resDiv.innerHTML = '✅ ' + data.message;
+                resDiv.textContent = '✅ ' + data.message;
             } else {
-                resDiv.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20';
-                resDiv.innerHTML = '❌ ' + (data.message || 'خطا در ارتباط با سرور گوگل');
+                resDiv.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20 whitespace-pre-line';
+                resDiv.textContent = '❌ ' + (data.message || 'خطا در ارتباط با سرور گوگل');
             }
         } catch (err) {
             resDiv.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20';
-            resDiv.innerHTML = '❌ خطای شبکه: ' + err.message;
+            resDiv.textContent = '❌ خطای شبکه: ' + err.message;
         } finally {
             btn.disabled = false;
         }

@@ -202,7 +202,7 @@ def initialize_database():
             ("invoices", "sms_sent_at", "TEXT"),
             ("invoices", "paper_invoice_image", "TEXT"),
             ("settings", "gemini_api_key", "TEXT"),
-            ("settings", "gemini_model", "TEXT DEFAULT 'gemini-2.5-flash'"),
+            ("settings", "gemini_model", "TEXT DEFAULT 'gemini-3.8-flash'"),
         ]
 
 
@@ -864,18 +864,53 @@ def test_gemini_route():
     if not api_key:
         return jsonify({'success': False, 'message': 'کلید API وارد نشده است.'}), 400
     
-    model = request.form.get('gemini_model', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
+    model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
+    
+    # تست اولیه با SDK رسمی google-genai
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        sdk_resp = client.models.generate_content(
+            model=model,
+            contents="وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"
+        )
+        if sdk_resp and sdk_resp.text:
+            return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro مدل {model} با موفقیت برقرار شد! ✅'})
+    except Exception as sdk_err:
+        app.logger.info(f"SDK test fallback: {sdk_err}")
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": "وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"}]}]
     }
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key
+    }
     try:
         import requests
-        resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=12)
+        import re
+        resp = requests.post(url, json=payload, headers=headers, timeout=14)
         if resp.status_code == 200:
             return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro مدل {model} با موفقیت برقرار شد! ✅'})
         else:
-            return jsonify({'success': False, 'message': f'خطای سرویس گوگل ({resp.status_code}): {resp.text[:180]}'}), 400
+            raw_text = resp.text or ''
+            clean_text = re.sub(r'<[^>]*>', '', raw_text).strip()
+            if resp.status_code == 403:
+                err_msg = (
+                    f"خطای ۴۰۳ گوگل: دسترسی نامعتبر یا محدودیت جغرافیایی/تحریم آی‌پی.\n"
+                    f"• در صورت استفاده در ایران، VPN/فیلترشکن را روی سیستم فعال نمایید تا ارتباط پایتون از فیلتر عبور کند.\n"
+                    f"• همچنین در Google Cloud Console بررسی کنید سرویس Generative Language API فعال باشد."
+                )
+            elif resp.status_code == 401 and "ACCESS_TOKEN_TYPE_UNSUPPORTED" in raw_text:
+                err_msg = (
+                    f"خطای ۴۰۱ گوگل (ACCESS_TOKEN_TYPE_UNSUPPORTED):\n"
+                    f"کلید وارد شده با پیشوند AQ به عنوان کلید پروژه محدود تعریف شده است.\n"
+                    f"راهکار: در صفحه Google AI Studio روی دکمه Create API key کلیک کرده و گزینه Create in new project را انتخاب کنید."
+                )
+            else:
+                err_msg = f"خطای سرویس گوگل ({resp.status_code}): {clean_text[:200]}"
+            return jsonify({'success': False, 'message': err_msg}), 400
     except Exception as e:
         return jsonify({'success': False, 'message': f'خطای شبکه در ارتباط با گوگل: {str(e)}'}), 500
 

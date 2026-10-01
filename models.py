@@ -114,7 +114,7 @@ class Settings(db.Model):
     sms_enabled = db.Column(db.Boolean, default=True)
     public_domain = db.Column(db.String(100), default='tahmasebistore.ir')
     gemini_api_key = db.Column(db.String(255), nullable=True) # کلید API گوگل هوش مصنوعی (Google AI Studio)
-    gemini_model = db.Column(db.String(50), default='gemini-2.5-flash') # مدل پیش‌فرض هوش مصنوعی
+    gemini_model = db.Column(db.String(50), default='gemini-3.8-flash') # مدل پیش‌فرض هوش مصنوعی (Gemini 3.8 Flash)
 
 
 class BankAccount(db.Model):

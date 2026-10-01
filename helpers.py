@@ -883,7 +883,7 @@ def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, mod
         except Exception:
             pass
     if not model_name:
-        model_name = 'gemini-2.5-flash'
+        model_name = 'gemini-3.8-flash'
 
     prompt_text = """تو یک حسابدار هوشمند و فوق‌العاده دقیق در صنف لوازم بهداشتی و ساختمانی (فروشگاه طهماسبی) هستی.
 وظیفه تو خواندن تصویر این برگه فاکتور دست‌نویس یا دفتری و تبدیل دقیق آن به ساختار استاندارد فاکتور است.
@@ -932,7 +932,7 @@ def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, mod
 
     # مدل‌های کاندید برای ارسال درخواست با فال‌بک خودکار
     candidate_models = [model_name]
-    for fallback in ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']:
+    for fallback in ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']:
         if fallback not in candidate_models:
             candidate_models.append(fallback)
 
@@ -958,7 +958,10 @@ def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, mod
                 "response_mime_type": "application/json"
             }
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key
+        }
 
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=35)

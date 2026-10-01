@@ -213,24 +213,26 @@ def test_api_test_gemini_endpoint(client):
         sess['role'] = 'admin'
 
     # کلید نامعتبر شبیه‌سازی خطا از سمت گوگل
-    with patch('requests.post') as mock_post:
+    with patch('requests.post') as mock_post, patch('google.genai.Client') as mock_client:
+        mock_client.side_effect = Exception("SDK error fallback")
         mock_resp = MagicMock()
         mock_resp.status_code = 400
         mock_resp.text = '{"error": {"message": "API key not valid"}}'
         mock_post.return_value = mock_resp
 
-        res = client.post('/api/ai/test_gemini', json={'gemini_api_key': 'fake_bad_key', 'gemini_model': 'gemini-2.5-flash'})
+        res = client.post('/api/ai/test_gemini', json={'gemini_api_key': 'fake_bad_key', 'gemini_model': 'gemini-3.8-flash'})
         assert res.status_code == 400
         assert res.get_json()['success'] is False
         assert "API key not valid" in res.get_json()['message']
 
     # کلید معتبر شبیه‌سازی موفق
-    with patch('requests.post') as mock_post:
+    with patch('requests.post') as mock_post, patch('google.genai.Client') as mock_client:
+        mock_client.side_effect = Exception("SDK fallback")
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_post.return_value = mock_resp
 
-        res = client.post('/api/ai/test_gemini', json={'gemini_api_key': 'valid_key_test', 'gemini_model': 'gemini-2.5-flash'})
+        res = client.post('/api/ai/test_gemini', json={'gemini_api_key': 'valid_key_test', 'gemini_model': 'gemini-3.8-flash'})
         assert res.status_code == 200
         assert res.get_json()['success'] is True
         assert "با موفقیت برقرار شد" in res.get_json()['message']

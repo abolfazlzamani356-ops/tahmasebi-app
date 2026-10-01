@@ -1041,6 +1041,7 @@ def add_invoice():
         items_discount_sum = 0
         has_any_custom = False
         created_invoice_items = []
+        auto_learned_names = set()
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
@@ -1053,7 +1054,9 @@ def add_invoice():
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
             inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
-            
+            # آیا کاربر صراحتاً یک کالای انبار انتخاب کرده؟ (برای تشخیص سفارشی بودن)
+            user_explicitly_linked_inventory = inv_item is not None
+
             name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
             if not name_val:
                 # اگر ردیف کاملاً خالی بود و قیمت هم نداشت رد شو
@@ -1077,6 +1080,10 @@ def add_invoice():
                 else:
                     final_p = 0
 
+            # در صورت ورود تک‌قیمت یا بیشتر بودن قیمت نهایی، قیمت مصوب با نهایی هم‌تراز می‌شود
+            if orig_p < final_p:
+                orig_p = final_p
+
             # محاسبه تخفیف ردیف
             row_discount = max(0, (orig_p - final_p) * qty) if orig_p > final_p else 0
             row_total = final_p * qty
@@ -1087,6 +1094,7 @@ def add_invoice():
             items_total_sum += row_total
             
             # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
+            # (فقط برای کسر موجودی - تأثیری روی is_custom_row ندارد)
             if not inv_item and name_val:
                 inv_item = InventoryItem.query.filter_by(name=name_val, shop_id=shop_id).first()
             
@@ -1101,31 +1109,45 @@ def add_invoice():
 
             # بررسی تطابق با کاتالوگ
             cat_match = None
-            if not inv_item:
+            if not user_explicitly_linked_inventory:
                 cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
                 if not cat_match and len(name_val) >= 5:
                     cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
 
             # استخراج بهای خرید واقعی و تشخیص اقلام سفارشی
-            is_custom_row = False
+            # «سفارشی» = هر کالایی که کاربر صراحتاً از انبار انتخاب نکرده باشد
+            is_custom_row = not user_explicitly_linked_inventory
             buy_p = 0
             if custom_buy_p > 0:
+                # فروشنده/مدیر صراحتاً قیمت خرید وارد کرده
                 buy_p = custom_buy_p
-                if not inv_item:
-                    is_custom_row = True
-            elif inv_item and inv_item.buy_price > 0:
+            elif user_explicitly_linked_inventory and inv_item and inv_item.buy_price > 0:
+                # کالای انبار با قیمت خرید مشخص
                 buy_p = inv_item.buy_price
-            elif cat_match and cat_match.buy_price > 0:
-                buy_p = cat_match.buy_price
             else:
+                # قیمت خرید وارد نشده → پیش‌فرض سود ۲۵٪ (بهای خرید = ۷۵٪ قیمت فروش)
                 buy_p = int(final_p * 0.75)
-                is_custom_row = True
-
-            if not inv_item and not cat_match:
-                is_custom_row = True
 
             if is_custom_row:
                 has_any_custom = True
+
+            # خودآموزی کاتالوگ: ثبت خودکار کالا در ProductCatalog برای اقلام جدید/سفارشی
+            if is_custom_row and name_val and name_val != 'تجهیزات بهداشتی' and not inv_item:
+                if name_val not in auto_learned_names:
+                    existing_cat = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
+                    if not existing_cat:
+                        catalog_sell_p = orig_p if orig_p > 0 else final_p
+                        new_cat_entry = ProductCatalog(
+                            name=name_val,
+                            category=cat_val or 'عمومی',
+                            brand='سفارشی',
+                            buy_price=buy_p,
+                            sell_price=catalog_sell_p,
+                            description="ثبت خودکار از فاکتور فروش (اقلام خارج از لیست)"
+                        )
+                        db.session.add(new_cat_entry)
+                        db.session.flush()
+                        auto_learned_names.add(name_val)
             
             row_profit = row_total - (buy_p * qty)
             total_actual_buy_cost += (buy_p * qty)
@@ -1377,6 +1399,7 @@ def edit_invoice(invoice_id):
         return render_template(
             'edit_invoice.html',
             invoice=inv,
+            user=user,
             colleagues=colleagues,
             inventory_items=inventory_items,
             catalog_products=catalog_products,
@@ -1523,6 +1546,7 @@ def edit_invoice(invoice_id):
         items_discount_sum = 0
         has_any_custom = False
         created_invoice_items = []
+        auto_learned_names = set()
 
         for idx in range(len(quantities)):
             qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
@@ -1535,7 +1559,9 @@ def edit_invoice(invoice_id):
             
             item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
             inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
-            
+            # آیا کاربر صراحتاً یک کالای انبار انتخاب کرده؟ (برای تشخیص سفارشی بودن)
+            user_explicitly_linked_inventory = inv_item is not None
+
             name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
             if not name_val:
                 if final_p <= 0 and orig_p <= 0 and not inv_item:
@@ -1559,6 +1585,10 @@ def edit_invoice(invoice_id):
                 else:
                     final_p = 0
 
+            # در صورت ورود تک‌قیمت یا بیشتر بودن قیمت نهایی، قیمت مصوب با نهایی هم‌تراز می‌شود
+            if orig_p < final_p:
+                orig_p = final_p
+
             # محاسبه تخفیف ردیف
             row_discount = max(0, (orig_p - final_p) * qty) if orig_p > final_p else 0
             row_total = final_p * qty
@@ -1569,6 +1599,7 @@ def edit_invoice(invoice_id):
             items_total_sum += row_total
 
             # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
+            # (فقط برای کسر موجودی - تأثیری روی is_custom_row ندارد)
             if not inv_item and name_val:
                 inv_item = InventoryItem.query.filter_by(name=name_val, shop_id=inv.shop_id).first()
 
@@ -1582,31 +1613,45 @@ def edit_invoice(invoice_id):
 
             # بررسی تطابق با کاتالوگ
             cat_match = None
-            if not inv_item:
+            if not user_explicitly_linked_inventory:
                 cat_match = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
                 if not cat_match and len(name_val) >= 5:
                     cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
 
             # استخراج بهای خرید واقعی و تشخیص اقلام سفارشی
-            is_custom_row = False
+            # «سفارشی» = هر کالایی که کاربر صراحتاً از انبار انتخاب نکرده باشد
+            is_custom_row = not user_explicitly_linked_inventory
             buy_p = 0
             if custom_buy_p > 0:
+                # فروشنده/مدیر صراحتاً قیمت خرید وارد کرده
                 buy_p = custom_buy_p
-                if not inv_item:
-                    is_custom_row = True
-            elif inv_item and inv_item.buy_price > 0:
+            elif user_explicitly_linked_inventory and inv_item and inv_item.buy_price > 0:
+                # کالای انبار با قیمت خرید مشخص
                 buy_p = inv_item.buy_price
-            elif cat_match and cat_match.buy_price > 0:
-                buy_p = cat_match.buy_price
             else:
+                # قیمت خرید وارد نشده → پیش‌فرض سود ۲۵٪ (بهای خرید = ۷۵٪ قیمت فروش)
                 buy_p = int(final_p * 0.75)
-                is_custom_row = True
-
-            if not inv_item and not cat_match:
-                is_custom_row = True
 
             if is_custom_row:
                 has_any_custom = True
+
+            # خودآموزی کاتالوگ: ثبت خودکار کالا در ProductCatalog برای اقلام جدید/سفارشی
+            if is_custom_row and name_val and name_val != 'تجهیزات بهداشتی' and not inv_item:
+                if name_val not in auto_learned_names:
+                    existing_cat = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
+                    if not existing_cat:
+                        catalog_sell_p = orig_p if orig_p > 0 else final_p
+                        new_cat_entry = ProductCatalog(
+                            name=name_val,
+                            category=cat_val or 'عمومی',
+                            brand='سفارشی',
+                            buy_price=buy_p,
+                            sell_price=catalog_sell_p,
+                            description="ثبت خودکار از فاکتور فروش (اقلام خارج از لیست)"
+                        )
+                        db.session.add(new_cat_entry)
+                        db.session.flush()
+                        auto_learned_names.add(name_val)
 
             row_profit = row_total - (buy_p * qty)
             total_actual_buy_cost += (buy_p * qty)

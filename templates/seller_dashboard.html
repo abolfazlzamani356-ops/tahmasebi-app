@@ -284,17 +284,33 @@
                                 <input type="text" name="item_price[]" placeholder="مثال: ۱,۵۰۰,۰۰۰" oninput="onPriceOrDiscountChange(this, 'final')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400/60 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono" dir="ltr" title="قیمت فروش به مشتری">
                             </div>
 
-                            <!-- بهای خرید ما (تومان) جهت تعیین سود واقعی اقلام کاتالوگ و اجناس متفرقه -->
+
+                            <!-- بهای خرید (فقط برای مدیریت - فروشنده نمی‌بیند) -->
+                            {% if user.role == 'admin' %}
                             <div class="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20">
                                 <div class="flex-1">
-                                    <label class="block text-[10px] font-bold text-indigo-300 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-amber-400 font-normal">(برای اقلام خارج از لیست/انبار الزامی)</span>:</label>
-                                    <input type="text" name="item_buy_price[]" placeholder="قیمت خرید خودمون..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-slate-900 border border-indigo-400/40 rounded-xl text-xs font-bold text-indigo-200 text-left font-mono" dir="ltr" title="قیمت خرید این کالا برای فروشگاه">
+                                    <label class="block text-[10px] font-bold text-indigo-300 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-slate-400 font-normal">(اختیاری - در صورت خالی بودن، سود ۲۵٪ محاسبه می‌شود)</span>:</label>
+                                    <input type="text" name="item_buy_price[]" placeholder="اختیاری (پیش‌فرض سود ۲۵٪)..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-slate-900 border border-indigo-400/40 rounded-xl text-xs font-bold text-indigo-200 text-left font-mono" dir="ltr" title="قیمت خرید این کالا برای فروشگاه (اختیاری)">
                                 </div>
                                 <div class="sm:w-44 flex flex-col justify-center items-center bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 text-center">
                                     <span class="text-[9px] text-slate-400 font-medium">سود تخمینی ردیف:</span>
                                     <span class="item-profit-display text-xs font-black text-emerald-400 font-mono">۰ ت</span>
                                 </div>
                             </div>
+                            {% else %}
+                            <!-- فروشنده: بهای خرید مخفی است - سود خودکار محاسبه می‌شود -->
+                            <input type="hidden" name="item_buy_price[]" class="item-buy-price" value="">
+                            <div class="pt-2 border-t border-slate-700/60">
+                                <div class="flex items-center justify-between bg-slate-800/50 rounded-xl px-3 py-2 border border-slate-700/40">
+                                    <span class="text-[10px] text-slate-400 flex items-center gap-1.5">
+                                        <span>✅</span>
+                                        <span>سود این ردیف توسط سیستم خودکار محاسبه خواهد شد</span>
+                                    </span>
+                                    <span class="item-profit-display text-xs font-black text-emerald-400 font-mono">۰ ت</span>
+                                </div>
+                            </div>
+                            {% endif %}
+
                         </div>
 
                         <!-- سطر ۴: برچسب تخفیف + جمع ردیف + دکمه حذف -->
@@ -1205,6 +1221,9 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             if (origVal > 0 && pctVal > 0 && pctVal <= 100) {
                 finalVal = Math.round(origVal * (1 - (pctVal / 100)));
                 finalInput.value = finalVal.toLocaleString('en-US');
+            } else if (origVal > 0 && finalVal > 0 && finalVal < origVal) {
+                pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                pctInput.value = pctVal > 0 ? pctVal : '';
             } else {
                 finalVal = origVal;
                 finalInput.value = origVal > 0 ? origVal.toLocaleString('en-US') : '';
@@ -1226,25 +1245,26 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 origInput.value = origVal.toLocaleString('en-US');
             }
         } else if (trigger === 'final') {
-            if (pctVal > 0 && origVal > finalVal && finalVal > 0) {
-                pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
-                pctInput.value = pctVal;
-            } else {
-                if (finalVal > 0) {
-                    if (origVal <= 0 || !pctVal || pctVal <= 0 || origVal < finalVal) {
-                        origInput.value = finalVal.toLocaleString('en-US');
-                        origVal = finalVal;
-                        pctInput.value = '';
-                        pctVal = 0;
-                    } else if (origVal > finalVal) {
-                        pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
-                        pctInput.value = pctVal;
-                    }
+            if (finalVal > 0) {
+                if (origVal > 0 && origVal > finalVal) {
+                    // محاسبه پویای درصد تخفیف بر اساس اختلاف قیمت مصوب و قیمت نهایی
+                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
+                    pctInput.value = pctVal > 0 ? pctVal : '';
                 } else {
-                    if (origVal <= 0) {
-                        origInput.value = '';
-                        pctInput.value = '';
-                    }
+                    // در صورت ورود تک‌قیمت یا بیشتر بودن قیمت نهایی نسبت به مصوب، مصوب هم‌تراز می‌شود (تخفیف صفر)
+                    origInput.value = finalVal.toLocaleString('en-US');
+                    origVal = finalVal;
+                    pctInput.value = '';
+                    pctVal = 0;
+                }
+            } else {
+                if (origVal <= 0) {
+                    origInput.value = '';
+                    pctInput.value = '';
+                    pctVal = 0;
+                } else {
+                    pctInput.value = '';
+                    pctVal = 0;
                 }
             }
         }

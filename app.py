@@ -203,6 +203,7 @@ def initialize_database():
             ("invoices", "paper_invoice_image", "TEXT"),
             ("settings", "gemini_api_key", "TEXT"),
             ("settings", "gemini_model", "TEXT DEFAULT 'gemini-3.8-flash'"),
+            ("settings", "gemini_base_url", "TEXT DEFAULT 'https://generativelanguage.googleapis.com'"),
         ]
 
 
@@ -855,16 +856,19 @@ def test_gemini_route():
     """تست صحت و اتصال کلید API گوگل جمینای از پنل تنظیمات"""
     if 'user_id' not in session or session.get('role') != 'admin':
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+    st = Settings.query.first()
     api_key = request.form.get('gemini_api_key', '').strip()
     if not api_key and request.is_json:
         api_key = request.json.get('gemini_api_key', '').strip()
     if not api_key:
-        st = Settings.query.first()
         api_key = st.gemini_api_key if st else None
     if not api_key:
         return jsonify({'success': False, 'message': 'کلید API وارد نشده است.'}), 400
     
     model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
+    base_url = (request.form.get('gemini_base_url') or (request.json.get('gemini_base_url') if request.is_json else None) or (st.gemini_base_url if st else None) or 'https://generativelanguage.googleapis.com').strip()
+    if not base_url:
+        base_url = 'https://generativelanguage.googleapis.com'
     
     # تست اولیه با SDK رسمی google-genai
     try:
@@ -879,7 +883,7 @@ def test_gemini_route():
     except Exception as sdk_err:
         app.logger.info(f"SDK test fallback: {sdk_err}")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    url = f"{base_url.rstrip('/')}/v1beta/models/{model}:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": "وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"}]}]
     }
@@ -4028,7 +4032,8 @@ def store_settings_view():
         
         # تنظیمات هوش مصنوعی گوگل (Google AI Pro / Gemini Studio)
         settings.gemini_api_key = request.form.get('gemini_api_key', '').strip()
-        settings.gemini_model = request.form.get('gemini_model', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
+        settings.gemini_model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
+        settings.gemini_base_url = request.form.get('gemini_base_url', '').strip() or 'https://generativelanguage.googleapis.com'
         
         # آپلود لوگو اگر ارسال شده باشد
         logo_file = request.files.get('store_logo')

@@ -24,6 +24,7 @@ def test_models_have_ai_and_paper_invoice_fields():
         # بررسی مدل Settings
         assert hasattr(Settings, 'gemini_api_key'), "فیلد gemini_api_key در Settings یافت نشد"
         assert hasattr(Settings, 'gemini_model'), "فیلد gemini_model در Settings یافت نشد"
+        assert hasattr(Settings, 'gemini_base_url'), "فیلد gemini_base_url در Settings یافت نشد"
 
 def test_api_invoice_details(client):
     """تست اندپوینت جزئیات فاکتور برای مودال مقایسه دفتری و دیجیتال"""

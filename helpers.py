@@ -936,9 +936,17 @@ def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, mod
         if fallback not in candidate_models:
             candidate_models.append(fallback)
 
+    base_url = 'https://generativelanguage.googleapis.com'
+    try:
+        st = Settings.query.first()
+        if st and st.gemini_base_url:
+            base_url = st.gemini_base_url.strip() or 'https://generativelanguage.googleapis.com'
+    except Exception:
+        pass
+
     last_error = None
     for cand_model in candidate_models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{cand_model}:generateContent?key={api_key}"
+        url = f"{base_url.rstrip('/')}/v1beta/models/{cand_model}:generateContent?key={api_key}"
         payload = {
             "contents": [
                 {

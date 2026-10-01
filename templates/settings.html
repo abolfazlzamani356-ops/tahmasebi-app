@@ -292,8 +292,17 @@
                                 <option value="gemini-1.5-pro" {% if settings.gemini_model == 'gemini-1.5-pro' %}selected{% endif %}>Gemini 1.5 Pro (برای دست‌خط‌های شلوغ و متراکم)</option>
                                 <option value="gemini-1.5-flash" {% if settings.gemini_model == 'gemini-1.5-flash' %}selected{% endif %}>Gemini 1.5 Flash (اقتصادی و قدیمی)</option>
                             </select>
-                            <span class="text-[11px] text-slate-400 block mt-1">مدل پردازش چندوجهی بینایی ماشین گوگل (نسخه ۳.۸ به عنوان پرچمدار روز گوگل تنظیم شده است)</span>
-                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-white/5">
+                        <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+                            <span>🌐 آدرس پایه API / ریورس پروکسی گذر از تحریم (ویژه سرورهای ایران مانند لیارا)</span>
+                            <span class="text-[10px] text-amber-400">پیش‌فرض: رسمی گوگل</span>
+                        </label>
+                        <input type="text" id="gemini_base_url_input" name="gemini_base_url" value="{{ settings.gemini_base_url or 'https://generativelanguage.googleapis.com' }}" placeholder="https://generativelanguage.googleapis.com یا آدرس ورکر کلودفلر" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs font-mono text-cyan-300 outline-none focus:border-cyan-500" dir="ltr">
+                        <span class="text-[11px] text-slate-400 block mt-1">
+                            💡 اگر برنامه روی هاست‌های ایرانی (مثل لیارا) مستقر است، به دلیل تحریم آی‌پی ایران از سمت گوگل (خطای ۴۰۳)، یک Cloudflare Worker رایگان بسازید و آدرس آن را اینجا قرار دهید تا بدون خطا کار کند.
+                        </span>
                     </div>
 
                     <div class="pt-3 border-t border-white/10 flex items-center justify-between flex-wrap gap-3">
@@ -445,6 +454,8 @@
     async function testGeminiConnection() {
         const apiKey = document.getElementById('gemini_api_key_input').value.trim();
         const model = document.getElementById('gemini_model_select').value;
+        const baseUrlEl = document.getElementById('gemini_base_url_input');
+        const baseUrl = baseUrlEl ? baseUrlEl.value.trim() : '';
         const resDiv = document.getElementById('geminiTestResult');
         const btn = document.getElementById('btnTestGemini');
 
@@ -462,7 +473,7 @@
             const resp = await fetch('/api/ai/test_gemini', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gemini_api_key: apiKey, gemini_model: model })
+                body: JSON.stringify({ gemini_api_key: apiKey, gemini_model: model, gemini_base_url: baseUrl })
             });
             const data = await resp.json();
             if (data.success) {

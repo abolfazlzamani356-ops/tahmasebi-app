@@ -100,12 +100,20 @@ class Settings(db.Model):
     tier2_min = db.Column(db.BigInteger, default=2_000_000_000) # تارگت پله ۲
     tier2_bonus = db.Column(db.Float, default=0.50)             # پاداش پله ۲ درصد
     store_name = db.Column(db.String(150), default='مجموعه فروشگاه‌های تخصصی طهماسبی')
+    store_slogan = db.Column(db.String(255), default='تجهیزات مدرن ساختمانی و شیرآلات بهداشتی لوکس')
     store_phone = db.Column(db.String(50), default='021-12345678')
+    store_address = db.Column(db.String(255), default='کرج، میدان آزادگان، بلوار مطهری')
+    store_instagram = db.Column(db.String(100), default='@tahmasebistore')
+    store_website = db.Column(db.String(100), default='tahmasebistore.ir')
+    store_logo_data = db.Column(db.Text, nullable=True) # لوگو یا مهر فروشگاه به صورت بیس۶۴
     store_warranty_text = db.Column(db.Text, default='کلیه اقلام دارای گارانتی اصالت کالا و ۱۰ روز مهلت تست فنی می‌باشند.')
+    default_invoice_prefix = db.Column(db.String(20), default='INV')
+    invoice_footer_note = db.Column(db.Text, default='از حسن انتخاب شما سپاسگزاریم. کلیه اقلام دارای گارانتی اصالت کالا می‌باشند.')
     sms_api_key = db.Column(db.String(255), default='mDVL1257srjKMnY7X9Yj87Y1ssazFsEncwDtt3kMF9NtAcBa')
     sms_template_id = db.Column(db.String(50), default='355952')
     sms_enabled = db.Column(db.Boolean, default=True)
     public_domain = db.Column(db.String(100), default='tahmasebistore.ir')
+
 
 class BankAccount(db.Model):
     __tablename__ = 'bank_accounts'
@@ -307,9 +315,12 @@ class Cheque(db.Model):
     customer_name = db.Column(db.String(100), nullable=False)
     customer_phone = db.Column(db.String(30), nullable=True)
     shop_id = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(30), default='pending') # pending (در انتظار), passed (وصول شده), bounced (برگشت خورده)
+    status = db.Column(db.String(30), default='pending') # pending (در انتظار), passed (وصول شده), bounced (برگشت خورده), assigned (واگذار شده)
     passed_shamsi_date = db.Column(db.String(30), nullable=True)
+    payee_name = db.Column(db.String(100), nullable=True) # تحویل گیرنده / واگذار شده به
+    notes = db.Column(db.String(255), nullable=True) # یادداشت چک
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class SalarySlip(db.Model):
     __tablename__ = 'salary_slips'

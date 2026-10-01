@@ -159,6 +159,9 @@
                 </td>
                 <td class="p-3 text-center">
                     <div class="flex items-center justify-center gap-1.5">
+                        <a href="{{ url_for('customer_statement', customer_id=c.id) }}" target="_blank" class="bg-indigo-950/60 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-300 px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1" title="صورتحساب و کاردکس رسمی">
+                            📄 کاردکس
+                        </a>
                         <button onclick='openEditCustomerModal({{ c.to_dict()|tojson }})' class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold transition" title="ویرایش اطلاعات">
                             ✏️ ویرایش
                         </button>

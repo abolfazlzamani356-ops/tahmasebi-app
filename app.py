@@ -184,9 +184,19 @@ def initialize_database():
             ("settings", "sms_template_id", "TEXT DEFAULT '355952'"),
             ("settings", "sms_enabled", "BOOLEAN DEFAULT 1"),
             ("settings", "public_domain", "TEXT DEFAULT 'tahmasebistore.ir'"),
+            ("settings", "store_slogan", "TEXT DEFAULT 'تجهیزات مدرن ساختمانی و شیرآلات بهداشتی لوکس'"),
+            ("settings", "store_address", "TEXT DEFAULT 'کرج، میدان آزادگان، بلوار مطهری'"),
+            ("settings", "store_instagram", "TEXT DEFAULT '@tahmasebistore'"),
+            ("settings", "store_website", "TEXT DEFAULT 'tahmasebistore.ir'"),
+            ("settings", "store_logo_data", "TEXT"),
+            ("settings", "default_invoice_prefix", "TEXT DEFAULT 'INV'"),
+            ("settings", "invoice_footer_note", "TEXT DEFAULT 'از حسن انتخاب شما سپاسگزاریم.'"),
+            ("cheques", "payee_name", "TEXT"),
+            ("cheques", "notes", "TEXT"),
             ("invoices", "sms_sent", "BOOLEAN DEFAULT 0"),
             ("invoices", "sms_sent_at", "TEXT"),
         ]
+
 
         for table, col, col_def in migrations:
             try:
@@ -3733,19 +3743,287 @@ def delete_invoice(invoice_id):
     flash(f'فاکتور شماره {inv_num} حذف شد و تغییرات انبار و حساب مشتری با موفقیت بازگردانده شدند.', 'success')
     return redirect(request.referrer or url_for('admin_dashboard'))
 
+@app.route('/admin/settings', methods=['GET', 'POST'])
+def store_settings_view():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    settings = Settings.query.first()
+    if not settings:
+        settings = Settings()
+        db.session.add(settings)
+        db.session.commit()
+        
+    if request.method == 'POST':
+        # اطلاعات برند و فروشگاه (White-Label)
+        settings.store_name = request.form.get('store_name', '').strip() or 'مجموعه فروشگاه‌های تخصصی طهماسبی'
+        settings.store_slogan = request.form.get('store_slogan', '').strip()
+        settings.store_phone = request.form.get('store_phone', '').strip()
+        settings.store_address = request.form.get('store_address', '').strip()
+        settings.store_instagram = request.form.get('store_instagram', '').strip()
+        settings.store_website = request.form.get('store_website', '').strip()
+        
+        # پیشوند و پانویس فاکتور
+        settings.default_invoice_prefix = request.form.get('default_invoice_prefix', 'INV').strip()
+        settings.store_warranty_text = request.form.get('store_warranty_text', '').strip()
+        settings.invoice_footer_note = request.form.get('invoice_footer_note', '').strip()
+        
+        # پله‌های پورسانت
+        settings.tier1_min = safe_int(request.form.get('tier1_min', '0'))
+        settings.tier1_bonus = safe_float(request.form.get('tier1_bonus', 0.25))
+        settings.tier2_min = safe_int(request.form.get('tier2_min', '0'))
+        settings.tier2_bonus = safe_float(request.form.get('tier2_bonus', 0.50))
+        
+        # تنظیمات پیامک
+        settings.sms_enabled = (request.form.get('sms_enabled') == 'on' or request.form.get('sms_enabled') == '1')
+        settings.sms_api_key = request.form.get('sms_api_key', '').strip()
+        settings.sms_template_id = request.form.get('sms_template_id', '').strip()
+        settings.public_domain = request.form.get('public_domain', '').strip()
+        
+        # آپلود لوگو اگر ارسال شده باشد
+        logo_file = request.files.get('store_logo')
+        if logo_file and logo_file.filename:
+            import base64
+            logo_bytes = logo_file.read()
+            if len(logo_bytes) <= 2 * 1024 * 1024:
+                mimetype = logo_file.content_type or 'image/png'
+                b64_str = base64.b64encode(logo_bytes).decode('utf-8')
+                settings.store_logo_data = f"data:{mimetype};base64,{b64_str}"
+        elif request.form.get('remove_logo') == '1':
+            settings.store_logo_data = None
+            
+        db.session.commit()
+        log_activity("به‌روزرسانی جامع مشخصات و تنظیمات فروشگاه", session.get('full_name'), "تنظیمات")
+        flash('تنظیمات و مشخصات فروشگاه با موفقیت ذخیره و به‌روزرسانی شد.', 'success')
+        return redirect(url_for('store_settings_view'))
+        
+    shops = Shop.query.all()
+    bank_accounts = BankAccount.query.all()
+    
+    db_stats = {
+        'total_invoices': Invoice.query.count(),
+        'total_customers': Customer.query.count(),
+        'total_inventory': InventoryItem.query.count(),
+        'total_catalog': ProductCatalog.query.count(),
+        'total_users': User.query.count(),
+    }
+    
+    current_user = User.query.get(session['user_id'])
+    return render_template('settings.html', 
+                           settings=settings, 
+                           shops=shops, 
+                           bank_accounts=bank_accounts, 
+                           db_stats=db_stats,
+                           current_user=current_user)
+
+@app.route('/admin/settings/test_sms', methods=['POST'])
+def test_sms_route():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    test_mobile = request.form.get('test_phone', '').strip()
+    if not test_mobile or len(test_mobile) < 10:
+        flash('شماره موبایل وارد شده معتبر نیست.', 'danger')
+        return redirect(url_for('store_settings_view'))
+    
+    success = send_warranty_sms_direct("مشتری تست", test_mobile, "TEST-101", 1405, 7)
+    if success:
+        flash(f'پیامک آزمایشی با موفقیت به شماره {test_mobile} ارسال گردید.', 'success')
+    else:
+        flash('ارسال با خطا مواجه شد یا درگاه غیرفعال است. لطفاً کلید API و شناسه قالب را بررسی نمایید.', 'warning')
+    return redirect(url_for('store_settings_view'))
+
+@app.route('/admin/shop/add', methods=['POST'])
+def add_shop():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    name = request.form.get('name', '').strip()
+    phone = request.form.get('phone', '').strip()
+    address = request.form.get('address', '').strip()
+    rent = safe_int(request.form.get('rent_amount', '0'))
+    if not name:
+        flash('نام شعبه الزامی است.', 'danger')
+        return redirect(url_for('store_settings_view'))
+    new_shop = Shop(name=name, phone=phone, address=address, rent_amount=rent)
+    db.session.add(new_shop)
+    db.session.commit()
+    log_activity(f"افزودن شعبه جدید «{name}»", session.get('full_name'), "تنظیمات")
+    flash(f'شعبه جدید «{name}» با موفقیت اضافه شد.', 'success')
+    return redirect(url_for('store_settings_view'))
+
+@app.route('/admin/shop/edit/<int:shop_id>', methods=['POST'])
+def edit_shop(shop_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    shop = Shop.query.get_or_404(shop_id)
+    shop.name = request.form.get('name', '').strip() or shop.name
+    shop.phone = request.form.get('phone', '').strip()
+    shop.address = request.form.get('address', '').strip()
+    shop.rent_amount = safe_int(request.form.get('rent_amount', '0'))
+    db.session.commit()
+    log_activity(f"ویرایش مشخصات شعبه «{shop.name}»", session.get('full_name'), "تنظیمات")
+    flash(f'مشخصات شعبه «{shop.name}» به‌روزرسانی شد.', 'success')
+    return redirect(url_for('store_settings_view'))
+
+@app.route('/admin/shop/delete/<int:shop_id>', methods=['POST'])
+def delete_shop(shop_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    shop = Shop.query.get_or_404(shop_id)
+    if shop.invoices or shop.users or shop.inventory_items:
+        flash('این شعبه دارای پرسنل، انبار یا فاکتور ثبت‌شده است و امکان حذف آن وجود ندارد.', 'danger')
+        return redirect(url_for('store_settings_view'))
+    shop_name = shop.name
+    db.session.delete(shop)
+    db.session.commit()
+    log_activity(f"حذف شعبه «{shop_name}»", session.get('full_name'), "تنظیمات")
+    flash(f'شعبه «{shop_name}» حذف گردید.', 'success')
+    return redirect(url_for('store_settings_view'))
+
+@app.route('/admin/cheques')
+def cheques_view():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    status_filter = request.args.get('status', 'all')
+    search_q = request.args.get('q', '').strip()
+    
+    query = Cheque.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+        
+    if search_q:
+        q_norm = normalize_persian_text(search_q)
+        query = query.filter(
+            (Cheque.sayad_number.contains(search_q)) |
+            (Cheque.customer_name.contains(search_q)) |
+            (Cheque.bank_name.contains(search_q)) |
+            (Cheque.customer_phone.contains(search_q))
+        )
+        
+    cheques = query.order_by(Cheque.due_shamsi_date.asc(), Cheque.id.desc()).all()
+    
+    all_cheques = Cheque.query.all()
+    pending_sum = sum(c.amount for c in all_cheques if c.status == 'pending')
+    passed_sum = sum(c.amount for c in all_cheques if c.status == 'passed')
+    bounced_sum = sum(c.amount for c in all_cheques if c.status == 'bounced')
+    assigned_sum = sum(c.amount for c in all_cheques if c.status == 'assigned')
+    
+    today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d")
+    
+    current_user = User.query.get(session['user_id'])
+    shops = Shop.query.all()
+    return render_template('cheques.html',
+                           cheques=cheques,
+                           status_filter=status_filter,
+                           search_q=search_q,
+                           pending_sum=pending_sum,
+                           passed_sum=passed_sum,
+                           bounced_sum=bounced_sum,
+                           assigned_sum=assigned_sum,
+                           total_count=len(all_cheques),
+                           today_shamsi=today_shamsi,
+                           shops=shops,
+                           current_user=current_user)
+
+@app.route('/admin/cheque/add', methods=['POST'])
+def add_manual_cheque():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    sayad = request.form.get('sayad_number', '').strip()
+    bank = request.form.get('bank_name', '').strip()
+    amount = safe_int(request.form.get('amount', '0'))
+    due_date = request.form.get('due_shamsi_date', '').strip()
+    cust_name = request.form.get('customer_name', '').strip()
+    cust_phone = request.form.get('customer_phone', '').strip()
+    notes = request.form.get('notes', '').strip()
+    shop_id = safe_int(request.form.get('shop_id', '1')) or 1
+    
+    if not sayad or not amount or not due_date:
+        flash('شناسه صیاد، مبلغ و تاریخ سررسید الزامی هستند.', 'danger')
+        return redirect(url_for('cheques_view'))
+        
+    chk = Cheque(
+        sayad_number=sayad,
+        bank_name=bank,
+        amount=amount,
+        due_shamsi_date=due_date,
+        customer_name=cust_name or 'ثبت دستی',
+        customer_phone=cust_phone,
+        shop_id=shop_id,
+        notes=notes,
+        status='pending'
+    )
+    db.session.add(chk)
+    db.session.commit()
+    log_activity(f"ثبت دستی چک صیادی {sayad} به مبلغ {amount:,} تومان", session.get('full_name'), "چک")
+    flash('چک صیادی با موفقیت در سامانه ثبت شد.', 'success')
+    return redirect(url_for('cheques_view'))
+
+@app.route('/admin/cheque/delete/<int:cheque_id>', methods=['POST'])
+def delete_cheque(cheque_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    chk = Cheque.query.get_or_404(cheque_id)
+    sayad = chk.sayad_number
+    db.session.delete(chk)
+    db.session.commit()
+    log_activity(f"حذف چک صیادی {sayad}", session.get('full_name'), "چک")
+    flash(f'چک صیادی شماره {sayad} حذف شد.', 'success')
+    return redirect(url_for('cheques_view'))
+
+@app.route('/admin/customer/statement/<int:customer_id>')
+def customer_statement(customer_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    customer = Customer.query.get_or_404(customer_id)
+    invoices = Invoice.query.filter_by(customer_id=customer_id).order_by(Invoice.id.desc()).all()
+    
+    if not invoices and customer.phone:
+        invoices = Invoice.query.filter(
+            (Invoice.customer_phone == customer.phone) | (Invoice.customer_name == customer.name)
+        ).order_by(Invoice.id.desc()).all()
+        
+    settings = Settings.query.first()
+    today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d %H:%M")
+    
+    total_sales = sum(inv.total_amount for inv in invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    total_returns = sum(inv.total_amount for inv in invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    net_invoiced = total_sales - total_returns
+    total_paid = sum(inv.paid_amount for inv in invoices if inv.status == 'final')
+    total_remaining = sum(inv.remaining_balance for inv in invoices if inv.status == 'final')
+    
+    customer_cheques = Cheque.query.filter(
+        (Cheque.customer_name == customer.name) | (Cheque.customer_phone == customer.phone)
+    ).order_by(Cheque.due_shamsi_date.asc()).all()
+    
+    return render_template('customer_statement.html',
+                           customer=customer,
+                           invoices=invoices,
+                           cheques=customer_cheques,
+                           settings=settings,
+                           today_shamsi=today_shamsi,
+                           total_sales=total_sales,
+                           total_returns=total_returns,
+                           net_invoiced=net_invoiced,
+                           total_paid=total_paid,
+                           total_remaining=total_remaining)
+
 @app.route('/admin/settings/update', methods=['POST'])
 def update_settings():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
     settings = Settings.query.first()
-    settings.tier1_min = int(request.form.get('tier1_min', '0').replace(',', ''))
-    settings.tier1_bonus = float(request.form.get('tier1_bonus', 0.25))
-    settings.tier2_min = int(request.form.get('tier2_min', '0').replace(',', ''))
-    settings.tier2_bonus = float(request.form.get('tier2_bonus', 0.50))
+    settings.tier1_min = safe_int(request.form.get('tier1_min', '0'))
+    settings.tier1_bonus = safe_float(request.form.get('tier1_bonus', 0.25))
+    settings.tier2_min = safe_int(request.form.get('tier2_min', '0'))
+    settings.tier2_bonus = safe_float(request.form.get('tier2_bonus', 0.50))
     db.session.commit()
     log_activity("به‌روزرسانی پله‌های تارگت پورسانت", session.get('full_name'), "مالی")
     flash('تنظیمات پله‌های تارگت پورسانت به‌روزرسانی شد.', 'success')
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/admin/user/add', methods=['POST'])
 def add_user():

@@ -357,6 +357,14 @@
                 <a href="{{ url_for('customers_view') }}" class="nav-pill {% if request.endpoint == 'customers_view' %}active{% endif %}">
                     <span>👥</span> مشتریان
                 </a>
+
+                <a href="{{ url_for('cheques_view') }}" class="nav-pill {% if request.endpoint == 'cheques_view' %}active{% endif %}">
+                    <span>🗓️</span> چک‌ها
+                </a>
+
+                <a href="{{ url_for('store_settings_view') }}" class="nav-pill {% if request.endpoint == 'store_settings_view' %}active{% endif %}">
+                    <span>⚙️</span> تنظیمات
+                </a>
                 {% endif %}
 
                 <!-- User Profile & Avatar -->

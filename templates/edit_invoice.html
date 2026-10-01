@@ -214,31 +214,38 @@
                         </div>
                     </div>
 
-                    <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت نهایی و بهای خرید ما -->
+                    <!-- سطر ۳: قیمت واحد (تومان)، درصد تخفیف، و بهای خرید -->
                     <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-[10px] font-bold text-slate-600 mb-0.5">قیمت مصوب واحد (تومان):</label>
-                                <input type="text" name="item_original_price[]" placeholder="قیمت مصوب" oninput="onPriceOrDiscountChange(this, 'orig')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 border border-slate-300 bg-white rounded-xl text-xs font-bold text-slate-700 text-left font-mono" dir="ltr">
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <div class="sm:col-span-8">
+                                <label class="block text-[10px] font-bold text-emerald-800 mb-0.5">قیمت واحد فروش (تومان) - قابل ویرایش دستی بالاتر یا پایین‌تر:</label>
+                                <input type="text" name="item_price[]" value="{{ '{:,}'.format(item.unit_sell_price if item.unit_sell_price else (item.total_price // item.quantity if item.quantity > 0 else 0)) if item else '' }}" placeholder="قیمت واحد (تومان)" 
+                                       oninput="onPriceOrDiscountChange(this, 'price')" 
+                                       onchange="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
+                                       onblur="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
+                                       onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
+                                       class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-900 text-left font-mono" dir="ltr">
+                                <input type="hidden" name="item_original_price[]" class="item-orig-price" value="{{ item.unit_sell_price if item else '' }}">
                             </div>
-                            <div>
+                            <div class="sm:col-span-4">
                                 <label class="block text-[10px] font-bold text-amber-700 mb-0.5">درصد تخفیف (٪):</label>
                                 <div class="relative flex items-center">
-                                    <input type="text" name="item_discount_percent[]" placeholder="تخفیف ٪" oninput="onPriceOrDiscountChange(this, 'percent')" onchange="onPriceOrDiscountChange(this, 'percent')" onblur="onPriceOrDiscountChange(this, 'percent')" onkeyup="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-300 bg-amber-50 rounded-xl text-xs font-black text-amber-800 text-center font-mono" dir="ltr">
+                                    <input type="text" name="item_discount_percent[]" value="" placeholder="تخفیف ٪" 
+                                           oninput="onPriceOrDiscountChange(this, 'percent')" 
+                                           onchange="onPriceOrDiscountChange(this, 'percent')" 
+                                           onblur="onPriceOrDiscountChange(this, 'percent')" 
+                                           onkeyup="onPriceOrDiscountChange(this, 'percent')" 
+                                           class="item-discount-pct w-full p-2 pl-6 border border-amber-300 bg-amber-50 rounded-xl text-xs font-black text-amber-800 text-center font-mono" dir="ltr">
                                     <span class="absolute left-2 text-xs text-amber-600 font-bold pointer-events-none">٪</span>
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-emerald-700 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
-                            <input type="text" name="item_price[]" placeholder="قیمت نهایی با تخفیف" oninput="onPriceOrDiscountChange(this, 'final')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400 bg-emerald-50 rounded-xl text-xs font-black text-emerald-800 text-left font-mono" dir="ltr">
                         </div>
 
                         <!-- بهای خرید ما (تومان) -->
                         <div class="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
                             <div class="flex-1">
-                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-slate-500 font-normal">(اختیاری - در صورت خالی بودن، سود ۲۵٪ محاسبه می‌شود)</span>:</label>
-                                <input type="text" name="item_buy_price[]" value="" placeholder="اختیاری (پیش‌فرض سود ۲۵٪)..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه (اختیاری)">
+                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-slate-500 font-normal">(اختیاری)</span>:</label>
+                                <input type="text" name="item_buy_price[]" value="{{ '{:,}'.format(item.unit_buy_price) if (item and item.unit_buy_price and item.unit_buy_price > 0) else '' }}" placeholder="اختیاری..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه (اختیاری)">
                             </div>
                             <div class="sm:w-44 flex flex-col justify-center items-center bg-white border border-slate-200 rounded-xl p-2 text-center">
                                 <span class="text-[9px] text-slate-500 font-medium">سود تخمینی ردیف:</span>
@@ -622,16 +629,21 @@
         const pctInput = row.querySelector('.item-discount-pct');
         const buyInput = row.querySelector('.item-buy-price');
         
-        if (origInput && price > 0) origInput.value = price.toLocaleString('en-US');
-        if (finalInput && price > 0) finalInput.value = price.toLocaleString('en-US');
+        if (price > 0) {
+            const formatted = price.toLocaleString('en-US');
+            if (origInput) origInput.value = formatted;
+            if (finalInput) finalInput.value = formatted;
+        }
         if (pctInput) pctInput.value = '';
         if (buyInput && buyPrice > 0) buyInput.value = buyPrice.toLocaleString('en-US');
         if (cat) {
             const catInp = row.querySelector('.item-cat');
             if (catInp) catInp.value = cat;
         }
-        onPriceOrDiscountChange(origInput || finalInput, 'orig');
+        onPriceOrDiscountChange(finalInput || origInput, 'price');
     }
+
+    let isUserTypingTotal = false;
 
     function onPriceOrDiscountChange(elem, trigger) {
         const row = elem.closest('.invoice-item-row');
@@ -639,145 +651,127 @@
 
         const origInput = row.querySelector('.item-orig-price');
         const pctInput = row.querySelector('.item-discount-pct');
-        const finalInput = row.querySelector('.item-price');
+        const priceInput = row.querySelector('.item-price');
         const buyInput = row.querySelector('.item-buy-price');
         const profitDisplay = row.querySelector('.item-profit-display');
         const qtyInput = row.querySelector('.item-qty');
         const discountBadge = row.querySelector('.item-discount-badge');
         const rowTotalDisplay = row.querySelector('.item-row-total-display');
 
-        let origVal = parseNumeric(origInput.value);
-        let pctVal = parseNumeric(pctInput.value);
-        let finalVal = parseNumeric(finalInput.value);
-        const qty = Math.max(1, parseNumeric(qtyInput.value) || 1);
+        let priceVal = parseNumeric(priceInput ? priceInput.value : '');
+        let origVal = parseNumeric(origInput ? origInput.value : '');
+        let pctVal = parseNumeric(pctInput ? pctInput.value : '');
+        const qty = Math.max(1, parseNumeric(qtyInput ? qtyInput.value : '1') || 1);
 
-        if (trigger === 'orig') {
-            if (origVal > 0 && pctVal > 0 && pctVal <= 100) {
-                finalVal = Math.round(origVal * (1 - (pctVal / 100)));
-                finalInput.value = finalVal.toLocaleString('en-US');
-            } else if (origVal > 0 && finalVal > 0 && finalVal < origVal) {
-                pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
-                pctInput.value = pctVal > 0 ? pctVal : '';
-            } else {
-                finalVal = origVal;
-                finalInput.value = origVal > 0 ? origVal.toLocaleString('en-US') : '';
+        if (trigger === 'price' || trigger === 'orig') {
+            if (origInput) {
+                origInput.value = priceVal > 0 ? priceVal.toLocaleString('en-US') : '';
+            }
+            if (pctInput) {
                 pctInput.value = '';
-                pctVal = 0;
             }
+            pctVal = 0;
+            origVal = priceVal;
         } else if (trigger === 'percent') {
-            if (origVal > 0) {
+            const basePrice = origVal > 0 ? origVal : priceVal;
+            if (basePrice > 0) {
+                if (origInput) origInput.value = basePrice.toLocaleString('en-US');
                 if (pctVal > 0 && pctVal <= 100) {
-                    finalVal = Math.round(origVal * (1 - (pctVal / 100)));
-                    finalInput.value = finalVal > 0 ? finalVal.toLocaleString('en-US') : '0';
+                    const discountedPrice = Math.round(basePrice * (1 - (pctVal / 100)));
+                    if (priceInput) priceInput.value = discountedPrice.toLocaleString('en-US');
+                    priceVal = discountedPrice;
                 } else {
-                    finalInput.value = origVal.toLocaleString('en-US');
-                    finalVal = origVal;
-                    pctVal = 0;
-                }
-            } else if (finalVal > 0 && pctVal > 0 && pctVal < 100) {
-                origVal = Math.round(finalVal / (1 - (pctVal / 100)));
-                origInput.value = origVal.toLocaleString('en-US');
-            }
-        } else if (trigger === 'final') {
-            if (finalVal > 0) {
-                if (origVal > 0 && origVal > finalVal) {
-                    // محاسبه پویای درصد تخفیف بر اساس اختلاف قیمت مصوب و قیمت نهایی
-                    pctVal = Math.round(((origVal - finalVal) / origVal) * 1000) / 10;
-                    pctInput.value = pctVal > 0 ? pctVal : '';
-                } else {
-                    // در صورت ورود تک‌قیمت یا بیشتر بودن قیمت نهایی نسبت به مصوب، مصوب هم‌تراز می‌شود (تخفیف صفر)
-                    origInput.value = finalVal.toLocaleString('en-US');
-                    origVal = finalVal;
-                    pctInput.value = '';
-                    pctVal = 0;
-                }
-            } else {
-                if (origVal <= 0) {
-                    origInput.value = '';
-                    pctInput.value = '';
-                    pctVal = 0;
-                } else {
-                    pctInput.value = '';
+                    if (priceInput) priceInput.value = basePrice.toLocaleString('en-US');
+                    priceVal = basePrice;
                     pctVal = 0;
                 }
             }
         }
 
-        const effectivePrice = finalVal > 0 ? finalVal : origVal;
+        const effectivePrice = priceVal > 0 ? priceVal : origVal;
         const rowTotal = effectivePrice * qty;
-        const unitDiscount = Math.max(0, origVal - effectivePrice);
-        const totalRowDiscount = unitDiscount * qty;
 
         if (rowTotalDisplay) {
-            rowTotalDisplay.innerText = rowTotal.toLocaleString('en-US') + ' ت';
+            rowTotalDisplay.innerText = rowTotal > 0 ? (rowTotal.toLocaleString('en-US') + ' ت') : '۰ ت';
         }
 
         if (discountBadge) {
-            if (totalRowDiscount > 0) {
+            if (pctVal > 0 && origVal > effectivePrice) {
+                const totalRowDiscount = (origVal - effectivePrice) * qty;
                 discountBadge.classList.remove('hidden');
-                discountBadge.innerText = `🏷️ ${totalRowDiscount.toLocaleString('en-US')} ت تخفیف (${pctVal || Math.round((totalRowDiscount / (origVal * qty)) * 100)}٪)`;
+                discountBadge.innerText = `🏷️ ${totalRowDiscount.toLocaleString('en-US')} ت تخفیف (${pctVal}٪)`;
             } else {
                 discountBadge.classList.add('hidden');
             }
         }
 
-        // محاسبه و نمایش سود تخمینی ردیف
+        // سود واقعی ردیف
         let buyVal = buyInput ? parseNumeric(buyInput.value) : 0;
-        if (buyVal <= 0 && effectivePrice > 0) {
-            buyVal = Math.round(effectivePrice * 0.75);
-        }
         const unitProfit = effectivePrice - buyVal;
         const totalRowProfit = unitProfit * qty;
         if (profitDisplay) {
-            if (totalRowProfit >= 0) {
-                profitDisplay.innerText = '+' + totalRowProfit.toLocaleString('en-US') + ' ت';
-                profitDisplay.className = 'item-profit-display text-xs font-black text-emerald-700 font-mono';
+            if (buyVal > 0) {
+                profitDisplay.innerText = (totalRowProfit >= 0 ? '+' : '-') + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
+                profitDisplay.className = totalRowProfit >= 0 
+                    ? 'item-profit-display text-xs font-black text-emerald-700 font-mono' 
+                    : 'item-profit-display text-xs font-black text-rose-600 font-mono';
             } else {
-                profitDisplay.innerText = '-' + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
-                profitDisplay.className = 'item-profit-display text-xs font-black text-rose-600 font-mono';
+                profitDisplay.innerText = '';
             }
         }
 
+        isUserTypingTotal = false;
         calcTotal();
     }
 
     function onManualTotalInput(input) {
         if (!input) return;
+        isUserTypingTotal = true;
         const val = parseNumeric(input.value);
-        const totalDisplay = document.getElementById('calculatedTotalDisplay');
         const subtotalElem = document.getElementById('subtotalDisplay');
+        const discountRow = document.getElementById('totalDiscountRow');
+        const discountElem = document.getElementById('totalDiscountDisplay');
+        const totalDisplay = document.getElementById('calculatedTotalDisplay');
+
+        let itemsGrossSum = 0;
+        const rows = document.querySelectorAll('.invoice-item-row');
+        rows.forEach(r => {
+            const q = Math.max(1, parseNumeric(r.querySelector('.item-qty')?.value) || 1);
+            const p = parseNumeric(r.querySelector('.item-price')?.value) || parseNumeric(r.querySelector('.item-orig-price')?.value);
+            itemsGrossSum += (p * q);
+        });
+
+        if (rows.length === 1 && val > 0) {
+            const singlePriceInp = rows[0].querySelector('.item-price');
+            const currentP = parseNumeric(singlePriceInp?.value);
+            if (currentP <= 0) {
+                const qty = Math.max(1, parseNumeric(rows[0].querySelector('.item-qty')?.value) || 1);
+                const unitP = Math.round(val / qty);
+                singlePriceInp.value = unitP.toLocaleString('en-US');
+                const origInp = rows[0].querySelector('.item-orig-price');
+                if (origInp) origInp.value = unitP.toLocaleString('en-US');
+                const rTot = rows[0].querySelector('.item-row-total-display');
+                if (rTot) rTot.innerText = val.toLocaleString('en-US') + ' ت';
+                itemsGrossSum = val;
+            }
+        }
+
+        if (subtotalElem) {
+            subtotalElem.innerText = (itemsGrossSum > 0 ? itemsGrossSum : val).toLocaleString('en-US') + ' تومان';
+        }
+
+        if (itemsGrossSum > val && val > 0) {
+            const diff = itemsGrossSum - val;
+            if (discountRow && discountElem) {
+                discountRow.classList.remove('hidden');
+                discountElem.innerText = `${diff.toLocaleString('en-US')} تومان`;
+            }
+        } else {
+            if (discountRow) discountRow.classList.add('hidden');
+        }
 
         if (totalDisplay) {
             totalDisplay.innerText = val > 0 ? (val.toLocaleString('en-US') + ' تومان') : '۰ تومان';
-        }
-
-        const rows = document.querySelectorAll('.invoice-item-row');
-        if (rows.length === 1 && val > 0) {
-            const singleRow = rows[0];
-            const pInput = singleRow.querySelector('.item-price');
-            const origInput = singleRow.querySelector('.item-orig-price');
-            const qtyInput = singleRow.querySelector('.item-qty');
-            const qty = Math.max(1, parseNumeric(qtyInput?.value) || 1);
-            const unitPrice = Math.round(val / qty);
-            const rowTotDisp = singleRow.querySelector('.item-row-total-display');
-
-            if (pInput) pInput.value = unitPrice.toLocaleString('en-US');
-            if (origInput && (!origInput.value || parseNumeric(origInput.value) <= 0 || parseNumeric(origInput.value) < unitPrice)) {
-                origInput.value = unitPrice.toLocaleString('en-US');
-            }
-            if (rowTotDisp) rowTotDisp.innerText = val.toLocaleString('en-US') + ' ت';
-        }
-
-        let itemsNetSum = 0;
-        rows.forEach(r => {
-            const p = parseNumeric(r.querySelector('.item-price')?.value) || parseNumeric(r.querySelector('.item-orig-price')?.value);
-            const q = Math.max(1, parseNumeric(r.querySelector('.item-qty')?.value) || 1);
-            itemsNetSum += (p * q);
-        });
-
-        if (subtotalElem) {
-            const displaySum = itemsNetSum > 0 ? itemsNetSum : val;
-            subtotalElem.innerText = displaySum > 0 ? (displaySum.toLocaleString('en-US') + ' تومان') : '۰ تومان';
         }
 
         calcPaymentBalances();
@@ -822,24 +816,24 @@
     function calcTotal() {
         let grossSum = 0;
         let netSum = 0;
-        let totalDiscount = 0;
+        let itemDiscounts = 0;
 
         const rows = document.querySelectorAll('.invoice-item-row');
         rows.forEach(row => {
-            const qty = Math.max(1, parseNumeric(row.querySelector('.item-qty').value) || 1);
-            let origPrice = parseNumeric(row.querySelector('.item-orig-price').value);
-            let finalPrice = parseNumeric(row.querySelector('.item-price').value);
+            const qty = Math.max(1, parseNumeric(row.querySelector('.item-qty')?.value) || 1);
+            let unitPrice = parseNumeric(row.querySelector('.item-price')?.value);
+            let origPrice = parseNumeric(row.querySelector('.item-orig-price')?.value);
 
-            if (finalPrice <= 0 && origPrice > 0) finalPrice = origPrice;
-            if (origPrice <= 0 && finalPrice > 0) origPrice = finalPrice;
+            if (origPrice <= 0 && unitPrice > 0) origPrice = unitPrice;
+            if (unitPrice <= 0 && origPrice > 0) unitPrice = origPrice;
 
             const rowGross = origPrice * qty;
-            const rowNet = finalPrice * qty;
+            const rowNet = unitPrice * qty;
             const rowDiscount = Math.max(0, rowGross - rowNet);
 
             grossSum += rowGross;
             netSum += rowNet;
-            totalDiscount += rowDiscount;
+            itemDiscounts += rowDiscount;
         });
 
         const subtotalElem = document.getElementById('subtotalDisplay');
@@ -848,38 +842,29 @@
         const totalDisplay = document.getElementById('calculatedTotalDisplay');
         const totalAmountInp = document.getElementById('totalAmountInput');
 
-        if (netSum > 0) {
-            if (subtotalElem) subtotalElem.innerText = grossSum.toLocaleString('en-US') + ' تومان';
-            
-            if (discountRow && discountElem) {
-                if (totalDiscount > 0) {
-                    discountRow.classList.remove('hidden');
-                    const totalDiscPct = grossSum > 0 ? (Math.round((totalDiscount / grossSum) * 1000) / 10) : 0;
-                    discountElem.innerText = `${totalDiscount.toLocaleString('en-US')} تومان (${totalDiscPct}٪)`;
-                } else {
-                    discountRow.classList.add('hidden');
-                }
-            }
+        if (subtotalElem) {
+            subtotalElem.innerText = (grossSum > 0 ? grossSum : netSum).toLocaleString('en-US') + ' تومان';
+        }
 
-            if (totalDisplay) {
-                totalDisplay.innerText = netSum.toLocaleString('en-US') + ' تومان';
-            }
+        if (!isUserTypingTotal && totalAmountInp) {
+            totalAmountInp.value = netSum > 0 ? netSum.toLocaleString('en-US') : '';
+        }
 
-            if (totalAmountInp) {
-                totalAmountInp.value = netSum.toLocaleString('en-US');
-            }
-        } else {
-            const manualVal = parseNumeric(totalAmountInp?.value);
-            if (manualVal > 0) {
-                if (totalDisplay) totalDisplay.innerText = manualVal.toLocaleString('en-US') + ' تومان';
-                if (subtotalElem) subtotalElem.innerText = manualVal.toLocaleString('en-US') + ' تومان';
-                if (discountRow) discountRow.classList.add('hidden');
+        const manualFinalVal = parseNumeric(totalAmountInp?.value);
+        const finalVal = manualFinalVal > 0 ? manualFinalVal : netSum;
+        const totalDiscount = Math.max(0, grossSum - finalVal);
+
+        if (discountRow && discountElem) {
+            if (totalDiscount > 0) {
+                discountRow.classList.remove('hidden');
+                discountElem.innerText = `${totalDiscount.toLocaleString('en-US')} تومان`;
             } else {
-                if (totalDisplay) totalDisplay.innerText = '۰ تومان';
-                if (subtotalElem) subtotalElem.innerText = '۰ تومان';
-                if (discountRow) discountRow.classList.add('hidden');
-                if (totalAmountInp) totalAmountInp.value = '';
+                discountRow.classList.add('hidden');
             }
+        }
+
+        if (totalDisplay) {
+            totalDisplay.innerText = finalVal > 0 ? (finalVal.toLocaleString('en-US') + ' تومان') : '۰ تومان';
         }
 
         calcPaymentBalances();

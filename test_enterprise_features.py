@@ -125,3 +125,72 @@ def test_cheques_hub_and_customer_statement(client):
         assert "صورتحساب مالی و کاردکس" in st_html
         assert cust.name in st_html
         assert "1234567890123456" in st_html
+
+def test_higher_and_custom_unit_price_without_auto_discount(client):
+    """تست ثبت فاکتور با قیمت بالاتر از کاتالوگ و عدم تولید درصد تخفیف ساختگی"""
+    with app.app_context():
+        login_as_admin(client)
+        
+        # ۱. فاکتور با قیمت بالاتر از کاتالوگ (مثلاً ۵,۰۰۰,۰۰۰ به جای ۴,۷۶۵,۰۰۰)
+        payload_higher = {
+            'customer_name': 'مشتری قیمت بالاتر',
+            'customer_phone': '09129990011',
+            'status': 'final',
+            'invoice_type': 'sale',
+            'total_amount': '5,000,000',
+            'paid_pos': '5,000,000',
+            'paid_card': '0',
+            'paid_cash': '0',
+            'remaining_balance': '0',
+            'item_inventory_id[]': [''],
+            'item_custom_name[]': ['آینه باکس لوکس طهماسبی'],
+            'item_category[]': ['روشویی'],
+            'item_quantity[]': ['1'],
+            'item_original_price[]': ['5000000'],
+            'item_discount_percent[]': [''],
+            'item_price[]': ['5000000'],
+            'item_buy_price[]': ['']
+        }
+        res1 = client.post('/invoice/add', data=payload_higher, follow_redirects=True)
+        assert res1.status_code == 200
+        
+        inv1 = Invoice.query.filter_by(customer_name='مشتری قیمت بالاتر').order_by(Invoice.id.desc()).first()
+        assert inv1 is not None
+        assert inv1.total_amount == 5000000
+        assert inv1.discount_amount == 0
+        assert len(inv1.items) == 1
+        assert inv1.items[0].unit_sell_price == 5000000
+        assert inv1.items[0].total_price == 5000000
+        assert inv1.items[0].discount == 0
+
+        # ۲. فاکتور با قیمت دلخواه پایین‌تر توافقی بدون درصد تخفیف (مثلاً ۴,۲۰۰,۰۰۰)
+        payload_custom = {
+            'customer_name': 'مشتری قیمت توافقی دستی',
+            'customer_phone': '09129990022',
+            'status': 'final',
+            'invoice_type': 'sale',
+            'total_amount': '4,200,000',
+            'paid_pos': '4,200,000',
+            'paid_card': '0',
+            'paid_cash': '0',
+            'remaining_balance': '0',
+            'item_inventory_id[]': [''],
+            'item_custom_name[]': ['آینه باکس طرح دار'],
+            'item_category[]': ['روشویی'],
+            'item_quantity[]': ['1'],
+            'item_original_price[]': ['4200000'],
+            'item_discount_percent[]': [''],
+            'item_price[]': ['4200000'],
+            'item_buy_price[]': ['']
+        }
+        res2 = client.post('/invoice/add', data=payload_custom, follow_redirects=True)
+        assert res2.status_code == 200
+        
+        inv2 = Invoice.query.filter_by(customer_name='مشتری قیمت توافقی دستی').order_by(Invoice.id.desc()).first()
+        assert inv2 is not None
+        assert inv2.total_amount == 4200000
+        assert inv2.discount_amount == 0
+        assert len(inv2.items) == 1
+        assert inv2.items[0].unit_sell_price == 4200000
+        assert inv2.items[0].total_price == 4200000
+        assert inv2.items[0].discount == 0

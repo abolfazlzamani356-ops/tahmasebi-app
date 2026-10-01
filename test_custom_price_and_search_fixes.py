@@ -143,7 +143,9 @@ def test_manual_total_amount_invoice_submission(client):
         # اقلام نباید قیمت ۰ داشته باشند و مبلغ فاکتور باید روی ردیف اعمال شده باشد
         assert inv.items[0].total_price == 3500000
         assert inv.items[0].unit_sell_price == 3500000
-        assert inv.items[0].unit_buy_price > 0
+        # با حذف حاشیه سود فرضی، قیمت خرید در صورت عدم ورود صفر است
+        assert inv.items[0].unit_buy_price == 0
+
 
 def test_edit_invoice_with_manual_price_override(client):
     """بررسی ویرایش فاکتور با تغییر مبلغ کل و اعمال تخفیف فاکتوری"""

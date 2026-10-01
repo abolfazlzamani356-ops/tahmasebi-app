@@ -1125,8 +1125,8 @@ def add_invoice():
                 # کالای انبار با قیمت خرید مشخص
                 buy_p = inv_item.buy_price
             else:
-                # قیمت خرید وارد نشده → پیش‌فرض سود ۲۵٪ (بهای خرید = ۷۵٪ قیمت فروش)
-                buy_p = int(final_p * 0.75)
+                # بهای خرید مشخص نیست → صفر منظور می‌شود (بدون پیش‌فرض تخمینی)
+                buy_p = 0
 
             if is_custom_row:
                 has_any_custom = True
@@ -1188,7 +1188,7 @@ def add_invoice():
                     row.unit_sell_price = int(row_tot / max(1, row.quantity))
                     row.discount = 0
                     if row.unit_buy_price <= 0:
-                        row.unit_buy_price = int(row.unit_sell_price * 0.75)
+                        row.unit_buy_price = 0
                     row.row_profit = row.total_price - (row.unit_buy_price * row.quantity)
                     total_actual_buy_cost += (row.unit_buy_price * row.quantity)
                 items_gross_sum = new_inv.total_amount
@@ -1199,17 +1199,17 @@ def add_invoice():
                     item_name='تجهیزات بهداشتی و ساختمانی',
                     category='عمومی',
                     quantity=1,
-                    unit_buy_price=int(new_inv.total_amount * 0.75),
+                    unit_buy_price=0,
                     unit_sell_price=new_inv.total_amount,
                     discount=0,
                     total_price=new_inv.total_amount,
-                    row_profit=new_inv.total_amount - int(new_inv.total_amount * 0.75),
+                    row_profit=new_inv.total_amount,
                     is_custom=True
                 )
                 db.session.add(fallback_row)
                 created_invoice_items.append(fallback_row)
                 categories_used.add('عمومی')
-                total_actual_buy_cost = int(new_inv.total_amount * 0.75)
+                total_actual_buy_cost = 0
                 items_gross_sum = new_inv.total_amount
                 items_total_sum = new_inv.total_amount
 
@@ -1236,9 +1236,10 @@ def add_invoice():
             return redirect(request.referrer or url_for('seller_dashboard'))
 
         new_inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
-        new_inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(new_inv.total_amount * 0.75)
+        new_inv.actual_buy_cost = total_actual_buy_cost
         new_inv.real_profit = new_inv.total_amount - new_inv.actual_buy_cost
         new_inv.has_custom_items = has_any_custom
+
 
         # ثبت چک‌های صیادی ایجاد شده
         for chk_data in cheques_to_create:
@@ -1629,8 +1630,8 @@ def edit_invoice(invoice_id):
                 # کالای انبار با قیمت خرید مشخص
                 buy_p = inv_item.buy_price
             else:
-                # قیمت خرید وارد نشده → پیش‌فرض سود ۲۵٪ (بهای خرید = ۷۵٪ قیمت فروش)
-                buy_p = int(final_p * 0.75)
+                # بهای خرید مشخص نیست → صفر منظور می‌شود (بدون پیش‌فرض تخمینی)
+                buy_p = 0
 
             if is_custom_row:
                 has_any_custom = True
@@ -1691,7 +1692,7 @@ def edit_invoice(invoice_id):
                     row.unit_sell_price = int(row_tot / max(1, row.quantity))
                     row.discount = 0
                     if row.unit_buy_price <= 0:
-                        row.unit_buy_price = int(row.unit_sell_price * 0.75)
+                        row.unit_buy_price = 0
                     row.row_profit = row.total_price - (row.unit_buy_price * row.quantity)
                     total_actual_buy_cost += (row.unit_buy_price * row.quantity)
                 items_gross_sum = inv.total_amount
@@ -1702,17 +1703,17 @@ def edit_invoice(invoice_id):
                     item_name='تجهیزات بهداشتی و ساختمانی',
                     category='عمومی',
                     quantity=1,
-                    unit_buy_price=int(inv.total_amount * 0.75),
+                    unit_buy_price=0,
                     unit_sell_price=inv.total_amount,
                     discount=0,
                     total_price=inv.total_amount,
-                    row_profit=inv.total_amount - int(inv.total_amount * 0.75),
+                    row_profit=inv.total_amount,
                     is_custom=True
                 )
                 db.session.add(fallback_row)
                 created_invoice_items.append(fallback_row)
                 categories_used.add('عمومی')
-                total_actual_buy_cost = int(inv.total_amount * 0.75)
+                total_actual_buy_cost = 0
                 items_gross_sum = inv.total_amount
                 items_total_sum = inv.total_amount
 
@@ -1737,9 +1738,10 @@ def edit_invoice(invoice_id):
             return redirect(request.referrer or url_for('seller_dashboard'))
 
         inv.categories_json = json.dumps(list(categories_used), ensure_ascii=False)
-        inv.actual_buy_cost = total_actual_buy_cost if total_actual_buy_cost > 0 else int(inv.total_amount * 0.75)
+        inv.actual_buy_cost = total_actual_buy_cost
         inv.real_profit = inv.total_amount - inv.actual_buy_cost
         inv.has_custom_items = has_any_custom
+
 
         # ایجاد چک‌های جدید
         for chk_data in cheques_to_create:

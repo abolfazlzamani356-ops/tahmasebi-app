@@ -225,15 +225,14 @@
                     </button>
                 </div>
 
-                <div id="invoiceItemsContainer" class="space-y-3.5 max-h-[36rem] overflow-y-auto custom-scrollbar p-1">
-                    <!-- ردیف کالا پیش‌فرض با فضای باز، استپر تعداد و پشتیبانی کامل از تخفیف -->
-                    <div class="item-row bg-slate-900/80 p-3.5 rounded-2xl border border-slate-700/80 space-y-3 text-xs shadow-md">
-                        <!-- سطر ۱: انتخاب از انبار شعبه یا نام کالا -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-[11px] font-bold text-slate-300 mb-1">📦 انتخاب از انبار شعبه:</label>
-                                <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-slate-100 focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">-- انتخاب از انبار شعبه --</option>
+                <div id="invoiceItemsContainer" class="space-y-2.5 max-h-[32rem] overflow-y-auto custom-scrollbar p-1">
+                    <!-- ردیف کالا مدرن، فوق‌سریع و فشرده -->
+                    <div class="item-row bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/80 space-y-2 text-xs shadow-sm hover:border-slate-600 transition">
+                        <!-- سطر ۱: انتخاب کالا (انبار شعبه یا نام کاتالوگ/دلخواه) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-center">
+                            <div class="sm:col-span-5">
+                                <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-xs font-bold text-slate-100 focus:ring-1 focus:ring-indigo-500">
+                                    <option value="">📦 انتخاب از انبار شعبه...</option>
                                     {% for item in inventory_items %}
                                     <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
                                         {{ item.name }} (موجودی: {{ item.stock_quantity }})
@@ -241,92 +240,54 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div>
-                                <label class="block text-[11px] font-bold text-slate-300 mb-1">✍️ یا نام دلخواه کالا (سفارشی / خارج از انبار):</label>
-                                <input type="text" name="item_custom_name[]" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="مثال: سنگ روشویی، کابینت پی‌وی‌سی..." class="item-name w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500">
+                            <div class="sm:col-span-4">
+                                <input type="text" name="item_custom_name[]" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="✍️ یا نام کالا / کاتالوگ..." class="item-name w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-xs font-bold text-white placeholder-slate-400 focus:ring-1 focus:ring-indigo-500">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <input type="text" name="item_category[]" placeholder="دسته‌بندی" class="item-cat w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-[11px] text-slate-300 placeholder-slate-500 text-center">
                             </div>
                         </div>
 
-                        <!-- سطر ۲: دسته‌بندی و تعداد (با فضای کاملاً باز و دکمه‌های بزرگ - / +) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
-                            <div class="sm:col-span-6">
-                                <label class="block text-[10px] font-bold text-slate-400 mb-1">🏷️ دسته‌بندی کالا:</label>
-                                <input type="text" name="item_category[]" placeholder="دسته‌بندی (سنگ، روشویی، شیرآلات...)" class="item-cat w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500">
-                            </div>
-                            <div class="sm:col-span-6">
-                                <label class="block text-[10px] font-bold text-amber-400 mb-1">🔢 تعداد درخواستی:</label>
-                                <div class="flex items-center gap-1.5">
-                                    <button type="button" onclick="stepQty(this, -1)" class="w-9 h-9 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-base flex items-center justify-center transition active:scale-95 shadow">−</button>
-                                    <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty flex-1 h-9 p-1 bg-slate-900 border border-amber-500/50 rounded-xl text-sm text-center font-black text-amber-300 focus:ring-2 focus:ring-amber-500">
-                                    <button type="button" onclick="stepQty(this, 1)" class="w-9 h-9 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-base flex items-center justify-center transition active:scale-95 shadow">+</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- سطر ۳: قیمت مصوب، درصد تخفیف، قیمت فروش نهایی و بهای خرید ما -->
-                        <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60 space-y-2.5">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-300 mb-0.5">قیمت مصوب واحد (تومان):</label>
-                                    <input type="text" name="item_original_price[]" placeholder="مثال: ۱,۶۶۰,۰۰۰" oninput="onPriceOrDiscountChange(this, 'orig')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-300 text-left font-mono" dir="ltr" title="قیمت رسمی قبل از تخفیف">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-amber-300 mb-0.5">درصد تخفیف (٪):</label>
-                                    <div class="relative flex items-center">
-                                        <input type="text" name="item_discount_percent[]" placeholder="مثال: ۱۰" oninput="onPriceOrDiscountChange(this, 'percent')" onchange="onPriceOrDiscountChange(this, 'percent')" onblur="onPriceOrDiscountChange(this, 'percent')" onkeyup="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-2 pl-6 border border-amber-400/50 bg-amber-500/10 rounded-xl text-xs font-black text-amber-300 text-center font-mono" dir="ltr">
-                                        <span class="absolute left-2 text-xs text-amber-400 font-bold pointer-events-none">٪</span>
-                                    </div>
-                                </div>
+                        <!-- سطر ۲: تعداد، قیمت واحد، تخفیف، جمع و حذف در یک سطر هماهنگ و فشرده -->
+                        <div class="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-slate-800">
+                            <!-- استپر تعداد -->
+                            <div class="flex items-center gap-0.5 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+                                <button type="button" onclick="stepQty(this, -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs flex items-center justify-center transition">−</button>
+                                <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty w-9 h-6 bg-transparent text-center font-black text-amber-300 text-xs border-0 p-0 focus:ring-0">
+                                <button type="button" onclick="stepQty(this, 1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs flex items-center justify-center transition">+</button>
                             </div>
 
-                            <div>
-                                <label class="block text-[10px] font-bold text-emerald-400 mb-0.5">قیمت نهایی فروش هر واحد با تخفیف (تومان):</label>
-                                <input type="text" name="item_price[]" placeholder="مثال: ۱,۵۰۰,۰۰۰" oninput="onPriceOrDiscountChange(this, 'final')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-2 border border-emerald-400/60 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono" dir="ltr" title="قیمت فروش به مشتری">
+                            <!-- قیمت مصوب واحد -->
+                            <div class="flex-1 min-w-[70px]">
+                                <input type="text" name="item_original_price[]" placeholder="قیمت مصوب" oninput="onPriceOrDiscountChange(this, 'orig')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'orig')" class="currency-input item-orig-price w-full p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[11px] font-bold text-slate-300 text-left font-mono" dir="ltr" title="قیمت مصوب / رسمی">
                             </div>
 
-
-                            <!-- بهای خرید (فقط برای مدیریت - فروشنده نمی‌بیند) -->
-                            {% if user.role == 'admin' %}
-                            <div class="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-500/20">
-                                <div class="flex-1">
-                                    <label class="block text-[10px] font-bold text-indigo-300 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-slate-400 font-normal">(اختیاری - در صورت خالی بودن، سود ۲۵٪ محاسبه می‌شود)</span>:</label>
-                                    <input type="text" name="item_buy_price[]" placeholder="اختیاری (پیش‌فرض سود ۲۵٪)..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-slate-900 border border-indigo-400/40 rounded-xl text-xs font-bold text-indigo-200 text-left font-mono" dir="ltr" title="قیمت خرید این کالا برای فروشگاه (اختیاری)">
-                                </div>
-                                <div class="sm:w-44 flex flex-col justify-center items-center bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 text-center">
-                                    <span class="text-[9px] text-slate-400 font-medium">سود تخمینی ردیف:</span>
-                                    <span class="item-profit-display text-xs font-black text-emerald-400 font-mono">۰ ت</span>
-                                </div>
+                            <!-- تخفیف ٪ -->
+                            <div class="w-14 relative flex items-center">
+                                <input type="text" name="item_discount_percent[]" placeholder="٪" oninput="onPriceOrDiscountChange(this, 'percent')" onchange="onPriceOrDiscountChange(this, 'percent')" onblur="onPriceOrDiscountChange(this, 'percent')" onkeyup="onPriceOrDiscountChange(this, 'percent')" class="item-discount-pct w-full p-1.5 pl-4 border border-amber-500/40 bg-amber-500/10 rounded-lg text-[11px] font-black text-amber-300 text-center font-mono" dir="ltr" title="درصد تخفیف">
+                                <span class="absolute left-1 text-[10px] text-amber-400 font-bold pointer-events-none">٪</span>
                             </div>
-                            {% else %}
-                            <!-- فروشنده: بهای خرید مخفی است - سود خودکار محاسبه می‌شود -->
+
+                            <!-- قیمت فروش نهایی -->
+                            <div class="flex-1 min-w-[80px]">
+                                <input type="text" name="item_price[]" placeholder="قیمت فروش" oninput="onPriceOrDiscountChange(this, 'final')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'final')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'final')" class="currency-input item-price w-full p-1.5 border border-emerald-500/50 bg-emerald-500/10 rounded-lg text-xs font-black text-emerald-300 text-left font-mono" dir="ltr" title="قیمت فروش به مشتری">
+                            </div>
+
+                            <!-- برچسب تخفیف -->
+                            <span class="item-discount-badge hidden bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-500/30"></span>
+
+                            <!-- جمع ردیف -->
+                            <div class="bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-center whitespace-nowrap min-w-[75px]">
+                                <span class="item-row-total-display font-mono text-emerald-300 font-black text-xs">۰ ت</span>
+                            </div>
+
+                            <!-- بهای خرید (فیلد پنهان برای فروشنده - و اختیاری برای ادمین) -->
                             <input type="hidden" name="item_buy_price[]" class="item-buy-price" value="">
-                            <div class="pt-2 border-t border-slate-700/60">
-                                <div class="flex items-center justify-between bg-slate-800/50 rounded-xl px-3 py-2 border border-slate-700/40">
-                                    <span class="text-[10px] text-slate-400 flex items-center gap-1.5">
-                                        <span>✅</span>
-                                        <span>سود این ردیف توسط سیستم خودکار محاسبه خواهد شد</span>
-                                    </span>
-                                    <span class="item-profit-display text-xs font-black text-emerald-400 font-mono">۰ ت</span>
-                                </div>
-                            </div>
-                            {% endif %}
 
-                        </div>
-
-                        <!-- سطر ۴: برچسب تخفیف + جمع ردیف + دکمه حذف -->
-                        <div class="flex items-center justify-between pt-1 border-t border-slate-800">
-                            <span class="item-discount-badge hidden bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-lg font-bold border border-amber-500/40 text-[10px]"></span>
-                            
-                            <div class="mr-auto flex items-center gap-2">
-                                <div class="font-bold flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/30 px-3 py-1 rounded-xl">
-                                    <span class="text-slate-400 text-[10px]">جمع ردیف:</span>
-                                    <span class="item-row-total-display font-mono text-emerald-400 font-black text-xs">۰ ت</span>
-                                </div>
-                                <button type="button" onclick="removeInvoiceItemRow(this)" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1" title="حذف این ردیف">
-                                    <span>✕</span>
-                                    <span class="hidden sm:inline">حذف</span>
-                                </button>
-                            </div>
+                            <!-- دکمه حذف -->
+                            <button type="button" onclick="removeInvoiceItemRow(this)" class="w-7 h-7 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg flex items-center justify-center transition active:scale-95" title="حذف این ردیف">
+                                ✕
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -337,190 +298,210 @@
                     {% endfor %}
                 </datalist>
 
-                <!-- خلاصه اقلام و تخفیفات -->
-                <div class="mt-3 pt-2.5 border-t border-white/10 space-y-1.5 text-xs font-bold">
-                    <div class="flex justify-between items-center text-slate-400 text-[11px]">
-                        <span>مجموع اقلام قبل از تخفیف:</span>
-                        <span id="subtotalDisplay" class="font-mono text-slate-200">۰ تومان</span>
+                <!-- خلاصه اقلام و مبلغ نهایی فاکتور (یکپارچه و درشت) -->
+                <div class="mt-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-700/80 space-y-2">
+                    <div class="flex justify-between items-center text-slate-400 text-xs">
+                        <span>مجموع اقلام:</span>
+                        <span id="subtotalDisplay" class="font-mono text-slate-200 font-bold">۰ تومان</span>
                     </div>
-                    <div id="totalDiscountRow" class="flex justify-between items-center text-amber-400 text-[11px] hidden">
-                        <span>مجموع تخفیف‌های داده‌شده:</span>
-                        <span id="totalDiscountDisplay" class="font-mono bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg">۰ تومان</span>
+                    <div id="totalDiscountRow" class="flex justify-between items-center text-amber-400 text-xs hidden">
+                        <span>مجموع تخفیف‌ها:</span>
+                        <span id="totalDiscountDisplay" class="font-mono bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg font-bold">۰ تومان</span>
                     </div>
-                    <div class="flex justify-between items-center text-white pt-1.5 border-t border-dashed border-white/10">
-                        <span class="text-slate-300">مبلغ نهایی قابل پرداخت فاکتور:</span>
-                        <span id="calculatedTotalDisplay" class="text-emerald-400 font-black text-base font-mono">۰ تومان</span>
+                    <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between gap-3">
+                        <label class="text-xs font-black text-emerald-400 whitespace-nowrap">💰 مبلغ نهایی فاکتور:</label>
+                        <div class="relative flex-1">
+                            <input type="text" name="total_amount" id="totalAmountInput" required oninput="onManualTotalInput(this)" onchange="onManualTotalInput(this)" onblur="formatNumber(this); onManualTotalInput(this)" onkeyup="onManualTotalInput(this)" placeholder="۰" class="currency-input w-full p-2.5 bg-slate-800 border border-emerald-500/60 rounded-xl text-base font-black text-emerald-300 text-left font-mono focus:ring-2 focus:ring-emerald-500" dir="ltr">
+                            <span class="absolute left-2.5 top-3 text-[11px] text-emerald-400/80 font-bold pointer-events-none">تومان</span>
+                        </div>
+                    </div>
+                    <span id="calculatedTotalDisplay" class="hidden">۰ تومان</span>
+                </div>
+            </div>
+
+            <!-- بخش پرداخت فوق‌سریع و هوشمند (Quick-Pay System) -->
+            <div class="mb-4 bg-slate-900/90 p-3.5 rounded-2xl border border-indigo-500/30 shadow-md space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                        <span>💳</span> نحوه تسویه فاکتور:
+                    </span>
+                    <button type="button" onclick="payFullWithPos()" class="text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1 rounded-lg transition shadow-sm active:scale-95 flex items-center gap-1">
+                        <span>⚡</span>
+                        <span>تسویه کامل با کارتخوان</span>
+                    </button>
+                </div>
+
+                <!-- تب‌های انتخاب سریع روش پرداخت -->
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-center">
+                    <button type="button" onclick="switchPayTab('pos')" id="tabBtnPos" class="pay-tab-btn active bg-indigo-600 text-white text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
+                        🛒 کارتخوان
+                    </button>
+                    <button type="button" onclick="switchPayTab('card')" id="tabBtnCard" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
+                        💳 کارت/شبا
+                    </button>
+                    <button type="button" onclick="switchPayTab('cash')" id="tabBtnCash" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
+                        💵 نقد
+                    </button>
+                    <button type="button" onclick="switchPayTab('cheque')" id="tabBtnCheque" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
+                        🗓️ چک
+                    </button>
+                    <button type="button" onclick="switchPayTab('debt')" id="tabBtnDebt" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
+                        ⏳ بیعانه
+                    </button>
+                    <button type="button" onclick="switchPayTab('split')" id="tabBtnSplit" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
+                        🔀 ترکیبی
+                    </button>
+                </div>
+
+                <!-- پنل ۱: کارتخوان POS (پیش‌فرض) -->
+                <div id="payPanelPos" class="pay-panel bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-1.5">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-300 w-24">🛒 مبلغ کارتخوان:</span>
+                        <input type="text" name="paid_pos" id="paidPosInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
+                    </div>
+                </div>
+
+                <!-- پنل ۲: کارت به کارت و شبا -->
+                <div id="payPanelCard" class="pay-panel hidden bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-blue-300 w-24">💳 کارت / شبا:</span>
+                        <input type="text" name="paid_card" id="paidCardInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-blue-300 text-left font-mono" dir="ltr">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 border-t border-slate-700/40">
+                        <select onchange="document.getElementById('destCardInput').value = this.value" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-slate-300">
+                            <option value="">-- شماره کارت مقصد --</option>
+                            {% for acc in bank_accounts %}
+                                {% if acc.card_number %}
+                                <option value="{{ acc.card_number }}">{{ acc.title }} ({{ acc.bank_name }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <select onchange="document.getElementById('destShebaInput').value = this.value" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-slate-300">
+                            <option value="">-- شماره شبا مقصد --</option>
+                            {% for acc in bank_accounts %}
+                                {% if acc.sheba_number %}
+                                <option value="{{ acc.sheba_number }}">{{ acc.title }} ({{ acc.bank_name }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                        <input type="text" name="dest_card_number" id="destCardInput" placeholder="۱۶ رقمی کارت..." class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-left font-mono" dir="ltr">
+                        <input type="text" name="dest_sheba_number" id="destShebaInput" placeholder="شبا (IR...)" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-left font-mono" dir="ltr">
+                        <input type="text" name="payment_tracking_code" placeholder="پیگیری فیش..." class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-left" dir="ltr">
+                    </div>
+                </div>
+
+                <!-- پنل ۳: نقدی -->
+                <div id="payPanelCash" class="pay-panel hidden bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-300 w-24">💵 پرداخت نقد:</span>
+                        <input type="text" name="paid_cash" id="paidCashInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پول نقد دریافتی..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
+                    </div>
+                </div>
+
+                <!-- پنل ۴: چک صیادی -->
+                <div id="payPanelCheque" class="pay-panel hidden bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-indigo-300">🗓️ چک‌های صیادی مشتری:</span>
+                        <button type="button" onclick="addChequeRow()" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-lg transition">
+                            ➕ افزودن چک دیگر
+                        </button>
+                    </div>
+                    <div id="chequesContainer" class="space-y-1.5">
+                        <div class="cheque-row bg-slate-900/90 p-2 rounded-xl border border-slate-700/60 space-y-1.5">
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <input type="text" name="cheque_sayad[]" placeholder="شناسه ۱۶ رقمی صیاد" class="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-mono text-left" dir="ltr">
+                                <input type="text" name="cheque_bank[]" placeholder="نام بانک (ملت، صادرات...)" class="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] text-slate-200">
+                            </div>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <input type="text" name="cheque_amount[]" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ چک (تومان)" class="currency-input chk-amount p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold text-indigo-300 text-left font-mono" dir="ltr">
+                                <input type="text" name="cheque_due_date[]" placeholder="سررسید (1405/08/20)" class="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] text-left font-bold text-amber-300" dir="ltr">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- پنل وضعیت مانده / بیعانه -->
+                <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-400">وضعیت تسویه فاکتور:</span>
+                        <span id="remainingBalanceDisplay" class="font-mono text-xs font-black text-emerald-400">✅ تسویه کامل</span>
+                    </div>
+                    <input type="hidden" name="remaining_balance" id="remainingBalanceInput" value="0">
+                </div>
+
+                <!-- تاریخ موعد تسویه مانده (فقط در صورت وجود مانده) -->
+                <div id="dueSettlementDateBox" class="hidden bg-amber-950/40 border border-amber-500/30 p-2 rounded-xl">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] text-amber-300 font-bold whitespace-nowrap">⏳ موعد تسویه مانده:</span>
+                        <input type="text" name="due_settlement_date" placeholder="مثلاً: 1405/06/25 (هنگام تحویل بار)" class="flex-1 p-1.5 bg-slate-900 border border-amber-500/40 rounded-lg text-xs text-amber-200 text-left font-bold" dir="ltr">
                     </div>
                 </div>
             </div>
 
-            <!-- بخش پرداخت ترکیبی چندگانه (Multi-Payment) -->
-            <div class="mb-4 bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-200">
-                <div class="flex justify-between items-center mb-2.5">
-                    <span class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                        <span>💳</span> نحوه تسویه ترکیبی (کارتخوان، کارت‌به‌کارت، نقد، چک، بیعانه):
+            <!-- آکاردئون هوشمند جزئیات تکمیلی (شراکت، توضیحات، رضایت) -->
+            <details class="mb-4 bg-slate-900/80 rounded-2xl border border-slate-800 p-3 group">
+                <summary class="text-xs font-bold text-slate-400 hover:text-slate-200 cursor-pointer list-none flex items-center justify-between select-none">
+                    <span class="flex items-center gap-1.5">
+                        <span>⚙️</span> تنظیمات تکمیلی (فروش شراکتی، توضیحات بار، رضایت خریدار)
                     </span>
-                </div>
+                    <span class="text-xs transition group-open:rotate-180">▼</span>
+                </summary>
 
-                <div class="space-y-2.5 text-xs">
-                    <!-- کارتخوان POS -->
-                    <div class="bg-white p-2 rounded-xl border flex items-center gap-2">
-                        <span class="w-28 text-[11px] font-bold text-slate-700">🛒 کارتخوان (POS):</span>
-                        <input type="text" name="paid_pos" id="paidPosInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پوز مغازه" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
-                    </div>
-
-                    <!-- کارت به کارت و شماره شبا (پایا / ساتنا) -->
-                    <div class="bg-white p-3 rounded-xl border space-y-2">
-                        <div class="flex items-center gap-2">
-                            <span class="w-28 text-[11px] font-bold text-blue-900">💳 کارت / شبا:</span>
-                            <input type="text" name="paid_card" id="paidCardInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی کارت/شبا" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-blue-700 text-left" dir="ltr">
-                        </div>
-                        
-                        <!-- انتخاب سریع کارت مقصد از لیست حساب‌ها -->
-                        <div class="space-y-1.5 pt-1 border-t border-slate-100">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">انتخاب سریع شماره کارت:</label>
-                                    <select onchange="document.getElementById('destCardInput').value = this.value" class="w-full p-1.5 border rounded-lg text-[10px] bg-slate-50 font-medium">
-                                        <option value="">-- انتخاب شماره کارت مقصد --</option>
-                                        {% for acc in bank_accounts %}
-                                            {% if acc.card_number %}
-                                            <option value="{{ acc.card_number }}">{{ acc.title }} ({{ acc.bank_name }} - {{ acc.card_number }})</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">انتخاب سریع شماره شبا (پایا):</label>
-                                    <select onchange="document.getElementById('destShebaInput').value = this.value" class="w-full p-1.5 border rounded-lg text-[10px] bg-slate-50 font-medium">
-                                        <option value="">-- انتخاب شماره شبا مقصد --</option>
-                                        {% for acc in bank_accounts %}
-                                            {% if acc.sheba_number %}
-                                            <option value="{{ acc.sheba_number }}">{{ acc.title }} ({{ acc.bank_name }} - {{ acc.sheba_number }})</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-1.5 pt-1">
-                                <input type="text" name="dest_card_number" id="destCardInput" placeholder="شماره ۱۶ رقمی کارت..." class="p-1.5 border rounded-lg text-[10px] text-left font-mono font-bold" dir="ltr">
-                                <input type="text" name="dest_sheba_number" id="destShebaInput" placeholder="شماره شبا (IR...)" class="p-1.5 border rounded-lg text-[10px] text-left font-mono font-bold" dir="ltr">
-                                <input type="text" name="payment_tracking_code" placeholder="شماره پیگیری فیش بانکی..." class="p-1.5 border rounded-lg text-[10px] text-left" dir="ltr">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- نقدی -->
-                    <div class="bg-white p-2 rounded-xl border flex items-center gap-2">
-                        <span class="w-28 text-[11px] font-bold text-slate-700">💵 پرداخت نقدی:</span>
-                        <input type="text" name="paid_cash" id="paidCashInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پول نقد" class="currency-input flex-1 p-1.5 border rounded-lg text-xs font-bold text-emerald-700 text-left" dir="ltr">
-                    </div>
-
-                    <!-- چک‌های صیادی چندگانه -->
-                    <div class="bg-white p-2.5 rounded-xl border space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
-                                <span>🗓️</span> چک‌های صیادی مشتری:
-                            </span>
-                            <button type="button" onclick="addChequeRow()" class="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-lg">
-                                ➕ افزودن چک دیگر
-                            </button>
-                        </div>
-                        
-                        <div id="chequesContainer" class="space-y-2">
-                            <div class="cheque-row bg-slate-50 p-2 rounded-xl border space-y-1.5">
-                                <div class="grid grid-cols-2 gap-1.5">
-                                    <input type="text" name="cheque_sayad[]" placeholder="شناسه ۱۶ رقمی صیاد" class="p-1.5 border rounded-lg text-[10px] font-mono font-bold text-left" dir="ltr">
-                                    <input type="text" name="cheque_bank[]" placeholder="نام بانک (ملت، صادرات...)" class="p-1.5 border rounded-lg text-[10px]">
-                                </div>
-                                <div class="grid grid-cols-2 gap-1.5">
-                                    <input type="text" name="cheque_amount[]" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ چک (تومان)" class="currency-input chk-amount p-1.5 border rounded-lg text-[10px] font-bold text-indigo-700 text-left" dir="ltr">
-                                    <input type="text" name="cheque_due_date[]" placeholder="سررسید (1405/08/20)" class="p-1.5 border rounded-lg text-[10px] text-left font-bold text-amber-700" dir="ltr">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- مانده بدهی / بیعانه -->
-                    <div class="bg-amber-50 p-2.5 rounded-xl border border-amber-200 space-y-1.5">
+                <div class="pt-3 space-y-3 mt-2 border-t border-slate-800 text-xs">
+                    <!-- فروش شراکتی -->
+                    <div class="bg-indigo-950/30 p-2.5 rounded-xl border border-indigo-500/20 space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-bold text-amber-900">⏳ مانده بدهی / بیعانه تسویه نشده:</span>
-                            <span id="remainingBalanceDisplay" class="text-rose-600 font-black text-xs">۰ تومان</span>
+                            <span class="text-[11px] font-bold text-indigo-300">🤝 مشارکت در فروش:</span>
+                            <span id="newSellerSingleNotice" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                                ✨ ۱۰۰٪ سهم خودتان
+                            </span>
                         </div>
-                        <input type="hidden" name="remaining_balance" id="remainingBalanceInput" value="0">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-amber-800">موعد تسویه مانده:</span>
-                            <input type="text" name="due_settlement_date" placeholder="مثلاً: 1405/06/25 (هنگام تحویل بار)" class="flex-1 p-1.5 border rounded-lg text-xs bg-white text-left font-bold" dir="ltr">
-                        </div>
-                    </div>
-                </div>
-            </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select name="second_seller_id" id="newSellerSecondSeller" class="w-full p-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-bold" onchange="toggleNewInvoicePartner(this.value)">
+                                <option value="">-- فروش تکی (بدون همکار) --</option>
+                                {% for colleague in colleagues %}
+                                <option value="{{ colleague.id }}">همکار: {{ colleague.full_name }}</option>
+                                {% endfor %}
+                            </select>
 
-            <!-- فروش شراکتی و همکار -->
-            <div class="mb-4 bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-100">
-                <div class="flex items-center justify-between mb-2">
-                    <label class="block text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                        <span>🤝</span> فروش مشترک و شراکت پورسانت:
-                    </label>
-                    <span id="newSellerSingleNotice" class="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-300">
-                        ✨ فروش تکی (۱۰۰٪ سهم خودتان)
-                    </span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <select name="second_seller_id" id="newSellerSecondSeller" class="w-full p-2.5 border rounded-xl text-xs bg-white font-bold" onchange="toggleNewInvoicePartner(this.value)">
-                        <option value="">-- فروش تکی (بدون همکار) --</option>
-                        {% for colleague in colleagues %}
-                        <option value="{{ colleague.id }}">همکار: {{ colleague.full_name }}</option>
-                        {% endfor %}
-                    </select>
-
-                    <div id="newSellerPartnerSection" class="opacity-40 pointer-events-none transition-all duration-200">
-                        <div class="flex items-center gap-1.5">
-                            <input type="number" id="newPartnerShareInput" name="partner_share" min="0" max="100" step="1" value="0" placeholder="سهم همکار"
-                                   class="w-20 p-2 border border-indigo-200 rounded-xl text-center font-black font-mono text-xs bg-white text-indigo-700"
-                                   oninput="syncNewInvoicePartnerShares(this.value)">
-                            <span class="text-[11px] font-bold text-slate-500">% سهم همکار</span>
-
-                            <div class="flex items-center gap-1 mr-auto">
-                                <button type="button" onclick="setNewPartnerQuick(50)" class="px-1.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold">۵۰٪</button>
-                                <button type="button" onclick="setNewPartnerQuick(40)" class="px-1.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold">۴۰٪</button>
-                                <button type="button" onclick="setNewPartnerQuick(30)" class="px-1.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold">۳۰٪</button>
+                            <div id="newSellerPartnerSection" class="opacity-40 pointer-events-none flex items-center gap-1">
+                                <input type="number" id="newPartnerShareInput" name="partner_share" min="0" max="100" step="1" value="0" placeholder="سهم همکار" class="w-16 p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-center font-black font-mono text-xs text-indigo-300" oninput="syncNewInvoicePartnerShares(this.value)">
+                                <span class="text-[10px] text-slate-400 font-bold">٪ سهم همکار</span>
+                                <div class="flex items-center gap-1 mr-auto">
+                                    <button type="button" onclick="setNewPartnerQuick(50)" class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-indigo-300 rounded text-[10px] font-bold">۵۰٪</button>
+                                    <button type="button" onclick="setNewPartnerQuick(40)" class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-indigo-300 rounded text-[10px] font-bold">۴۰٪</button>
+                                </div>
                             </div>
+                            <input type="hidden" name="split_ratio" id="newSplitRatioHidden" value="100">
                         </div>
-                        <input type="hidden" name="split_ratio" id="newSplitRatioHidden" value="100">
+                    </div>
+
+                    <!-- توضیحات کالا -->
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">توضیحات و مدل کالاها:</label>
+                        <textarea name="items_desc" id="itemsDescInput" rows="2" placeholder="مدل دقیق، رنگ و شرایط تحویل..." class="w-full p-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500"></textarea>
+                    </div>
+
+                    <!-- رضایت خریدار -->
+                    <div class="flex items-center justify-between bg-slate-800/60 p-2 rounded-xl border border-slate-700/60">
+                        <span class="text-[11px] font-bold text-amber-300">⭐ رضایت خریدار:</span>
+                        <select name="customer_rating" class="p-1 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-amber-400">
+                            <option value="5">⭐⭐⭐⭐⭐ عالی (۵ ستاره)</option>
+                            <option value="4">⭐⭐⭐⭐ خوب (۴ ستاره)</option>
+                            <option value="3">⭐⭐⭐ متوسط (۳ ستاره)</option>
+                        </select>
                     </div>
                 </div>
-                <div id="newSellerShareBadge" class="hidden mt-2 pt-2 border-t border-indigo-100 flex items-center justify-between text-[11px] font-bold">
-                    <span id="newBadgePrimary" class="text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg font-mono">سهم شما: ۱۰۰٪</span>
-                    <span id="newBadgePartner" class="text-indigo-700 bg-indigo-100 border border-indigo-300 px-2 py-0.5 rounded-lg font-mono">سهم همکار: ۰٪</span>
-                </div>
-            </div>
+            </details>
 
-            <!-- مبلغ کل فاکتور -->
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">مبلغ نهایی فاکتور (تومان):</label>
-                <input type="text" name="total_amount" id="totalAmountInput" required oninput="onManualTotalInput(this)" onchange="onManualTotalInput(this)" onblur="formatNumber(this); onManualTotalInput(this)" onkeyup="onManualTotalInput(this)" placeholder="مثال: 25,000,000" class="currency-input w-full p-3 border border-slate-300 rounded-2xl text-sm font-black text-emerald-700 bg-emerald-50/50 text-left" dir="ltr">
-            </div>
-
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">توضیحات و مدل کالاها:</label>
-                <textarea name="items_desc" id="itemsDescInput" rows="2" placeholder="مدل دقیق، رنگ و شرایط تحویل..." class="w-full p-2.5 border rounded-2xl text-xs"></textarea>
-            </div>
-
-            <div class="mb-4 flex items-center justify-between bg-amber-50 p-3 rounded-2xl border border-amber-200">
-                <span class="text-xs font-bold text-amber-900">⭐ رضایت خریدار:</span>
-                <select name="customer_rating" class="p-1.5 border rounded-xl text-xs bg-white font-bold text-amber-600">
-                    <option value="5">⭐⭐⭐⭐⭐ عالی (۵ ستاره)</option>
-                    <option value="4">⭐⭐⭐⭐ خوب (۴ ستاره)</option>
-                    <option value="3">⭐⭐⭐ متوسط (۳ ستاره)</option>
-                </select>
-            </div>
-
-            <button type="submit" class="btn-glass-primary w-full py-3 flex items-center justify-center gap-2">
-                <span>🛒 ثبت نهایی و کسر از انبار</span>
+            <!-- دکمه ثبت نهایی فاکتور -->
+            <button type="submit" class="btn-glass-primary w-full py-3.5 flex items-center justify-center gap-2 text-sm font-black shadow-lg hover:shadow-indigo-500/20 active:scale-98 transition">
+                <span>🛒 ثبت نهایی و صدور فاکتور (کسر از انبار)</span>
             </button>
         </form>
+
 
         <!-- فرم ثبت هزینه تنخواه مغازه -->
         <div class="mt-6 border-t pt-4">
@@ -1036,10 +1017,73 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         document.getElementById('chequeDirectBox').style.display = (val === 'cheque') ? 'block' : 'none';
     }
 
+    function switchPayTab(tabName) {
+        const panels = {
+            'pos': document.getElementById('payPanelPos'),
+            'card': document.getElementById('payPanelCard'),
+            'cash': document.getElementById('payPanelCash'),
+            'cheque': document.getElementById('payPanelCheque')
+        };
+        const buttons = {
+            'pos': document.getElementById('tabBtnPos'),
+            'card': document.getElementById('tabBtnCard'),
+            'cash': document.getElementById('tabBtnCash'),
+            'cheque': document.getElementById('tabBtnCheque'),
+            'debt': document.getElementById('tabBtnDebt'),
+            'split': document.getElementById('tabBtnSplit')
+        };
+
+        Object.values(buttons).forEach(btn => {
+            if (btn) {
+                btn.className = 'pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition';
+            }
+        });
+        if (buttons[tabName]) {
+            buttons[tabName].className = 'pay-tab-btn active bg-indigo-600 text-white text-[11px] font-bold py-1.5 px-1 rounded-lg transition';
+        }
+
+        if (tabName === 'split') {
+            Object.values(panels).forEach(p => p && p.classList.remove('hidden'));
+        } else if (tabName === 'debt') {
+            Object.values(panels).forEach(p => p && p.classList.add('hidden'));
+            // در حالت بیعانه، پنل پوز را فعال نگه دار برای دریافت پیش‌پرداخت
+            if (panels['pos']) panels['pos'].classList.remove('hidden');
+        } else {
+            Object.keys(panels).forEach(key => {
+                if (panels[key]) {
+                    if (key === tabName) {
+                        panels[key].classList.remove('hidden');
+                    } else {
+                        panels[key].classList.add('hidden');
+                    }
+                }
+            });
+        }
+    }
+
+    function payFullWithPos() {
+        const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
+        if (total <= 0) {
+            alert('لطفاً ابتدا اقلام فاکتور یا مبلغ فاکتور را وارد فرمایید.');
+            return;
+        }
+        switchPayTab('pos');
+        const posInp = document.getElementById('paidPosInput');
+        if (posInp) {
+            posInp.value = total.toLocaleString('en-US');
+            const cardInp = document.getElementById('paidCardInput');
+            const cashInp = document.getElementById('paidCashInput');
+            if (cardInp) cardInp.value = '';
+            if (cashInp) cashInp.value = '';
+            calcPaymentBalances();
+        }
+    }
+
     function toggleAiBox() {
         const box = document.getElementById('aiBox');
         box.classList.toggle('hidden');
     }
+
 
     function addInvoiceItemRow() {
         const container = document.getElementById('invoiceItemsContainer');
@@ -1288,21 +1332,24 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         }
 
         // محاسبه و نمایش سود تخمینی ردیف
+        // محاسبه و نمایش سود تخمینی ردیف (بدون حاشیه سود فرضی)
         let buyVal = buyInput ? parseNumeric(buyInput.value) : 0;
-        if (buyVal <= 0 && effectivePrice > 0) {
-            buyVal = Math.round(effectivePrice * 0.75);
-        }
         const unitProfit = effectivePrice - buyVal;
         const totalRowProfit = unitProfit * qty;
         if (profitDisplay) {
-            if (totalRowProfit >= 0) {
-                profitDisplay.innerText = '+' + totalRowProfit.toLocaleString('en-US') + ' ت';
-                profitDisplay.className = 'item-profit-display text-xs font-black text-emerald-400 font-mono';
+            if (buyVal > 0) {
+                if (totalRowProfit >= 0) {
+                    profitDisplay.innerText = '+' + totalRowProfit.toLocaleString('en-US') + ' ت';
+                    profitDisplay.className = 'item-profit-display text-xs font-black text-emerald-400 font-mono';
+                } else {
+                    profitDisplay.innerText = '-' + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
+                    profitDisplay.className = 'item-profit-display text-xs font-black text-rose-400 font-mono';
+                }
             } else {
-                profitDisplay.innerText = '-' + Math.abs(totalRowProfit).toLocaleString('en-US') + ' ت';
-                profitDisplay.className = 'item-profit-display text-xs font-black text-rose-400 font-mono';
+                profitDisplay.innerText = '';
             }
         }
+
 
         calcTotal();
     }
@@ -1435,13 +1482,19 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         if (remDisplay && remInput) {
             remInput.value = remaining;
             remDisplay.innerText = Number(remaining).toLocaleString('en-US') + ' تومان';
+            const dueBox = document.getElementById('dueSettlementDateBox');
             if (remaining === 0 && total > 0) {
-                remDisplay.className = 'text-emerald-600 font-black text-xs';
+                remDisplay.className = 'font-mono text-xs font-black text-emerald-400';
                 remDisplay.innerText = '✅ تسویه کامل';
+                if (dueBox) dueBox.classList.add('hidden');
+            } else if (remaining > 0) {
+                remDisplay.className = 'font-mono text-xs font-black text-rose-400';
+                if (dueBox) dueBox.classList.remove('hidden');
             } else {
-                remDisplay.className = 'text-rose-600 font-black text-xs';
+                if (dueBox) dueBox.classList.add('hidden');
             }
         }
+
     }
 
     async function processAiInput() {

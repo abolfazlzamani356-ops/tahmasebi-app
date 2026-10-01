@@ -139,8 +139,8 @@ def test_custom_invoices_filters_in_admin_and_seller(client):
     assert res_seller.status_code == 200
     assert "اقلام سفارشی".encode('utf-8') in res_seller.data
 
-def test_custom_item_without_buy_cost_default_25_margin(client):
-    """بررسی ثبت فاکتور بدون ورود بهای خرید با اعمال سود پیش‌فرض ۲۵ درصدی"""
+def test_custom_item_without_buy_cost_no_fake_margin(client):
+    """بررسی ثبت فاکتور بدون ورود بهای خرید (بدون اعمال حاشیه ساختگی ۲۵ درصدی، بهای خرید ۰)"""
     with app.app_context():
         seller = User.query.filter_by(role='seller', is_active=True).first()
         seller_id = seller.id
@@ -183,14 +183,15 @@ def test_custom_item_without_buy_cost_default_25_margin(client):
         assert inv is not None
         assert inv.has_custom_items is True
         assert inv.total_amount == 8000000
-        # سود پیش‌فرض ۲۵ درصد: بهای خرید = 75% فروش (8,000,000 * 0.75 = 6,000,000)
-        assert inv.actual_buy_cost == 6000000, f"Expected 6,000,000, got {inv.actual_buy_cost}"
-        assert inv.real_profit == 2000000, f"Expected 2,000,000, got {inv.real_profit}"
+        # بدون بهای خرید: بهای خرید ۰ و سود واقعی برابر کل فروش
+        assert inv.actual_buy_cost == 0, f"Expected 0 buy cost, got {inv.actual_buy_cost}"
+        assert inv.real_profit == 8000000, f"Expected 8,000,000 profit, got {inv.real_profit}"
         
         item = inv.items[0]
         assert item.is_custom is True
-        assert item.unit_buy_price == 3000000  # 4,000,000 * 0.75
-        assert item.row_profit == 2000000
+        assert item.unit_buy_price == 0
+        assert item.row_profit == 8000000
+
 
 def test_auto_learning_catalog_registration(client):
     """بررسی خودآموزی کاتالوگ: ثبت خودکار کالای خارج از لیست در ProductCatalog و پاسخگویی در جستجو"""
@@ -322,8 +323,8 @@ def test_bidirectional_price_discount_submission(client):
         assert inv2.discount_amount == 0
         assert inv2.items[0].unit_sell_price == 1500000
         assert inv2.items[0].discount == 0
-        assert inv2.actual_buy_cost == int(1500000 * 0.75)
-        assert inv2.real_profit == 1500000 - int(1500000 * 0.75)
+        assert inv2.actual_buy_cost == 0
+        assert inv2.real_profit == 1500000
 
     # سناریو ۳: ورود قیمت مصوب و درصد تخفیف بدون قیمت نهایی (محاسبه خودکار نهایی توسط سرور)
     data3 = {
@@ -357,7 +358,7 @@ def test_bidirectional_price_discount_submission(client):
         assert inv3.items[0].discount == 200000
 
 def test_edit_invoice_custom_item_auto_learning(client):
-    """بررسی ثبت خودکار در کاتالوگ و محاسبه سود ۲۵٪ هنگام ویرایش فاکتور"""
+    """بررسی ثبت خودکار در کاتالوگ و عدم اعمال سود فرضی هنگام ویرایش فاکتور"""
     edit_item_name = "هود مخفی سفارشی مشکی طلایی توربو"
     with app.app_context():
         ProductCatalog.query.filter_by(name=edit_item_name).delete()
@@ -405,12 +406,13 @@ def test_edit_invoice_custom_item_auto_learning(client):
         cat_p = ProductCatalog.query.filter_by(name=edit_item_name).first()
         assert cat_p is not None, "Custom item from edit_invoice was not registered in ProductCatalog"
         assert cat_p.sell_price == 6000000
-        assert cat_p.buy_price == 4500000  # 6,000,000 * 0.75
+        assert cat_p.buy_price == 0
 
         # بررسی فاکتور ویرایش شده
         updated_inv = Invoice.query.get(inv_id)
         assert updated_inv.has_custom_items is True
-        assert updated_inv.actual_buy_cost == 4500000
-        assert updated_inv.real_profit == 1500000
+        assert updated_inv.actual_buy_cost == 0
+        assert updated_inv.real_profit == 6000000
+
 
 

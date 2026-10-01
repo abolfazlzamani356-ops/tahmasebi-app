@@ -146,8 +146,8 @@
                         {% if user and user.role == 'admin' %}
                         <div class="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
                             <div class="flex-1">
-                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-slate-500 font-normal">(اختیاری - در صورت خالی بودن، سود ۲۵٪ محاسبه می‌شود)</span>:</label>
-                                <input type="text" name="item_buy_price[]" value="{{ '{:,}'.format(item.unit_buy_price) if (item.unit_buy_price and item.unit_buy_price > 0) else '' }}" placeholder="اختیاری (پیش‌فرض سود ۲۵٪)..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه (اختیاری)">
+                                <label class="block text-[10px] font-bold text-indigo-900 mb-0.5">🛒 بهای خرید ما (تومان) <span class="text-slate-500 font-normal">(اختیاری)</span>:</label>
+                                <input type="text" name="item_buy_price[]" value="{{ '{:,}'.format(item.unit_buy_price) if (item.unit_buy_price and item.unit_buy_price > 0) else '' }}" placeholder="اختیاری..." oninput="onPriceOrDiscountChange(this, 'buy')" onchange="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onblur="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'buy')" class="currency-input item-buy-price w-full p-2 bg-white border border-indigo-300 rounded-xl text-xs font-bold text-indigo-900 text-left font-mono" dir="ltr" title="بهای خرید این کالا برای فروشگاه (اختیاری)">
                             </div>
                             <div class="sm:w-44 flex flex-col justify-center items-center bg-white border border-slate-200 rounded-xl p-2 text-center">
                                 <span class="text-[9px] text-slate-500 font-medium">سود تخمینی ردیف:</span>
@@ -155,18 +155,9 @@
                             </div>
                         </div>
                         {% else %}
-                        <!-- فروشنده: قیمت خرید مخفی - سود خودکار -->
                         <input type="hidden" name="item_buy_price[]" class="item-buy-price" value="{{ item.unit_buy_price if item.unit_buy_price else '' }}">
-                        <div class="pt-2 border-t border-slate-200">
-                            <div class="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                                <span class="text-[10px] text-slate-500 flex items-center gap-1.5">
-                                    <span>✅</span>
-                                    <span>سود این ردیف توسط سیستم خودکار محاسبه خواهد شد</span>
-                                </span>
-                                <span class="item-profit-display text-xs font-black text-emerald-700 font-mono">{{ '{:,}'.format(item.row_profit) if item.row_profit else '۰' }} ت</span>
-                            </div>
-                        </div>
                         {% endif %}
+
 
 
 

@@ -845,4 +845,205 @@ def send_invoice_sms(invoice, base_url=None):
         return False, f"خطای شبکه در ارسال پیامک: {str(e)}"
 
 
+def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, model_name=None):
+    """
+    اسکن و تحلیل هوشمند تصویر فاکتور دست‌نویس یا چاپی با استفاده از Google AI Studio (Gemini Vision)
+    ویژه استخراج اقلام، قیمت‌ها، پکیج‌های ترکیبی (مانند کابینت با سنگ) و تخفیف‌ها در صنف لوازم ساختمانی و بهداشتی
+    """
+    import base64
+    import os
+    import requests
+    from models import Settings
+
+    # استخراج کلید API
+    if not api_key:
+        try:
+            st = Settings.query.first()
+            if st and st.gemini_api_key:
+                api_key = st.gemini_api_key.strip()
+        except Exception:
+            pass
+
+    if not api_key:
+        api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+
+    if not api_key:
+        return {
+            'success': False,
+            'error': 'no_api_key',
+            'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است. لطفاً در منوی تنظیمات سیستم، کلید Google AI خود را وارد نمایید.'
+        }
+
+    # تعیین مدل
+    if not model_name:
+        try:
+            st = Settings.query.first()
+            if st and st.gemini_model:
+                model_name = st.gemini_model.strip()
+        except Exception:
+            pass
+    if not model_name:
+        model_name = 'gemini-2.5-flash'
+
+    prompt_text = """تو یک حسابدار هوشمند و فوق‌العاده دقیق در صنف لوازم بهداشتی و ساختمانی (فروشگاه طهماسبی) هستی.
+وظیفه تو خواندن تصویر این برگه فاکتور دست‌نویس یا دفتری و تبدیل دقیق آن به ساختار استاندارد فاکتور است.
+
+قوانین و عرف بازار لوازم بهداشتی و ساختمانی:
+۱. اقلام ترکیبی و پکیج‌ها (Bundles):
+- اگر در فاکتور نوشته شده «کابین با سنگ»، «روشویی با سنگ»، «کابینت ۶۰ و کاسه» یا موارد مشابه، آن را به عنوان یک قلم واحد (پکیج ترکیبی) با نام کامل و قیمت مجموع ثبت کن و به هیچ وجه تفکیک نکن.
+- اگر چند تکه شیرآلات (مثلاً ست ۴ تکه یا شیر توالت و دوش) با یک جمع کل نوشته شده، آن را به عنوان یک ردیف «ست شیرآلات ...» با قیمت تجمیعی ثبت کن.
+۲. مبالغ و اعداد:
+- تمام اعداد و مبالغ را به تومان (Toman) برگردان (ارقام انگلیسی). اگر فاکتور به ریال نوشته شده (یک صفر بیشتر دارد)، آن را به تومان تبدیل کن.
+- تعداد کالا (quantity) حداقل ۱ است.
+- قیمت واحد (unit_price) و قیمت کل ردیف (total_price) را با دقت استخراج کن.
+۳. تخفیف‌ها و تسویه نهایی:
+- هرگونه تخفیف پای فاکتور، خط‌خوردگی یا کسر مبلغ برای مشتری را در فیلد discount_amount ثبت کن.
+- مبلغ نهایی قابل پرداخت فاکتور را در grand_total قرار بده.
+- اگر نام یا شماره موبایل خریدار در برگه نوشته شده، استخراج کن.
+- اگر یادداشت نحوه پرداخت دارد (مثلاً کارتخوان، چک صیادی، نقد)، در payment_note بنویس.
+
+خروجی باید صرفاً یک شیء معتبر JSON با این ساختار باشد:
+{
+  "customer_name": "نام مشتری یا خالی",
+  "customer_phone": "شماره موبایل یا خالی",
+  "date": "تاریخ فاکتور یا خالی",
+  "items": [
+    {
+      "name": "نام دقیق کالا یا پکیج ترکیبی",
+      "category": "یکی از دسته‌ها: روشویی کابینتی، شیرآلات، سینک، هود، گاز صفحه‌ای، توالت فرنگی، فلاش تانک، علم دوش، عمومی",
+      "quantity": 1,
+      "unit_price": 4500000,
+      "total_price": 4500000,
+      "discount": 0,
+      "is_bundle": false,
+      "description": ""
+    }
+  ],
+  "subtotal_amount": 4500000,
+  "discount_amount": 200000,
+  "grand_total": 4300000,
+  "payment_note": "",
+  "raw_notes": ""
+}
+فقط و فقط یک شیء معتبر JSON خروجی بده، بدون هیچ توضیح یا علامت اضافه.
+"""
+
+    b64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+    # مدل‌های کاندید برای ارسال درخواست با فال‌بک خودکار
+    candidate_models = [model_name]
+    for fallback in ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']:
+        if fallback not in candidate_models:
+            candidate_models.append(fallback)
+
+    last_error = None
+    for cand_model in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{cand_model}:generateContent?key={api_key}"
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt_text},
+                        {
+                            "inline_data": {
+                                "mime_type": mime_type or "image/jpeg",
+                                "data": b64_image
+                            }
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "response_mime_type": "application/json"
+            }
+        }
+        headers = {"Content-Type": "application/json"}
+
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=35)
+            if resp.status_code == 200:
+                result_json = resp.json()
+                # استخراج پاسخ متنی
+                candidates = result_json.get('candidates', [])
+                if candidates:
+                    parts = candidates[0].get('content', {}).get('parts', [])
+                    if parts:
+                        raw_text = parts[0].get('text', '').strip()
+                        # پاکسازی احتمالی تگ‌های مارک‌داون
+                        if raw_text.startswith('```json'):
+                            raw_text = raw_text[7:]
+                        elif raw_text.startswith('```'):
+                            raw_text = raw_text[3:]
+                        if raw_text.endswith('```'):
+                            raw_text = raw_text[:-3]
+                        raw_text = raw_text.strip()
+
+                        data = json.loads(raw_text)
+                        
+                        # استانداردسازی داده‌ها
+                        sanitized_items = []
+                        calc_subtotal = 0
+                        for it in data.get('items', []):
+                            q = int(it.get('quantity') or 1)
+                            if q <= 0:
+                                q = 1
+                            up = int(it.get('unit_price') or 0)
+                            tp = int(it.get('total_price') or (up * q))
+                            disc = int(it.get('discount') or 0)
+                            calc_subtotal += (up * q)
+                            sanitized_items.append({
+                                'name': str(it.get('name') or 'کالای فاکتور').strip(),
+                                'category': str(it.get('category') or 'عمومی').strip(),
+                                'quantity': q,
+                                'unit_price': up,
+                                'total_price': tp,
+                                'discount': disc,
+                                'is_bundle': bool(it.get('is_bundle', False)),
+                                'description': str(it.get('description') or '').strip()
+                            })
+
+                        subtot = int(data.get('subtotal_amount') or calc_subtotal)
+                        disc_tot = int(data.get('discount_amount') or 0)
+                        gtot = int(data.get('grand_total') or (subtot - disc_tot))
+
+                        parsed_response = {
+                            'customer_name': str(data.get('customer_name') or '').strip(),
+                            'customer_phone': str(data.get('customer_phone') or '').strip(),
+                            'date': str(data.get('date') or '').strip(),
+                            'items': sanitized_items,
+                            'subtotal_amount': subtot,
+                            'discount_amount': disc_tot,
+                            'grand_total': gtot,
+                            'payment_note': str(data.get('payment_note') or '').strip(),
+                            'raw_notes': str(data.get('raw_notes') or '').strip()
+                        }
+
+                        try:
+                            log_activity(
+                                f"تحلیل موفق فاکتور دفتری توسط هوش مصنوعی ({cand_model}) با استخراج {len(sanitized_items)} قلم کالا",
+                                user_name="موتور هوش مصنوعی Gemini",
+                                category="هوش مصنوعی",
+                                details=f"مبلغ کل: {gtot:,} تومان"
+                            )
+                        except Exception:
+                            pass
+
+                        return {
+                            'success': True,
+                            'data': parsed_response,
+                            'model_used': cand_model
+                        }
+            else:
+                last_error = f"کد خطا {resp.status_code}: {resp.text[:200]}"
+        except Exception as ex:
+            last_error = str(ex)
+
+    return {
+        'success': False,
+        'error': 'api_error',
+        'message': f'خطا در ارتباط با وب‌سرویس هوش مصنوعی گوگل: {last_error or "پاسخی دریافت نشد"}'
+    }
+
+
 

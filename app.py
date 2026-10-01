@@ -28,7 +28,8 @@ from helpers import (
     calculate_seller_exact_stats, get_or_create_customer,
     parse_smart_invoice_text, get_inventory_ai_insights,
     safe_int, safe_float, normalize_persian_text, calculate_store_financial_summary,
-    send_invoice_sms, build_catalog_search_filter, get_persian_word_variants
+    send_invoice_sms, build_catalog_search_filter, get_persian_word_variants,
+    ai_scan_paper_invoice
 )
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -44,7 +45,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'tahmasebi-mega-erp-v14-permanent-
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB - برای آپلود عکس پرسنلی
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB - برای آپلود عکس پرسنلی و تصاویر فاکتورهای دفتری
 
 # رمز نجات مدیریت
 MASTER_ADMIN_PASSWORD = os.environ.get('MASTER_ADMIN_PASSWORD', 'king68abolfazl@68')
@@ -81,6 +82,10 @@ AVATARS_DIR = os.path.join(DATA_DIR, 'uploads', 'avatars')
 os.makedirs(AVATARS_DIR, exist_ok=True)
 STATIC_AVATARS_DIR = os.path.join(app.root_path, 'static', 'uploads', 'avatars')
 os.makedirs(STATIC_AVATARS_DIR, exist_ok=True)
+INVOICES_DIR = os.path.join(DATA_DIR, 'uploads', 'invoices')
+os.makedirs(INVOICES_DIR, exist_ok=True)
+STATIC_INVOICES_DIR = os.path.join(app.root_path, 'static', 'uploads', 'invoices')
+os.makedirs(STATIC_INVOICES_DIR, exist_ok=True)
 
 # نرمال‌سازی مسیر برای SQLite در لینوکس و ویندوز
 db_file_abs = os.path.abspath(os.path.join(DATA_DIR, 'tahmasebi_store_persistent.db'))
@@ -195,6 +200,9 @@ def initialize_database():
             ("cheques", "notes", "TEXT"),
             ("invoices", "sms_sent", "BOOLEAN DEFAULT 0"),
             ("invoices", "sms_sent_at", "TEXT"),
+            ("invoices", "paper_invoice_image", "TEXT"),
+            ("settings", "gemini_api_key", "TEXT"),
+            ("settings", "gemini_model", "TEXT DEFAULT 'gemini-2.5-flash'"),
         ]
 
 
@@ -254,8 +262,14 @@ def initialize_database():
                 dst_path = os.path.join(STATIC_AVATARS_DIR, fname)
                 if os.path.isfile(src_path) and not os.path.exists(dst_path):
                     shutil.copy2(src_path, dst_path)
+        if os.path.isdir(INVOICES_DIR):
+            for fname in os.listdir(INVOICES_DIR):
+                src_path = os.path.join(INVOICES_DIR, fname)
+                dst_path = os.path.join(STATIC_INVOICES_DIR, fname)
+                if os.path.isfile(src_path) and not os.path.exists(dst_path):
+                    shutil.copy2(src_path, dst_path)
     except Exception as e:
-        app.logger.warning(f"Error syncing avatars on startup: {e}")
+        app.logger.warning(f"Error syncing files on startup: {e}")
     
     # ثبت داده‌های پایه اگر دیتابیس خالی است
     try:
@@ -732,6 +746,184 @@ def serve_avatar(filename):
 
     return ('تصویر پرسنلی یافت نشد', 404)
 
+def save_paper_invoice_file(file_obj):
+    """ذخیره امن و یکتای تصویر فاکتور دفتری/دست‌نویس بر روی دیسک با پشتیبانی از کلاود"""
+    if not file_obj or not getattr(file_obj, 'filename', None):
+        return None
+    from werkzeug.utils import secure_filename
+    filename = secure_filename(file_obj.filename)
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ['.jpg', '.jpeg', '.png', '.webp', '.pdf']:
+        ext = '.jpg'
+    now_str = jdatetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    unique_name = f"paper_inv_{now_str}_{random.randint(1000, 9999)}{ext}"
+    
+    for d in [STATIC_INVOICES_DIR, INVOICES_DIR]:
+        try:
+            os.makedirs(d, exist_ok=True)
+            target_p = os.path.join(d, unique_name)
+            file_obj.seek(0)
+            file_obj.save(target_p)
+        except Exception as ex:
+            app.logger.warning(f"Failed to save paper invoice image to {d}: {ex}")
+    return unique_name
+
+@app.route('/uploads/invoices/<path:filename>')
+def serve_invoice_image(filename):
+    """سرو مستقیم تصویر فاکتور دفتری با کش مرورگر"""
+    safe_name = os.path.basename(filename)
+    ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else 'jpg'
+    img_mimetypes = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+        'png': 'image/png', 'webp': 'image/webp', 'pdf': 'application/pdf'
+    }
+    mimetype = img_mimetypes.get(ext, 'image/jpeg')
+
+    candidates = [
+        os.path.join(STATIC_INVOICES_DIR, safe_name),
+        os.path.join(INVOICES_DIR, safe_name),
+        os.path.join(app.root_path, 'static', 'uploads', 'invoices', safe_name),
+        os.path.join(DATA_DIR, 'uploads', 'invoices', safe_name),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            try:
+                with open(path, 'rb') as f:
+                    file_bytes = f.read()
+                resp = Response(file_bytes, mimetype=mimetype)
+                resp.headers['Cache-Control'] = 'public, max-age=86400'
+                return resp
+            except Exception:
+                pass
+    return ('تصویر فاکتور دفتری یافت نشد', 404)
+
+@app.route('/api/ai/scan_invoice', methods=['POST'])
+def api_scan_invoice():
+    """اسکن و پردازش تصویر فاکتور با هوش مصنوعی و استخراج اقلام"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'unauthorized', 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 401
+
+    image_bytes = None
+    mime_type = 'image/jpeg'
+    saved_filename = None
+
+    # بررسی فایل آپلود شده
+    file = request.files.get('invoice_image') or request.files.get('file') or request.files.get('paper_invoice_image')
+    if file and file.filename:
+        mime_type = file.content_type or 'image/jpeg'
+        image_bytes = file.read()
+        file.seek(0)
+        saved_filename = save_paper_invoice_file(file)
+    elif request.is_json or request.form.get('image_base64'):
+        b64_data = request.json.get('image_base64', '') if request.is_json else request.form.get('image_base64', '')
+        if b64_data:
+            if ',' in b64_data:
+                header, encoded = b64_data.split(',', 1)
+                if 'png' in header:
+                    mime_type = 'image/png'
+                elif 'webp' in header:
+                    mime_type = 'image/webp'
+            else:
+                encoded = b64_data
+            image_bytes = base64.b64decode(encoded)
+            ext = '.png' if 'png' in mime_type else '.jpg'
+            now_str = jdatetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            saved_filename = f"paper_inv_{now_str}_{random.randint(1000, 9999)}{ext}"
+            for d in [STATIC_INVOICES_DIR, INVOICES_DIR]:
+                try:
+                    os.makedirs(d, exist_ok=True)
+                    with open(os.path.join(d, saved_filename), 'wb') as f:
+                        f.write(image_bytes)
+                except Exception as ex:
+                    app.logger.warning(f"Failed to save base64 invoice to {d}: {ex}")
+
+    if not image_bytes:
+        return jsonify({'success': False, 'error': 'no_image', 'message': 'هیچ تصویری برای اسکن ارسال نشده است.'}), 400
+
+    scan_result = ai_scan_paper_invoice(image_bytes, mime_type=mime_type)
+    scan_result['saved_filename'] = saved_filename
+    scan_result['image_url'] = url_for('serve_invoice_image', filename=saved_filename) if saved_filename else None
+
+    if scan_result.get('success'):
+        return jsonify(scan_result)
+    else:
+        status_code = 400 if scan_result.get('error') == 'no_api_key' else 500
+        return jsonify(scan_result), status_code
+
+@app.route('/api/ai/test_gemini', methods=['POST'])
+def test_gemini_route():
+    """تست صحت و اتصال کلید API گوگل جمینای از پنل تنظیمات"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+    api_key = request.form.get('gemini_api_key', '').strip()
+    if not api_key and request.is_json:
+        api_key = request.json.get('gemini_api_key', '').strip()
+    if not api_key:
+        st = Settings.query.first()
+        api_key = st.gemini_api_key if st else None
+    if not api_key:
+        return jsonify({'success': False, 'message': 'کلید API وارد نشده است.'}), 400
+    
+    model = request.form.get('gemini_model', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": "وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"}]}]
+    }
+    try:
+        import requests
+        resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=12)
+        if resp.status_code == 200:
+            return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro مدل {model} با موفقیت برقرار شد! ✅'})
+        else:
+            return jsonify({'success': False, 'message': f'خطای سرویس گوگل ({resp.status_code}): {resp.text[:180]}'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'خطای شبکه در ارتباط با گوگل: {str(e)}'}), 500
+
+@app.route('/api/invoice/<int:invoice_id>/details')
+def api_invoice_details(invoice_id):
+    """دریافت جزئیات کامل فاکتور و تصویر دفتری جهت مقایسه دوطرفه هوشمند"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً وارد شوید.'}), 401
+    inv = Invoice.query.get_or_404(invoice_id)
+    items_list = []
+    for item in inv.items:
+        items_list.append({
+            'name': item.item_name,
+            'category': item.category or '',
+            'quantity': item.quantity,
+            'unit_sell_price': item.unit_sell_price,
+            'discount': item.discount,
+            'total_price': item.total_price,
+            'is_custom': item.is_custom
+        })
+    img_url = url_for('serve_invoice_image', filename=inv.paper_invoice_image) if inv.paper_invoice_image else None
+    return jsonify({
+        'success': True,
+        'invoice': {
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'customer_name': inv.customer_name,
+            'customer_phone': inv.customer_phone or '',
+            'shamsi_date_time': inv.shamsi_date_time,
+            'status': inv.status,
+            'invoice_type': inv.invoice_type,
+            'paper_invoice_image': inv.paper_invoice_image,
+            'image_url': img_url,
+            'subtotal_amount': inv.subtotal_amount,
+            'discount_amount': inv.discount_amount,
+            'total_amount': inv.total_amount,
+            'paid_pos': inv.paid_pos,
+            'paid_card': inv.paid_card,
+            'paid_cash': inv.paid_cash,
+            'paid_cheque': inv.paid_cheque,
+            'remaining_balance': inv.remaining_balance,
+            'is_settled': inv.is_settled,
+            'payment_method': inv.payment_method,
+            'seller_name': inv.seller.full_name if inv.seller else '',
+            'items': items_list
+        }
+    })
+
 @app.route('/sw.js')
 def serve_sw():
     response = make_response(send_from_directory('static', 'sw.js'))
@@ -998,6 +1190,14 @@ def add_invoice():
 
         customer_rating = safe_int(request.form.get('customer_rating'), 5)
 
+        # دریافت تصویر فاکتور دفتری
+        paper_img_file = request.files.get('paper_invoice_image')
+        paper_img_name = None
+        if paper_img_file and paper_img_file.filename:
+            paper_img_name = save_paper_invoice_file(paper_img_file)
+        elif request.form.get('existing_paper_image'):
+            paper_img_name = request.form.get('existing_paper_image').strip()
+
         new_inv = Invoice(
             invoice_number=invoice_number,
             customer_id=customer.id if customer else None,
@@ -1021,6 +1221,7 @@ def add_invoice():
             total_amount=total_amount,
             due_settlement_date=request.form.get('due_settlement_date'),
             is_settled=(remaining_balance <= 0),
+            paper_invoice_image=paper_img_name,
             seller_id=session['user_id'],
             second_seller_id=second_seller_id,
             split_ratio=split_ratio,
@@ -1522,6 +1723,16 @@ def edit_invoice(invoice_id):
         inv.total_amount = total_amount
         inv.due_settlement_date = request.form.get('due_settlement_date')
         inv.is_settled = (remaining_balance <= 0)
+
+        # تصویر فاکتور دفتری
+        new_paper_img = request.files.get('paper_invoice_image')
+        if new_paper_img and new_paper_img.filename:
+            inv.paper_invoice_image = save_paper_invoice_file(new_paper_img)
+        elif request.form.get('remove_paper_image') == '1':
+            inv.paper_invoice_image = None
+        elif request.form.get('existing_paper_image'):
+            inv.paper_invoice_image = request.form.get('existing_paper_image').strip()
+
         inv.second_seller_id = second_seller_id
         partner_share_raw = request.form.get('partner_share')
         split_ratio_raw = request.form.get('split_ratio')
@@ -3779,6 +3990,10 @@ def store_settings_view():
         settings.sms_api_key = request.form.get('sms_api_key', '').strip()
         settings.sms_template_id = request.form.get('sms_template_id', '').strip()
         settings.public_domain = request.form.get('public_domain', '').strip()
+        
+        # تنظیمات هوش مصنوعی گوگل (Google AI Pro / Gemini Studio)
+        settings.gemini_api_key = request.form.get('gemini_api_key', '').strip()
+        settings.gemini_model = request.form.get('gemini_model', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
         
         # آپلود لوگو اگر ارسال شده باشد
         logo_file = request.files.get('store_logo')

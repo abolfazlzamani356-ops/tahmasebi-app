@@ -907,6 +907,11 @@
                             💰 تسویه
                         </button>
                         {% endif %}
+                        {% if inv.paper_invoice_image %}
+                        <button type="button" onclick="openAdminSideBySideCompare({{ inv.id }})" class="text-purple-300 hover:text-purple-100 font-bold bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 px-2 py-1 rounded-lg text-[10px] transition flex items-center gap-1 shadow-sm" title="مقایسه فاکتور سیستمی با عکس فاکتور دفتری">
+                            <span>📸</span> مقایسه دفتری
+                        </button>
+                        {% endif %}
                         <a href="{{ url_for('edit_invoice', invoice_id=inv.id) }}" class="text-blue-400 hover:text-blue-300 font-bold bg-blue-500/10 px-2 py-1 rounded-lg text-[10px]">✏️ ویرایش</a>
                         <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-bold bg-indigo-500/10 px-2 py-1 rounded-lg text-[10px]">🖨️ چاپ</a>
                         <a href="{{ url_for('send_invoice_sms_action', invoice_id=inv.id) }}" onclick="return confirm('آیا مایل به ارسال پیامک گارانتی و فاکتور به مشتری هستید؟')" class="{% if inv.sms_sent %}text-emerald-400 bg-emerald-500/10 border-emerald-500/30{% else %}text-amber-400 bg-amber-500/10 border-amber-500/30{% endif %} hover:shadow font-bold border px-2 py-1 rounded-lg text-[10px] transition" title="ارسال پیامک گارانتی و فاکتور">
@@ -1609,7 +1614,217 @@
             menu.classList.add('hidden');
         }
     });
+
+    let adminCompareRotation = 0;
+    let adminCompareScale = 1;
+
+    async function openAdminSideBySideCompare(invoiceId) {
+        const modal = document.getElementById('adminSideBySideModal');
+        modal.classList.remove('hidden');
+        
+        document.getElementById('adminCompareInvNumberBadge').innerText = '...در حال دریافت';
+        document.getElementById('adminComparePaperImg').src = '';
+        document.getElementById('adminComparePaperImg').style.display = 'none';
+        document.getElementById('adminCompareNoImgMsg').classList.add('hidden');
+        document.getElementById('adminCompareItemsTbody').innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">در حال بارگذاری اطلاعات فاکتور...</td></tr>';
+
+        adminCompareRotation = 0;
+        adminCompareScale = 1;
+        updateAdminCompareImageTransform();
+
+        try {
+            const resp = await fetch('/api/invoice/' + invoiceId + '/details');
+            const res = await resp.json();
+            if (res.success && res.invoice) {
+                const inv = res.invoice;
+                document.getElementById('adminCompareInvNumberBadge').innerText = inv.invoice_number;
+                document.getElementById('adminCompareInvSubtitle').innerText = 'تاریخ ثبت: ' + inv.shamsi_date_time + ' | ' + (inv.status === 'proforma' ? 'پیش‌فاکتور' : (inv.invoice_type === 'return' ? 'مرجوعی' : 'فاکتور قطعی'));
+                document.getElementById('adminCompareCustName').innerText = inv.customer_name;
+                document.getElementById('adminCompareCustPhone').innerText = inv.customer_phone || '—';
+                document.getElementById('adminCompareSellerName').innerText = inv.seller_name || 'ثبت‌کننده سیستم';
+
+                const tbody = document.getElementById('adminCompareItemsTbody');
+                tbody.innerHTML = '';
+                document.getElementById('adminCompareItemsCount').innerText = (inv.items ? inv.items.length : 0) + ' قلم';
+
+                if (inv.items && inv.items.length) {
+                    inv.items.forEach(it => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-white/5';
+                        tr.innerHTML = `
+                            <td class="p-2 font-bold text-white">
+                                ${it.name}
+                                ${it.is_custom ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded mr-1">سفارشی</span>' : ''}
+                            </td>
+                            <td class="p-2 text-center font-bold text-slate-300">${it.quantity}</td>
+                            <td class="p-2 text-left font-mono text-slate-300">${Number(it.unit_sell_price).toLocaleString('en-US')} ت</td>
+                            <td class="p-2 text-left font-mono font-bold text-emerald-400">${Number(it.total_price).toLocaleString('en-US')} ت</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">ردیف کالایی ثبت نشده است.</td></tr>';
+                }
+
+                document.getElementById('adminCompareSubtotal').innerText = Number(inv.subtotal_amount || 0).toLocaleString('en-US') + ' تومان';
+                document.getElementById('adminCompareDiscount').innerText = Number(inv.discount_amount || 0).toLocaleString('en-US') + ' تومان';
+                document.getElementById('adminCompareGrandTotal').innerText = Number(inv.total_amount || 0).toLocaleString('en-US') + ' تومان';
+                document.getElementById('adminComparePaymentMethod').innerText = 'پرداخت: ' + (inv.payment_method || '—');
+                document.getElementById('adminCompareSettledStatus').innerText = inv.is_settled ? '✅ تسویه کامل' : ('⏳ مانده: ' + Number(inv.remaining_balance || 0).toLocaleString('en-US') + ' ت');
+                document.getElementById('adminCompareSettledStatus').className = inv.is_settled ? 'font-bold text-emerald-400' : 'font-bold text-rose-400';
+
+                if (inv.image_url) {
+                    const img = document.getElementById('adminComparePaperImg');
+                    img.src = inv.image_url;
+                    img.style.display = 'block';
+                    document.getElementById('adminCompareNoImgMsg').classList.add('hidden');
+                    document.getElementById('adminCompareDownloadLink').href = inv.image_url;
+                    document.getElementById('adminCompareDownloadLink').classList.remove('hidden');
+                } else {
+                    document.getElementById('adminComparePaperImg').style.display = 'none';
+                    document.getElementById('adminCompareNoImgMsg').classList.remove('hidden');
+                    document.getElementById('adminCompareDownloadLink').classList.add('hidden');
+                }
+            } else {
+                alert('خطا در دریافت اطلاعات فاکتور.');
+                closeAdminSideBySideCompare();
+            }
+        } catch (e) {
+            alert('خطای ارتباط با سرور: ' + e.message);
+            closeAdminSideBySideCompare();
+        }
+    }
+
+    function closeAdminSideBySideCompare() {
+        document.getElementById('adminSideBySideModal').classList.add('hidden');
+    }
+
+    function rotateAdminCompareImage() {
+        adminCompareRotation = (adminCompareRotation + 90) % 360;
+        updateAdminCompareImageTransform();
+    }
+
+    function zoomAdminCompareImage(factor) {
+        adminCompareScale = Math.max(0.5, Math.min(3.5, adminCompareScale * factor));
+        updateAdminCompareImageTransform();
+    }
+
+    function resetAdminCompareImage() {
+        adminCompareRotation = 0;
+        adminCompareScale = 1;
+        updateAdminCompareImageTransform();
+    }
+
+    function updateAdminCompareImageTransform() {
+        const img = document.getElementById('adminComparePaperImg');
+        if (img) {
+            img.style.transform = `rotate(${adminCompareRotation}deg) scale(${adminCompareScale})`;
+        }
+    }
 </script>
+
+<!-- مودال مقایسه دوطرفه برای مدیریت طهماسبی -->
+<div id="adminSideBySideModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 z-50 hidden">
+    <div class="bg-slate-900 border border-purple-500/30 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden text-white">
+        <!-- هدر مودال -->
+        <div class="bg-gradient-to-l from-purple-700 via-indigo-700 to-slate-900 p-4 sm:p-5 flex items-center justify-between border-b border-purple-500/30">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl p-2 bg-purple-500/20 rounded-2xl border border-purple-400/30">🔍</span>
+                <div>
+                    <h3 class="text-sm sm:text-base font-black flex items-center gap-2">
+                        <span>مغایرت‌گیری و مقایسه فاکتور سیستمی با عکس فاکتور دفتری (پنل مدیریت)</span>
+                        <span id="adminCompareInvNumberBadge" class="bg-white/10 text-purple-200 px-2.5 py-0.5 rounded-lg font-mono text-xs"></span>
+                    </h3>
+                    <p id="adminCompareInvSubtitle" class="text-xs text-purple-200/80 mt-0.5"></p>
+                </div>
+            </div>
+            <button type="button" onclick="closeAdminSideBySideCompare()" class="text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-xl text-xs font-bold transition">
+                ✕ بستن
+            </button>
+        </div>
+
+        <!-- بدنه دو ستونه -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
+            <!-- ستون راست: اطلاعات نرم‌افزار -->
+            <div class="lg:col-span-6 p-4 sm:p-5 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-l border-white/10 space-y-4">
+                <div class="flex items-center justify-between bg-slate-800/80 p-3 rounded-2xl border border-white/5">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block font-bold">خریدار:</span>
+                        <span id="adminCompareCustName" class="text-xs font-black text-white"></span>
+                        <span id="adminCompareCustPhone" class="text-[11px] font-mono text-slate-400 mr-2" dir="ltr"></span>
+                    </div>
+                    <div class="text-left">
+                        <span class="text-[10px] text-slate-400 block font-bold">فروشنده صادرکننده:</span>
+                        <span id="adminCompareSellerName" class="text-xs font-bold text-indigo-300"></span>
+                    </div>
+                </div>
+
+                <div class="border border-white/10 rounded-2xl overflow-hidden bg-slate-950/40">
+                    <div class="bg-slate-800/60 p-2.5 text-xs font-bold text-slate-300 border-b border-white/10 flex justify-between">
+                        <span>📋 اقلام ثبت‌شده در نرم‌افزار</span>
+                        <span id="adminCompareItemsCount" class="text-indigo-400 font-bold"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-800/40 text-[11px] text-slate-400 border-b border-white/5">
+                                <tr>
+                                    <th class="p-2">شرح کالا</th>
+                                    <th class="p-2 text-center">تعداد</th>
+                                    <th class="p-2 text-left">قیمت واحد</th>
+                                    <th class="p-2 text-left">جمع ردیف</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminCompareItemsTbody" class="divide-y divide-white/5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-white/5 space-y-2 text-xs">
+                    <div class="flex justify-between text-slate-300">
+                        <span>جمع کل اقلام:</span>
+                        <span id="adminCompareSubtotal" class="font-mono font-bold"></span>
+                    </div>
+                    <div class="flex justify-between text-rose-300">
+                        <span>تخفیف کل فاکتور:</span>
+                        <span id="adminCompareDiscount" class="font-mono font-bold"></span>
+                    </div>
+                    <div class="flex justify-between text-emerald-400 font-black text-sm pt-2 border-t border-white/10">
+                        <span>مبلغ نهایی فاکتور:</span>
+                        <span id="adminCompareGrandTotal" class="font-mono"></span>
+                    </div>
+                    <div class="pt-2 text-[11px] text-slate-400 border-t border-white/5 flex items-center justify-between">
+                        <span id="adminComparePaymentMethod"></span>
+                        <span id="adminCompareSettledStatus" class="font-bold"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ستون چپ: عکس فاکتور دفتری -->
+            <div class="lg:col-span-6 p-4 sm:p-5 flex flex-col bg-slate-950/70 overflow-hidden space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <span>📸</span> تصویر پیوست فاکتور دفتری / دست‌نویس
+                    </span>
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <button type="button" onclick="rotateAdminCompareImage()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-white/10" title="چرخش ۹۰ درجه">🔄 چرخش</button>
+                        <button type="button" onclick="zoomAdminCompareImage(1.2)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-white/10" title="بزرگ‌نمایی">➕</button>
+                        <button type="button" onclick="zoomAdminCompareImage(0.8)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-white/10" title="کوچک‌نمایی">➖</button>
+                        <button type="button" onclick="resetAdminCompareImage()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-white/10" title="ریست">↺</button>
+                        <a id="adminCompareDownloadLink" href="#" target="_blank" download class="bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 px-2.5 py-1 rounded-lg border border-purple-500/30 font-bold">⬇️ دانلود</a>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-auto custom-scrollbar bg-slate-900/90 rounded-2xl border border-white/10 p-2 flex items-center justify-center min-h-[300px] relative">
+                    <img id="adminComparePaperImg" src="" alt="فاکتور دستی" class="max-w-full max-h-full object-contain rounded-xl transition-transform duration-200 shadow-xl" style="transform-origin: center center;">
+                    <div id="adminCompareNoImgMsg" class="hidden text-center text-slate-400 p-8">
+                        <span class="text-3xl block mb-2">📷</span>
+                        تصویر فاکتور دفتری برای این سند بارگذاری نشده است.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 

@@ -12,3 +12,5 @@ ENV/
 *.zip
 static/uploads/avatars/*
 !static/uploads/avatars/.gitkeep
+static/uploads/invoices/*
+!static/uploads/invoices/.gitkeep

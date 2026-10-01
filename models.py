@@ -113,6 +113,8 @@ class Settings(db.Model):
     sms_template_id = db.Column(db.String(50), default='355952')
     sms_enabled = db.Column(db.Boolean, default=True)
     public_domain = db.Column(db.String(100), default='tahmasebistore.ir')
+    gemini_api_key = db.Column(db.String(255), nullable=True) # کلید API گوگل هوش مصنوعی (Google AI Studio)
+    gemini_model = db.Column(db.String(50), default='gemini-2.5-flash') # مدل پیش‌فرض هوش مصنوعی
 
 
 class BankAccount(db.Model):
@@ -282,6 +284,7 @@ class Invoice(db.Model):
     has_custom_items = db.Column(db.Boolean, default=False, index=True) # آیا فاکتور دارای اقلام سفارشی/خارج از کاتالوگ است
     sms_sent = db.Column(db.Boolean, default=False) # آیا پیامک گارانتی ارسال شده است
     sms_sent_at = db.Column(db.String(40), nullable=True) # زمان ارسال پیامک
+    paper_invoice_image = db.Column(db.String(255), nullable=True) # نام فایل عکس فاکتور کاغذی/دفتری
     seller = db.relationship('User', foreign_keys=[seller_id])
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')

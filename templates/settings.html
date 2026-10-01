@@ -73,6 +73,9 @@
             <button type="button" onclick="switchSettingsTab('sms')" id="tabBtn_sms" class="settings-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-400 hover:text-white">
                 <span>📱</span> سامانه پیامک خدماتی
             </button>
+            <button type="button" onclick="switchSettingsTab('ai')" id="tabBtn_ai" class="settings-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-400 hover:text-white">
+                <span>🤖</span> هوش مصنوعی (Google AI)
+            </button>
         </div>
 
         <!-- Master Form -->
@@ -256,6 +259,50 @@
                 </div>
             </div>
 
+            <!-- TAB 6: Google AI Pro / Gemini Settings -->
+            <div id="tabContent_ai" class="settings-tab-pane hidden space-y-4">
+                <div class="bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900 p-5 rounded-2xl border border-purple-500/25 space-y-4 shadow-xl">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <h4 class="text-sm font-black text-purple-300 flex items-center gap-2">
+                            <span>🤖</span> اتصال به هوش مصنوعی Google AI (اکانت Pro / Gemini Vision)
+                        </h4>
+                        <span class="text-[11px] bg-purple-500/15 text-purple-200 px-3 py-1 rounded-full border border-purple-500/30 font-bold">
+                            ویژه اسکن هوشمند فاکتور دفتری
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        با اتصال به هوش مصنوعی Google AI Pro، فروشندگان می‌توانند با دوربین موبایل از فاکتورهای دست‌نویس یا چاپی عکس بگیرند. سیستم به صورت خودکار اقلام، تعداد، قیمت واحد، پکیج‌های ترکیبی (مثل کابینت با سنگ) و تخفیف‌ها را خوانده و در جدول فاکتور می‌چیند.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">کلید اختصاصی Google AI Studio API Key</label>
+                            <div class="relative">
+                                <input type="password" id="gemini_api_key_input" name="gemini_api_key" value="{{ settings.gemini_api_key or '' }}" placeholder="AIzaSy..." class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs font-mono text-purple-300 outline-none focus:border-purple-500 pl-10" dir="ltr">
+                                <button type="button" onclick="togglePasswordVisibility('gemini_api_key_input')" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1">👁️</button>
+                            </div>
+                            <span class="text-[11px] text-slate-400 block mt-1">از بخش <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-purple-400 underline font-bold">Google AI Studio</a> کلید خود را دریافت و وارد نمایید.</span>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">مدل انتخابی هوش مصنوعی (Vision Engine)</label>
+                            <select name="gemini_model" id="gemini_model_select" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs font-bold text-white outline-none focus:border-purple-500">
+                                <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' or not settings.gemini_model %}selected{% endif %}>Gemini 2.5 Flash (پیشنهادی - نهایت سرعت و دقت بالا)</option>
+                                <option value="gemini-1.5-pro" {% if settings.gemini_model == 'gemini-1.5-pro' %}selected{% endif %}>Gemini 1.5 Pro (قدرتمندترین مدل برای دست‌خط‌های دشوار و شلوغ)</option>
+                                <option value="gemini-1.5-flash" {% if settings.gemini_model == 'gemini-1.5-flash' %}selected{% endif %}>Gemini 1.5 Flash (اقتصادی و سبک)</option>
+                            </select>
+                            <span class="text-[11px] text-slate-400 block mt-1">مدل پردازش چندوجهی بینایی ماشین گوگل</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-white/10 flex items-center justify-between flex-wrap gap-3">
+                        <button type="button" onclick="testGeminiConnection()" id="btnTestGemini" class="bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg">
+                            <span>⚡</span> تست اتصال و اعتبارسنجی کلید Google AI
+                        </button>
+                        <div id="geminiTestResult" class="text-xs font-bold hidden"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Submit Button Bar -->
             <div class="pt-5 border-t border-white/10 flex justify-between items-center mt-6">
                 <span class="text-[11px] text-slate-400">تمامی تغییرات بلافاصله در کل بخش‌ها و فاکتورها اعمال خواهند شد.</span>
@@ -384,6 +431,51 @@
     }
     function closeEditShopModal() {
         document.getElementById('editShopModal').classList.add('hidden');
+    }
+
+    function togglePasswordVisibility(inputId) {
+        const inp = document.getElementById(inputId);
+        if (inp) {
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+        }
+    }
+
+    async function testGeminiConnection() {
+        const apiKey = document.getElementById('gemini_api_key_input').value.trim();
+        const model = document.getElementById('gemini_model_select').value;
+        const resDiv = document.getElementById('geminiTestResult');
+        const btn = document.getElementById('btnTestGemini');
+
+        if (!apiKey) {
+            alert('لطفاً ابتدا کلید API گوگل را وارد نمایید.');
+            return;
+        }
+
+        resDiv.classList.remove('hidden');
+        resDiv.className = 'text-xs font-bold text-amber-300 flex items-center gap-1.5';
+        resDiv.innerHTML = '<span class="inline-block animate-spin">⏳</span> در حال ارسال پیام تست به Google AI...';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/api/ai/test_gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gemini_api_key: apiKey, gemini_model: model })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                resDiv.className = 'text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20';
+                resDiv.innerHTML = '✅ ' + data.message;
+            } else {
+                resDiv.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20';
+                resDiv.innerHTML = '❌ ' + (data.message || 'خطا در ارتباط با سرور گوگل');
+            }
+        } catch (err) {
+            resDiv.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20';
+            resDiv.innerHTML = '❌ خطای شبکه: ' + err.message;
+        } finally {
+            btn.disabled = false;
+        }
     }
 </script>
 {% endblock %}

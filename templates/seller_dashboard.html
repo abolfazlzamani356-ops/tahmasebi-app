@@ -126,7 +126,7 @@
             <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded-xl">متصل به انبار زنده</span>
         </h3>
 
-        <form method="POST" action="{{ url_for('add_invoice') }}" onsubmit="return handleInvoiceSubmit(this)" id="mainInvoiceForm">
+        <form method="POST" action="{{ url_for('add_invoice') }}" onsubmit="return handleInvoiceSubmit(this)" id="mainInvoiceForm" enctype="multipart/form-data">
             {% if user.role == 'admin' and all_shops %}
             <div class="mb-3 bg-amber-50/80 p-2.5 rounded-2xl border border-amber-200">
                 <label class="block text-[11px] font-bold text-amber-900 mb-1">🏬 ثبت فاکتور به نام شعبه (مختص مدیریت):</label>
@@ -205,15 +205,67 @@
                 </div>
             </div>
 
+            <!-- باکس آپلود و اسکن هوشمند فاکتور دفتری با هوش مصنوعی -->
+            <div class="mb-4 bg-gradient-to-r from-purple-950/25 via-slate-900/40 to-indigo-950/25 p-3.5 rounded-2xl border border-purple-500/25 space-y-2.5 shadow-sm">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <label class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <span>📸</span> پیوست و اسکن خودکار فاکتور دفتری:
+                    </label>
+                    <span class="text-[10px] bg-purple-500/15 text-purple-200 px-2 py-0.5 rounded-lg border border-purple-500/30 font-bold">
+                        هوش مصنوعی Google AI ✨
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    <input type="file" id="paperInvoiceFileInput" name="paper_invoice_image" accept="image/*" capture="environment" class="hidden" onchange="handlePaperInvoiceSelected(this)">
+                    <input type="hidden" name="existing_paper_image" id="existingPaperImageInput" value="">
+                    
+                    <button type="button" onclick="document.getElementById('paperInvoiceFileInput').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                        <span>📷</span> انتخاب / عکس از فاکتور دفتری
+                    </button>
+
+                    <button type="button" onclick="triggerAIScan()" id="btnTriggerAIScan" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-purple-600/20">
+                        <span>✨</span> اسکن با هوش مصنوعی (چیدن اقلام)
+                    </button>
+                </div>
+
+                <!-- وضعیت پیش‌نمایش تصویر و اسکن -->
+                <div id="paperInvoicePreviewContainer" class="hidden items-center justify-between bg-slate-950/60 p-2 rounded-xl border border-white/10">
+                    <div class="flex items-center gap-2">
+                        <img id="paperInvoiceThumb" src="" alt="فاکتور دفتری" class="w-12 h-12 object-cover rounded-lg border border-purple-500/40 cursor-pointer shadow" onclick="openPaperInvoiceZoom(this.src)">
+                        <div>
+                            <span id="paperInvoiceFileName" class="text-[11px] font-mono text-slate-200 block truncate max-w-[170px]">تصویر انتخاب شد</span>
+                            <span id="paperInvoiceScanStatus" class="text-[10px] text-emerald-400 font-bold block">آماده اسکن یا ذخیره در فاکتور</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="openPaperInvoiceZoom(document.getElementById('paperInvoiceThumb').src)" class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded bg-blue-500/10 font-bold" title="بزرگنمایی">🔍 مشاهده</button>
+                        <button type="button" onclick="removePaperInvoiceSelected()" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded bg-rose-500/10 font-bold" title="حذف عکس">✕ حذف</button>
+                    </div>
+                </div>
+
+                <!-- لودینگ متحرک اسکن هوش مصنوعی -->
+                <div id="aiScanLoading" class="hidden bg-purple-950/50 p-3 rounded-xl border border-purple-500/30 text-center space-y-1">
+                    <div class="inline-block animate-spin text-purple-300 text-base">⏳</div>
+                    <div class="text-xs font-bold text-purple-200">هوش مصنوعی در حال تحلیل دست‌خط، اقلام ترکیبی و قیمت‌ها است...</div>
+                    <div class="text-[10px] text-purple-300/80">اقلام تکی و پکیج‌های ترکیبی (مانند کابینت با سنگ) به طور هوشمند تفکیک می‌شوند</div>
+                </div>
+            </div>
+
             <!-- بخش اقلام فاکتور با تعداد و دسته دلخواه -->
             <div class="mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                <div class="flex justify-between items-center mb-2.5">
+                <div class="flex justify-between items-center mb-2.5 flex-wrap gap-2">
                     <label class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <span>📦</span> اقلام و تعداد کالاهای فاکتور (کسر آنی انبار):
                     </label>
-                    <button type="button" onclick="addInvoiceItemRow()" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-xl transition shadow">
-                        ➕ افزودن ردیف کالا
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="addInvoiceItemRow()" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-xl transition shadow">
+                            ➕ ردیف کالا
+                        </button>
+                        <button type="button" onclick="addComboItemRow()" class="text-[11px] bg-purple-600 hover:bg-purple-700 text-white font-bold px-2.5 py-1 rounded-xl transition shadow flex items-center gap-1" title="افزودن پکیج ترکیبی مثل کابین+سنگ یا ست شیرآلات با یک قیمت کل">
+                            <span>✨</span> پکیج ترکیبی (کابین+سنگ / ست)
+                        </button>
+                    </div>
                 </div>
 
                 <!-- ورودی بارکدخوان سریع کالا با صدای بیپ و ثبت آنی -->
@@ -666,6 +718,11 @@
                                 💰 تسویه مانده
                             </button>
                             {% endif %}
+                            {% if inv.paper_invoice_image %}
+                            <button type="button" onclick="openSideBySideCompare({{ inv.id }})" class="text-purple-700 hover:text-purple-900 font-bold text-[11px] bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2 py-1 rounded-lg transition flex items-center gap-1 shadow-sm" title="مقایسه فاکتور سیستمی با عکس فاکتور دفتری">
+                                <span>📸</span> مقایسه دفتری
+                            </button>
+                            {% endif %}
                             <a href="{{ url_for('edit_invoice', invoice_id=inv.id) }}" class="text-blue-600 hover:text-blue-800 font-bold text-[11px] bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition">✏️ ویرایش</a>
                             <a href="{{ url_for('print_invoice_a4', invoice_id=inv.id) }}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-bold text-[11px] bg-indigo-50 px-2 py-1 rounded-lg">🖨️ A4</a>
                             <a href="{{ url_for('print_invoice_thermal', invoice_id=inv.id) }}" target="_blank" class="text-slate-700 hover:text-slate-900 font-bold text-[11px] bg-slate-100 px-2 py-1 rounded-lg">🧾 فیش</a>
@@ -810,6 +867,11 @@
                     </td>
                     <td class="p-3 text-center">
                         <div class="flex items-center justify-center gap-1.5">
+                            {% if cinv.paper_invoice_image %}
+                            <button type="button" onclick="openSideBySideCompare({{ cinv.id }})" class="text-purple-300 hover:text-purple-100 font-bold text-[11px] bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 px-2.5 py-1 rounded-xl transition flex items-center gap-1" title="مقایسه با عکس فاکتور دفتری">
+                                <span>📸</span> مقایسه دفتری
+                            </button>
+                            {% endif %}
                             <a href="{{ url_for('edit_invoice', invoice_id=cinv.id) }}" class="text-blue-400 hover:text-blue-300 font-bold text-[11px] bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-xl transition">✏️ ویرایش</a>
                             <a href="{{ url_for('print_invoice_a4', invoice_id=cinv.id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-bold text-[11px] bg-indigo-500/10 px-2.5 py-1 rounded-xl border border-indigo-500/30">🖨️ چاپ</a>
                         </div>
@@ -874,6 +936,120 @@
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- مودال مقایسه دوطرفه فاکتور سیستمی با تصویر فاکتور دفتری/دست‌نویس -->
+<div id="sideBySideModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 z-50 hidden">
+    <div class="bg-slate-900 border border-purple-500/30 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden text-white">
+        <!-- هدر مودال -->
+        <div class="bg-gradient-to-l from-purple-700 via-indigo-700 to-slate-900 p-4 sm:p-5 flex items-center justify-between border-b border-purple-500/30">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl p-2 bg-purple-500/20 rounded-2xl border border-purple-400/30">🔍</span>
+                <div>
+                    <h3 class="text-sm sm:text-base font-black flex items-center gap-2">
+                        <span>مقایسه دقیق فاکتور سیستمی با دست‌خط / برگه فاکتور دفتری</span>
+                        <span id="compareInvNumberBadge" class="bg-white/10 text-purple-200 px-2.5 py-0.5 rounded-lg font-mono text-xs"></span>
+                    </h3>
+                    <p id="compareInvSubtitle" class="text-xs text-purple-200/80 mt-0.5"></p>
+                </div>
+            </div>
+            <button type="button" onclick="closeSideBySideCompare()" class="text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-xl text-xs font-bold transition">
+                ✕ بستن
+            </button>
+        </div>
+
+        <!-- بدنه دو ستونه (Side-by-Side) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
+            <!-- ستون سمت راست: اقلام و اطلاعات ثبت‌شده در سیستم -->
+            <div class="lg:col-span-6 p-4 sm:p-5 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-l border-white/10 space-y-4">
+                <div class="flex items-center justify-between bg-slate-800/80 p-3 rounded-2xl border border-white/5">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block font-bold">خریدار:</span>
+                        <span id="compareCustName" class="text-xs font-black text-white"></span>
+                        <span id="compareCustPhone" class="text-[11px] font-mono text-slate-400 mr-2" dir="ltr"></span>
+                    </div>
+                    <div class="text-left">
+                        <span class="text-[10px] text-slate-400 block font-bold">فروشنده ثبت‌کننده:</span>
+                        <span id="compareSellerName" class="text-xs font-bold text-indigo-300"></span>
+                    </div>
+                </div>
+
+                <!-- جدول اقلام دیجیتال -->
+                <div class="border border-white/10 rounded-2xl overflow-hidden bg-slate-950/40">
+                    <div class="bg-slate-800/60 p-2.5 text-xs font-bold text-slate-300 border-b border-white/10 flex justify-between">
+                        <span>📋 اقلام ثبت‌شده در نرم‌افزار</span>
+                        <span id="compareItemsCount" class="text-indigo-400 font-bold"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-800/40 text-[11px] text-slate-400 border-b border-white/5">
+                                <tr>
+                                    <th class="p-2">شرح کالا</th>
+                                    <th class="p-2 text-center">تعداد</th>
+                                    <th class="p-2 text-left">قیمت واحد</th>
+                                    <th class="p-2 text-left">جمع ردیف</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compareItemsTbody" class="divide-y divide-white/5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- خلاصه مالی فاکتور -->
+                <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-white/5 space-y-2 text-xs">
+                    <div class="flex justify-between text-slate-300">
+                        <span>جمع کل اقلام:</span>
+                        <span id="compareSubtotal" class="font-mono font-bold"></span>
+                    </div>
+                    <div class="flex justify-between text-rose-300">
+                        <span>تخفیف کل فاکتور:</span>
+                        <span id="compareDiscount" class="font-mono font-bold"></span>
+                    </div>
+                    <div class="flex justify-between text-emerald-400 font-black text-sm pt-2 border-t border-white/10">
+                        <span>مبلغ نهایی فاکتور:</span>
+                        <span id="compareGrandTotal" class="font-mono"></span>
+                    </div>
+                    <div class="pt-2 text-[11px] text-slate-400 border-t border-white/5 flex items-center justify-between">
+                        <span id="comparePaymentMethod"></span>
+                        <span id="compareSettledStatus" class="font-bold"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ستون سمت چپ: تصویر برگه فاکتور دفتری با ابزارهای زوم و چرخش -->
+            <div class="lg:col-span-6 p-4 sm:p-5 flex flex-col bg-slate-950/70 overflow-hidden space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <span>📸</span> تصویر برگه فاکتور دفتری / دست‌نویس
+                    </span>
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <button type="button" onclick="rotateCompareImage()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-white/10" title="چرخش تصویر ۹۰ درجه">🔄 چرخش</button>
+                        <button type="button" onclick="zoomCompareImage(1.2)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-white/10" title="بزرگ‌نمایی">➕</button>
+                        <button type="button" onclick="zoomCompareImage(0.8)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-white/10" title="کوچک‌نمایی">➖</button>
+                        <button type="button" onclick="resetCompareImage()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-lg border border-white/10" title="ریست">↺</button>
+                        <a id="compareDownloadLink" href="#" target="_blank" download class="bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 px-2.5 py-1 rounded-lg border border-purple-500/30 font-bold" title="دانلود تصویر با کیفیت اصلی">⬇️ دانلود</a>
+                    </div>
+                </div>
+
+                <!-- نمایشگر تصویر اسکرول‌شونده و قابل زوم -->
+                <div class="flex-1 overflow-auto custom-scrollbar bg-slate-900/90 rounded-2xl border border-white/10 p-2 flex items-center justify-center min-h-[300px] relative">
+                    <img id="comparePaperImg" src="" alt="فاکتور دستی" class="max-w-full max-h-full object-contain rounded-xl transition-transform duration-200 shadow-xl" style="transform-origin: center center;">
+                    <div id="compareNoImgMsg" class="hidden text-center text-slate-400 p-8">
+                        <span class="text-3xl block mb-2">📷</span>
+                        تصویر فاکتور دفتری برای این سند بارگذاری نشده است.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مودال تمام‌صفحه پیش‌نمایش تصویر فاکتور دفتری -->
+<div id="paperInvoiceZoomModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden" onclick="closePaperInvoiceZoom()">
+    <div class="relative max-w-4xl max-h-[90vh] p-2" onclick="event.stopPropagation()">
+        <button type="button" onclick="closePaperInvoiceZoom()" class="absolute -top-3 -left-3 bg-rose-600 hover:bg-rose-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-lg">✕</button>
+        <img id="paperInvoiceZoomImg" src="" alt="بزرگنمایی فاکتور دفتری" class="max-w-full max-h-[85vh] object-contain rounded-2xl border-2 border-purple-500/40 shadow-2xl">
     </div>
 </div>
 
@@ -1116,6 +1292,300 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         if (badge) badge.classList.add('hidden');
         container.appendChild(newRow);
         calcTotal();
+    }
+
+    function addComboItemRow() {
+        addInvoiceItemRow();
+        const rows = document.querySelectorAll('.item-row');
+        const newRow = rows[rows.length - 1];
+        const nameInp = newRow.querySelector('.item-name');
+        const catInp = newRow.querySelector('.item-cat');
+        if (nameInp) {
+            nameInp.placeholder = '✨ نام پکیج ترکیبی (مثلاً: کابین ۶۰ + سنگ مروارید / ست شیرآلات)...';
+            nameInp.focus();
+        }
+        if (catInp) catInp.value = 'روشویی کابینتی';
+    }
+
+    function handlePaperInvoiceSelected(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const previewCont = document.getElementById('paperInvoicePreviewContainer');
+        const thumb = document.getElementById('paperInvoiceThumb');
+        const fileNameSpan = document.getElementById('paperInvoiceFileName');
+        const statusSpan = document.getElementById('paperInvoiceScanStatus');
+
+        fileNameSpan.innerText = file.name;
+        statusSpan.innerText = 'تصویر آماده است (می‌توانید اسکن هوشمند را بزنید)';
+        statusSpan.className = 'text-[10px] text-amber-300 font-bold block';
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            thumb.src = e.target.result;
+            previewCont.classList.remove('hidden');
+            previewCont.classList.add('flex');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removePaperInvoiceSelected() {
+        const fileInp = document.getElementById('paperInvoiceFileInput');
+        const existInp = document.getElementById('existingPaperImageInput');
+        const previewCont = document.getElementById('paperInvoicePreviewContainer');
+        if (fileInp) fileInp.value = '';
+        if (existInp) existInp.value = '';
+        if (previewCont) {
+            previewCont.classList.add('hidden');
+            previewCont.classList.remove('flex');
+        }
+    }
+
+    function openPaperInvoiceZoom(src) {
+        if (!src) return;
+        const modal = document.getElementById('paperInvoiceZoomModal');
+        const img = document.getElementById('paperInvoiceZoomImg');
+        img.src = src;
+        modal.classList.remove('hidden');
+    }
+
+    function closePaperInvoiceZoom() {
+        const modal = document.getElementById('paperInvoiceZoomModal');
+        modal.classList.add('hidden');
+    }
+
+    async function triggerAIScan() {
+        const fileInp = document.getElementById('paperInvoiceFileInput');
+        const existInp = document.getElementById('existingPaperImageInput');
+        const loadingBox = document.getElementById('aiScanLoading');
+        const btn = document.getElementById('btnTriggerAIScan');
+        const statusSpan = document.getElementById('paperInvoiceScanStatus');
+
+        if (!fileInp.files || !fileInp.files[0]) {
+            alert('لطفاً ابتدا با دکمه دوربین یا انتخاب فایل، عکس فاکتور دفتری را انتخاب فرمایید.');
+            fileInp.click();
+            return;
+        }
+
+        const file = fileInp.files[0];
+        const formData = new FormData();
+        formData.append('invoice_image', file);
+
+        loadingBox.classList.remove('hidden');
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+
+        try {
+            const resp = await fetch('/api/ai/scan_invoice', {
+                method: 'POST',
+                body: formData
+            });
+            const res = await resp.json();
+
+            if (res.success && res.data) {
+                if (res.saved_filename) {
+                    existInp.value = res.saved_filename;
+                }
+                applyAIScanData(res.data);
+                statusSpan.innerText = '✅ با موفقیت توسط هوش مصنوعی اسکن و اقلام چیده شد';
+                statusSpan.className = 'text-[10px] text-emerald-400 font-bold block';
+                alert('✨ فاکتور دفتری با موفقیت توسط Google AI خوانده شد!\nتعداد ' + (res.data.items ? res.data.items.length : 0) + ' قلم کالا در جدول فاکتور قرار گرفت. لطفاً ارقام را بررسی و تأیید نمایید.');
+            } else if (res.error === 'no_api_key') {
+                statusSpan.innerText = '⚠️ کلید هوش مصنوعی ثبت نشده است (عکس پیوست شد)';
+                statusSpan.className = 'text-[10px] text-amber-400 font-bold block';
+                if (res.saved_filename) existInp.value = res.saved_filename;
+                alert('⚠️ ' + (res.message || 'کلید Google AI Studio در سیستم ثبت نشده است.'));
+            } else {
+                statusSpan.innerText = '❌ خطا در تحلیل فاکتور با هوش مصنوعی';
+                statusSpan.className = 'text-[10px] text-rose-400 font-bold block';
+                if (res.saved_filename) existInp.value = res.saved_filename;
+                alert('خطا در اسکن هوشمند: ' + (res.message || 'پاسخی از هوش مصنوعی دریافت نشد.'));
+            }
+        } catch (err) {
+            statusSpan.innerText = '❌ خطای ارتباط با سرور';
+            statusSpan.className = 'text-[10px] text-rose-400 font-bold block';
+            alert('خطای ارتباط با سرور در اسکن هوشمند: ' + err.message);
+        } finally {
+            loadingBox.classList.add('hidden');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        }
+    }
+
+    function applyAIScanData(data) {
+        if (!data) return;
+        
+        // ۱. نام و شماره خریدار
+        if (data.customer_name) {
+            const custInp = document.getElementById('custNameInput');
+            if (custInp) custInp.value = data.customer_name;
+        }
+        if (data.customer_phone) {
+            const phoneInp = document.getElementById('custPhoneInput');
+            if (phoneInp) phoneInp.value = data.customer_phone;
+        }
+
+        // ۲. اقلام استخراج شده
+        if (data.items && data.items.length > 0) {
+            const container = document.getElementById('invoiceItemsContainer');
+            const existingRows = container.querySelectorAll('.item-row');
+            existingRows.forEach((r, idx) => {
+                if (idx > 0) r.remove();
+            });
+
+            data.items.forEach((item, idx) => {
+                let row;
+                if (idx === 0) {
+                    row = container.querySelector('.item-row');
+                } else {
+                    addInvoiceItemRow();
+                    const allRows = container.querySelectorAll('.item-row');
+                    row = allRows[allRows.length - 1];
+                }
+
+                const nameInp = row.querySelector('.item-name');
+                const catInp = row.querySelector('.item-cat');
+                const qtyInp = row.querySelector('.item-qty');
+                const priceInp = row.querySelector('.item-price');
+                const origPriceInp = row.querySelector('.item-orig-price');
+                const discInp = row.querySelector('.item-discount-pct');
+
+                if (nameInp) nameInp.value = item.name || '';
+                if (catInp) catInp.value = item.category || 'عمومی';
+                if (qtyInp) qtyInp.value = item.quantity || 1;
+                
+                const up = item.unit_price || 0;
+                if (priceInp) priceInp.value = up > 0 ? Number(up).toLocaleString('en-US') : '';
+                if (origPriceInp) origPriceInp.value = up > 0 ? Number(up).toLocaleString('en-US') : '';
+                if (discInp) discInp.value = item.discount > 0 ? item.discount : '';
+
+                onPriceOrDiscountChange(priceInp || origPriceInp, 'price');
+            });
+        }
+
+        // ۳. تخفیف و جمع نهایی
+        if (data.discount_amount && data.discount_amount > 0) {
+            const discElem = document.getElementById('manualDiscountInput');
+            if (discElem) {
+                discElem.value = Number(data.discount_amount).toLocaleString('en-US');
+            }
+        }
+
+        calcTotal();
+
+        if (data.grand_total && data.grand_total > 0) {
+            const totalElem = document.getElementById('manualTotalInput');
+            if (totalElem) {
+                totalElem.value = Number(data.grand_total).toLocaleString('en-US');
+                onManualTotalInput(totalElem);
+            }
+        }
+    }
+
+    let currentCompareRotation = 0;
+    let currentCompareScale = 1;
+
+    async function openSideBySideCompare(invoiceId) {
+        const modal = document.getElementById('sideBySideModal');
+        modal.classList.remove('hidden');
+        
+        document.getElementById('compareInvNumberBadge').innerText = '...در حال دریافت';
+        document.getElementById('comparePaperImg').src = '';
+        document.getElementById('comparePaperImg').style.display = 'none';
+        document.getElementById('compareNoImgMsg').classList.add('hidden');
+        document.getElementById('compareItemsTbody').innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">در حال بارگذاری اطلاعات فاکتور...</td></tr>';
+
+        currentCompareRotation = 0;
+        currentCompareScale = 1;
+        updateCompareImageTransform();
+
+        try {
+            const resp = await fetch('/api/invoice/' + invoiceId + '/details');
+            const res = await resp.json();
+            if (res.success && res.invoice) {
+                const inv = res.invoice;
+                document.getElementById('compareInvNumberBadge').innerText = inv.invoice_number;
+                document.getElementById('compareInvSubtitle').innerText = 'تاریخ ثبت: ' + inv.shamsi_date_time + ' | ' + (inv.status === 'proforma' ? 'پیش‌فاکتور' : (inv.invoice_type === 'return' ? 'مرجوعی' : 'فاکتور قطعی'));
+                document.getElementById('compareCustName').innerText = inv.customer_name;
+                document.getElementById('compareCustPhone').innerText = inv.customer_phone || '—';
+                document.getElementById('compareSellerName').innerText = inv.seller_name || 'ثبت‌کننده سیستم';
+
+                const tbody = document.getElementById('compareItemsTbody');
+                tbody.innerHTML = '';
+                document.getElementById('compareItemsCount').innerText = (inv.items ? inv.items.length : 0) + ' قلم';
+
+                if (inv.items && inv.items.length) {
+                    inv.items.forEach(it => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-white/5';
+                        tr.innerHTML = `
+                            <td class="p-2 font-bold text-white">
+                                ${it.name}
+                                ${it.is_custom ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded mr-1">سفارشی</span>' : ''}
+                            </td>
+                            <td class="p-2 text-center font-bold text-slate-300">${it.quantity}</td>
+                            <td class="p-2 text-left font-mono text-slate-300">${Number(it.unit_sell_price).toLocaleString('en-US')} ت</td>
+                            <td class="p-2 text-left font-mono font-bold text-emerald-400">${Number(it.total_price).toLocaleString('en-US')} ت</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">ردیف کالایی ثبت نشده است.</td></tr>';
+                }
+
+                document.getElementById('compareSubtotal').innerText = Number(inv.subtotal_amount || 0).toLocaleString('en-US') + ' تومان';
+                document.getElementById('compareDiscount').innerText = Number(inv.discount_amount || 0).toLocaleString('en-US') + ' تومان';
+                document.getElementById('compareGrandTotal').innerText = Number(inv.total_amount || 0).toLocaleString('en-US') + ' تومان';
+                document.getElementById('comparePaymentMethod').innerText = 'پرداخت: ' + (inv.payment_method || '—');
+                document.getElementById('compareSettledStatus').innerText = inv.is_settled ? '✅ تسویه کامل' : ('⏳ مانده: ' + Number(inv.remaining_balance || 0).toLocaleString('en-US') + ' ت');
+                document.getElementById('compareSettledStatus').className = inv.is_settled ? 'font-bold text-emerald-400' : 'font-bold text-rose-400';
+
+                if (inv.image_url) {
+                    const img = document.getElementById('comparePaperImg');
+                    img.src = inv.image_url;
+                    img.style.display = 'block';
+                    document.getElementById('compareNoImgMsg').classList.add('hidden');
+                    document.getElementById('compareDownloadLink').href = inv.image_url;
+                    document.getElementById('compareDownloadLink').classList.remove('hidden');
+                } else {
+                    document.getElementById('comparePaperImg').style.display = 'none';
+                    document.getElementById('compareNoImgMsg').classList.remove('hidden');
+                    document.getElementById('compareDownloadLink').classList.add('hidden');
+                }
+            } else {
+                alert('خطا در دریافت اطلاعات فاکتور.');
+                closeSideBySideCompare();
+            }
+        } catch (e) {
+            alert('خطای ارتباط با سرور: ' + e.message);
+            closeSideBySideCompare();
+        }
+    }
+
+    function closeSideBySideCompare() {
+        document.getElementById('sideBySideModal').classList.add('hidden');
+    }
+
+    function rotateCompareImage() {
+        currentCompareRotation = (currentCompareRotation + 90) % 360;
+        updateCompareImageTransform();
+    }
+
+    function zoomCompareImage(factor) {
+        currentCompareScale = Math.max(0.5, Math.min(3.5, currentCompareScale * factor));
+        updateCompareImageTransform();
+    }
+
+    function resetCompareImage() {
+        currentCompareRotation = 0;
+        currentCompareScale = 1;
+        updateCompareImageTransform();
+    }
+
+    function updateCompareImageTransform() {
+        const img = document.getElementById('comparePaperImg');
+        if (img) {
+            img.style.transform = `rotate(${currentCompareRotation}deg) scale(${currentCompareScale})`;
+        }
     }
 
     function removeInvoiceItemRow(btn) {

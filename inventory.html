@@ -1756,30 +1756,53 @@
         if (targetInp) targetInp.value = target;
 
         const modal = document.getElementById('aiBoxScanModal');
-        if (modal) modal.classList.remove('hidden');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            modal.style.zIndex = '99999';
+        }
 
         const promptDiv = document.getElementById('aiBoxUploadPrompt');
         const prevCont = document.getElementById('aiBoxPreviewContainer');
         const statusDiv = document.getElementById('aiBoxScanningStatus');
         const fileInp = document.getElementById('aiBoxFileInput');
 
-        if (fileInp) fileInp.value = '';
         if (promptDiv) promptDiv.classList.remove('hidden');
         if (prevCont) {
             prevCont.classList.add('hidden');
             prevCont.classList.remove('flex');
         }
         if (statusDiv) statusDiv.classList.add('hidden');
+
+        if (fileInp) {
+            fileInp.value = '';
+            // باز کردن مستقیم و فوری دوربین یا گالری برای راحتی کاربر
+            try {
+                fileInp.click();
+            } catch(e) {
+                console.log('Direct click fallback:', e);
+            }
+        }
     }
 
     function closeAiBoxScanModal() {
         const modal = document.getElementById('aiBoxScanModal');
-        if (modal) modal.classList.add('hidden');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
     }
 
     function processAiBoxScan(input) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
+
+        const modal = document.getElementById('aiBoxScanModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            modal.style.zIndex = '99999';
+        }
 
         const promptDiv = document.getElementById('aiBoxUploadPrompt');
         const prevCont = document.getElementById('aiBoxPreviewContainer');
@@ -1808,7 +1831,15 @@
             method: 'POST',
             body: formData
         })
-        .then(res => res.json())
+        .then(async res => {
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                return await res.json();
+            } else {
+                const text = await res.text();
+                return { success: false, message: 'پاسخ سرور در قالب نامعتبر دریافت شد (' + res.status + ')' };
+            }
+        })
         .then(resp => {
             if (statusDiv) statusDiv.classList.add('hidden');
             if (resp.success && resp.data) {
@@ -1820,22 +1851,27 @@
                     const invModal = document.getElementById('inventoryModal');
                     if (invModal) {
                         invModal.classList.remove('hidden');
+                        invModal.style.display = 'flex';
                         const nameInp = invModal.querySelector('input[name="name"]');
-                        const catSelect = invModal.querySelector('select[name="category"]');
+                        const catInp = invModal.querySelector('input[name="category"]') || invModal.querySelector('select[name="category"]');
                         const buyInp = invModal.querySelector('input[name="buy_price"]');
                         const sellInp = invModal.querySelector('input[name="sell_price"]');
                         const qtyInp = invModal.querySelector('input[name="stock_quantity"]');
 
-                        if (nameInp) nameInp.value = d.name || '';
-                        if (buyInp && d.buy_price) buyInp.value = Number(d.buy_price).toLocaleString('en-US');
-                        if (sellInp && d.sell_price) sellInp.value = Number(d.sell_price).toLocaleString('en-US');
-                        if (qtyInp && d.stock_quantity) qtyInp.value = d.stock_quantity;
-                        if (catSelect && d.category) {
-                            for (let opt of catSelect.options) {
-                                if (opt.value === d.category || opt.text.includes(d.category)) {
-                                    opt.selected = true;
-                                    break;
+                        if (nameInp && d.name) nameInp.value = d.name;
+                        if (buyInp && d.buy_price) buyInp.value = parseInt(d.buy_price) || 0;
+                        if (sellInp && d.sell_price) sellInp.value = parseInt(d.sell_price) || 0;
+                        if (qtyInp && d.stock_quantity) qtyInp.value = parseInt(d.stock_quantity) || 1;
+                        if (catInp && d.category) {
+                            if (catInp.tagName === 'SELECT') {
+                                for (let opt of catInp.options) {
+                                    if (opt.value === d.category || opt.text.includes(d.category)) {
+                                        opt.selected = true;
+                                        break;
+                                    }
                                 }
+                            } else {
+                                catInp.value = d.category;
                             }
                         }
                     }
@@ -1843,33 +1879,39 @@
                     if (typeof openCatalogAddModal === 'function') openCatalogAddModal();
                     const addModal = document.getElementById('catalogAddModal');
                     if (addModal) {
+                        addModal.classList.remove('hidden');
+                        addModal.style.display = 'flex';
                         const nameInp = addModal.querySelector('input[name="name"]');
                         const brandInp = addModal.querySelector('input[name="brand"]');
-                        const catSelect = addModal.querySelector('select[name="category"]');
+                        const catInp = addModal.querySelector('input[name="category"]') || addModal.querySelector('select[name="category"]');
                         const codeInp = addModal.querySelector('input[name="code"]');
                         const buyInp = addModal.querySelector('input[name="buy_price"]');
                         const sellInp = addModal.querySelector('input[name="sell_price"]');
                         const descInp = addModal.querySelector('textarea[name="description"]');
 
-                        if (nameInp) nameInp.value = d.name || '';
-                        if (brandInp) brandInp.value = d.brand || '';
+                        if (nameInp && d.name) nameInp.value = d.name;
+                        if (brandInp && d.brand) brandInp.value = d.brand;
                         if (codeInp) codeInp.value = d.code || d.barcode || '';
-                        if (buyInp && d.buy_price) buyInp.value = Number(d.buy_price).toLocaleString('en-US');
-                        if (sellInp && d.sell_price) sellInp.value = Number(d.sell_price).toLocaleString('en-US');
+                        if (buyInp && d.buy_price) buyInp.value = parseInt(d.buy_price) || 0;
+                        if (sellInp && d.sell_price) sellInp.value = parseInt(d.sell_price) || 0;
                         if (descInp && d.description) descInp.value = d.description;
-                        if (catSelect && d.category) {
-                            for (let opt of catSelect.options) {
-                                if (opt.value === d.category || opt.text.includes(d.category)) {
-                                    opt.selected = true;
-                                    break;
+                        if (catInp && d.category) {
+                            if (catInp.tagName === 'SELECT') {
+                                for (let opt of catInp.options) {
+                                    if (opt.value === d.category || opt.text.includes(d.category)) {
+                                        opt.selected = true;
+                                        break;
+                                    }
                                 }
+                            } else {
+                                catInp.value = d.category;
                             }
                         }
                     }
                 }
-                alert(`✅ مشخصات کالا «${d.name}» با هوش مصنوعی جمینای استخراج شد و در فرم قرار گرفت.`);
+                alert(`✅ مشخصات کالا «${d.name}» با هوش مصنوعی استخراج و فرم آماده شد.`);
             } else {
-                alert('خطا در خواندن تصویر: ' + (resp.message || 'امکان استخراج کالا وجود نداشت.'));
+                alert('خطا در پردازش تصویر: ' + (resp.message || 'امکان استخراج کالا وجود نداشت.'));
             }
         })
         .catch(err => {
@@ -1884,27 +1926,27 @@
 </script>
 
 <!-- ==================== مودال اسکن هوشمند کالا با هوش مصنوعی ==================== -->
-<div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50">
-    <div class="bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl max-w-md w-full p-5 text-white space-y-4">
+<div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50" style="display: none;" onclick="if(event.target===this)closeAiBoxScanModal()">
+    <div class="bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl max-w-md w-full p-5 text-white space-y-4" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-white/10 pb-3">
             <div class="flex items-center gap-2.5">
                 <span class="text-2xl p-1.5 bg-purple-500/20 rounded-xl">📸</span>
                 <div>
                     <h3 class="text-sm font-black text-white">افزودن هوشمند با عکس جعبه کالا</h3>
-                    <p class="text-[11px] text-purple-300">استخراج خودکار مدل، برند و قیمت توسط Gemini 3.8</p>
+                    <p class="text-[11px] text-purple-300">استخراج خودکار مدل، برند و قیمت توسط Gemini</p>
                 </div>
             </div>
             <button type="button" onclick="closeAiBoxScanModal()" class="text-slate-400 hover:text-white text-xs bg-white/10 p-1.5 rounded-xl">✕</button>
         </div>
 
-        <input type="file" id="aiBoxFileInput" accept="image/*" capture="environment" class="hidden" onchange="processAiBoxScan(this)">
+        <input type="file" id="aiBoxFileInput" accept="image/*" class="hidden" onchange="processAiBoxScan(this)">
         <input type="hidden" id="aiBoxScanTarget" value="catalog">
 
         <!-- باکس انتخاب تصویر یا دوربین -->
         <div onclick="document.getElementById('aiBoxFileInput').click()" class="border-2 border-dashed border-purple-500/40 hover:border-purple-400 rounded-2xl p-6 text-center cursor-pointer transition bg-purple-950/20 hover:bg-purple-950/40 space-y-2">
             <div id="aiBoxUploadPrompt">
                 <span class="text-4xl block mb-2">📷</span>
-                <span class="text-xs font-bold text-slate-200 block">برای عکسبرداری با دوربین یا انتخاب عکس کلیک کنید</span>
+                <span class="text-xs font-bold text-slate-200 block">برای عکسبرداری با دوربین یا انتخاب از گالری کلیک کنید</span>
                 <span class="text-[10px] text-purple-300 block">پشتیبانی از عکس کارتن، بارکد، برچسب کالا و فاکتور خرید</span>
             </div>
             <div id="aiBoxPreviewContainer" class="hidden flex-col items-center space-y-2">
@@ -1917,7 +1959,7 @@
         <div id="aiBoxScanningStatus" class="hidden p-3 bg-purple-950/50 border border-purple-500/30 rounded-xl text-center space-y-2">
             <div class="flex items-center justify-center gap-2 text-xs font-black text-purple-300">
                 <span class="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
-                <span>هوش مصنوعی در حال تحلیل تصویر با Gemini 3.8...</span>
+                <span>هوش مصنوعی در حال تحلیل تصویر کالا...</span>
             </div>
             <p class="text-[10px] text-slate-400">استخراج هوشمند نام، برند، بارکد و قیمت‌ها</p>
         </div>
@@ -1928,7 +1970,7 @@
                 انصراف
             </button>
             <button type="button" onclick="document.getElementById('aiBoxFileInput').click()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl text-xs transition shadow-lg flex items-center gap-1.5">
-                <span>📸</span> انتخاب عکس یا دوربین
+                <span>📸</span> عکسبرداری یا انتخاب عکس
             </button>
         </div>
     </div>

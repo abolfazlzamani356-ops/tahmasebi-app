@@ -808,7 +808,7 @@ def serve_invoice_image(filename):
 def api_scan_invoice():
     """اسکن و پردازش تصویر فاکتور با هوش مصنوعی و استخراج اقلام"""
     if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'unauthorized', 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 401
+        return jsonify({'success': False, 'error': 'unauthorized', 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 200
 
     image_bytes = None
     mime_type = 'image/jpeg'
@@ -852,16 +852,16 @@ def api_scan_invoice():
     scan_result['image_url'] = url_for('serve_invoice_image', filename=saved_filename) if saved_filename else None
 
     if scan_result.get('success'):
-        return jsonify(scan_result)
+        return jsonify(scan_result), 200
     else:
-        status_code = 400 if scan_result.get('error') == 'no_api_key' else 500
+        status_code = 400 if scan_result.get('error') == 'no_api_key' else 200
         return jsonify(scan_result), status_code
 
 @app.route('/api/ai/test_gemini', methods=['POST'])
 def test_gemini_route():
     """تست صحت و اتصال کلید API گوگل جمینای از پنل تنظیمات"""
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+    if 'user_id' not in session or not (session.get('role') in ['admin', 'manager'] or is_admin()):
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز (فقط مدیریت)'}), 403
     st = Settings.query.first()
     api_key = request.form.get('gemini_api_key', '').strip()
     if not api_key and request.is_json:
@@ -876,20 +876,31 @@ def test_gemini_route():
     if not base_url:
         base_url = 'https://generativelanguage.googleapis.com'
     
-    # تست اولیه با SDK رسمی google-genai
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-        sdk_resp = client.models.generate_content(
-            model=model,
-            contents="وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"
-        )
-        if sdk_resp and sdk_resp.text:
-            return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro مدل {model} با موفقیت برقرار شد! ✅'})
-    except Exception as sdk_err:
-        app.logger.info(f"SDK test fallback: {sdk_err}")
+    # نگاشت هوشمند مدل‌ها برای تست دقیق
+    MODEL_ALIAS_MAP = {
+        'gemini-3.8-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+        'gemini-3.5-flash-lite': ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-flash'],
+        'gemini-2.5-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+        'gemini-1.5-pro': ['gemini-1.5-pro', 'gemini-2.5-flash'],
+        'gemini-1.5-flash': ['gemini-1.5-flash', 'gemini-2.5-flash']
+    }
+    candidate_test_models = MODEL_ALIAS_MAP.get(model, [model, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'])
 
-    url = f"{base_url.rstrip('/')}/v1beta/models/{model}:generateContent?key={api_key}"
+    # تست اولیه با SDK رسمی google-genai
+    for cand in candidate_test_models:
+        try:
+            from google import genai
+            client = genai.Client(api_key=api_key)
+            sdk_resp = client.models.generate_content(
+                model=cand,
+                contents="وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"
+            )
+            if sdk_resp and sdk_resp.text:
+                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد! ✅'})
+        except Exception as sdk_err:
+            app.logger.info(f"SDK test fallback for {cand}: {sdk_err}")
+
+    # تست تکمیلی با REST API
     payload = {
         "contents": [{"parts": [{"text": "وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"}]}]
     }
@@ -897,40 +908,44 @@ def test_gemini_route():
         "Content-Type": "application/json",
         "x-goog-api-key": api_key
     }
-    try:
-        import requests
-        import re
-        resp = requests.post(url, json=payload, headers=headers, timeout=14)
-        if resp.status_code == 200:
-            return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro مدل {model} با موفقیت برقرار شد! ✅'})
-        else:
-            raw_text = resp.text or ''
-            clean_text = re.sub(r'<[^>]*>', '', raw_text).strip()
-            if resp.status_code == 403:
-                err_msg = (
-                    f"خطای ۴۰۳ گوگل: دسترسی نامعتبر یا محدودیت جغرافیایی/تحریم آی‌پی.\n"
-                    f"• در صورت استفاده در ایران، VPN/فیلترشکن را روی سیستم فعال نمایید تا ارتباط پایتون از فیلتر عبور کند.\n"
-                    f"• همچنین در Google Cloud Console بررسی کنید سرویس Generative Language API فعال باشد."
-                )
-            elif resp.status_code == 401 and "ACCESS_TOKEN_TYPE_UNSUPPORTED" in raw_text:
-                err_msg = (
-                    f"خطای ۴۰۱ گوگل (ACCESS_TOKEN_TYPE_UNSUPPORTED):\n"
-                    f"کلید وارد شده با پیشوند AQ به عنوان کلید پروژه محدود تعریف شده است.\n"
-                    f"راهکار: در صفحه Google AI Studio روی دکمه Create API key کلیک کرده و گزینه Create in new project را انتخاب کنید."
-                )
+    import requests
+    import re
+    last_err_msg = "پاسخی از سرور گوگل دریافت نشد."
+    for cand in candidate_test_models:
+        url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد! ✅'})
             else:
-                err_msg = f"خطای سرویس گوگل ({resp.status_code}): {clean_text[:200]}"
-            return jsonify({'success': False, 'message': err_msg}), 400
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'خطای شبکه در ارتباط با گوگل: {str(e)}'}), 500
+                raw_text = resp.text or ''
+                clean_text = re.sub(r'<[^>]*>', '', raw_text).strip()
+                if resp.status_code == 403:
+                    last_err_msg = (
+                        f"خطای ۴۰۳ گوگل: دسترسی نامعتبر یا محدودیت جغرافیایی/تحریم آی‌پی.\n"
+                        f"• در صورت استفاده در سرور ایران (لیارا)، آدرس Cloudflare Worker (gemini_base_url) را تنظیم فرمایید.\n"
+                        f"• همچنین در Google Cloud Console بررسی کنید سرویس Generative Language API فعال باشد."
+                    )
+                elif resp.status_code == 401 and "ACCESS_TOKEN_TYPE_UNSUPPORTED" in raw_text:
+                    last_err_msg = (
+                        f"خطای ۴۰۱ گوگل (ACCESS_TOKEN_TYPE_UNSUPPORTED):\n"
+                        f"کلید وارد شده با پیشوند AQ به عنوان کلید پروژه محدود تعریف شده است.\n"
+                        f"راهکار: در صفحه Google AI Studio روی Create API key کلیک کرده و Create in new project را انتخاب کنید."
+                    )
+                else:
+                    last_err_msg = f"خطای سرویس گوگل ({resp.status_code}): {clean_text[:180]}"
+        except Exception as ex:
+            last_err_msg = f'خطای شبکه در ارتباط با گوگل: {str(ex)}'
+
+    return jsonify({'success': False, 'message': last_err_msg}), 400
 
 # ==================== ماژول‌های ۵گانه اکوسیستم هوش مصنوعی طهماسبی ====================
 
 @app.route('/api/ai/copilot', methods=['POST'])
 def api_ai_copilot():
     """ستون ۱: دستیار استراتژیک و هوشمند کسب‌وکار ویژه مدیریت فروشگاه"""
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز (فقط مدیریت)'}), 403
+    if 'user_id' not in session or not (session.get('role') in ['admin', 'manager'] or is_admin()):
+        return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت فروشگاه است.'}), 200
 
     query = ''
     if request.is_json:
@@ -939,20 +954,22 @@ def api_ai_copilot():
         query = request.form.get('query', '').strip()
 
     if not query:
-        return jsonify({'success': False, 'message': 'لطفاً پرسش یا درخواست خود را مطرح فرمایید.'}), 400
+        return jsonify({'success': False, 'message': 'لطفاً پرسش یا درخواست خود را مطرح فرمایید.'}), 200
 
     user = db.session.get(User, session.get('user_id'))
     user_name = user.full_name if user else 'مدیر گرامی'
 
-    res = ai_business_copilot(query, user_name=user_name)
-    status_code = 200 if res.get('success') else (400 if res.get('error') == 'no_api_key' else 500)
-    return jsonify(res), status_code
+    try:
+        res = ai_business_copilot(query, user_name=user_name)
+    except Exception as e:
+        res = {'success': False, 'message': f'خطا در پردازش دستیار هوشمند: {str(e)}'}
+    return jsonify(res), 200
 
 @app.route('/api/ai/suggest_cross_sell', methods=['POST'])
 def api_ai_suggest_cross_sell():
     """ستون ۲: موتور هوشمند پیشنهاد اقلام مکمل سبد خرید (Cross-Selling & Upselling)"""
     if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 401
+        return jsonify({'success': False, 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 200
 
     items = []
     categories = []
@@ -967,14 +984,17 @@ def api_ai_suggest_cross_sell():
         if raw_cats:
             categories = [x.strip() for x in raw_cats.split(',') if x.strip()]
 
-    res = ai_suggest_cross_sell(items, categories)
-    return jsonify(res)
+    try:
+        res = ai_suggest_cross_sell(items, categories)
+    except Exception as e:
+        res = {'success': False, 'message': f'خطا در پیشنهاد مکمل: {str(e)}', 'suggestions': []}
+    return jsonify(res), 200
 
 @app.route('/api/ai/extract_product_box', methods=['POST'])
 def api_ai_extract_product_box():
     """ستون ۳: استخراج و ثبت آنی کالا در انبار و کاتالوگ از روی تصویر جعبه/کارتن/بارکد"""
     if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید.'}), 401
+        return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید.'}), 200
 
     image_bytes = None
     mime_type = 'image/jpeg'
@@ -1000,30 +1020,38 @@ def api_ai_extract_product_box():
                 image_bytes = None
 
     if not image_bytes:
-        return jsonify({'success': False, 'message': 'تصویر جعبه یا بارکد کالا دریافت نشد.'}), 400
+        return jsonify({'success': False, 'message': 'تصویر جعبه یا بارکد کالا دریافت نشد.'}), 200
 
-    res = ai_extract_product_from_box(image_bytes, mime_type=mime_type)
-    status_code = 200 if res.get('success') else (400 if res.get('error') == 'no_api_key' else 500)
-    return jsonify(res), status_code
+    try:
+        res = ai_extract_product_from_box(image_bytes, mime_type=mime_type)
+    except Exception as e:
+        res = {'success': False, 'message': f'خطا در پردازش تصویر جعبه: {str(e)}'}
+    return jsonify(res), 200
 
 @app.route('/api/ai/customer_risk/<int:customer_id>', methods=['GET'])
 def api_ai_customer_risk(customer_id):
     """ستون ۴: رادار هوشمند ریسک اعتباری مشتری و پیش‌نویس پیامک هوشمند پیگیری/تشکر"""
     if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'لطفاً وارد شوید.'}), 401
+        return jsonify({'success': False, 'message': 'لطفاً وارد شوید.'}), 200
 
-    res = ai_customer_credit_risk(customer_id)
-    return jsonify(res)
+    try:
+        res = ai_customer_credit_risk(customer_id)
+    except Exception as e:
+        res = {'success': False, 'message': f'خطا در ارزیابی ریسک مشتری: {str(e)}'}
+    return jsonify(res), 200
 
 @app.route('/api/ai/audit_anomalies', methods=['GET'])
 def api_ai_audit_anomalies():
     """ستون ۵: دیده‌بان ممیزی و کشف خطاهای مالی، فروش با زیان و تخفیف‌های غیرمجاز"""
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت سیستم است.'}), 403
+    if 'user_id' not in session or not (session.get('role') in ['admin', 'manager'] or is_admin()):
+        return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت سیستم است.'}), 200
 
     limit = safe_int(request.args.get('limit', 20), 20)
-    anomalies = ai_audit_store_anomalies(limit=limit)
-    return jsonify({'success': True, 'anomalies': anomalies, 'count': len(anomalies)})
+    try:
+        anomalies = ai_audit_store_anomalies(limit=limit)
+        return jsonify({'success': True, 'anomalies': anomalies, 'count': len(anomalies)}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'خطا در واکشی ممیزی: {str(e)}', 'anomalies': [], 'count': 0}), 200
 
 @app.route('/api/invoice/<int:invoice_id>/details')
 def api_invoice_details(invoice_id):
@@ -3972,7 +4000,7 @@ def api_upload_avatar():
 @app.route('/api/ai/parse_invoice', methods=['POST'])
 def api_parse_invoice():
     if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'احراز هویت نشده'}), 401
+        return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید'}), 200
     
     data = request.get_json() or {}
     raw_text = data.get('text', '')

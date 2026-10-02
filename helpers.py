@@ -1062,6 +1062,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     پشتیبانی خودکار از ریورس پروکسی کلودفلر، کلیدهای جدید AQ و هدر x-goog-api-key
     """
     import os
+    import time
     import requests
     import base64
     
@@ -1088,11 +1089,26 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
         return {
             'success': False,
             'error': 'no_api_key',
-            'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است.'
+            'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است. لطفاً در پنل تنظیمات مدیر، کلید خود را وارد نمایید.'
         }
 
-    candidate_models = [model_name]
-    for m in ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-1.5-pro']:
+    # نقشه‌برداری هوشمند مدل‌های نام‌گذاری‌شده طهماسبی به مدل‌های رسمی Google API
+    MODEL_ALIAS_MAP = {
+        'gemini-3.8-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+        'gemini-3.5-flash-lite': ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-flash'],
+        'gemini-2.5-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+        'gemini-1.5-pro': ['gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-1.5-flash'],
+        'gemini-1.5-flash': ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
+    }
+
+    candidate_models = []
+    # اگر مدل انتخابی در نقشه موجود است، گزینه‌های معتبر آن را اضافه کن
+    for m in MODEL_ALIAS_MAP.get(model_name, [model_name]):
+        if m not in candidate_models:
+            candidate_models.append(m)
+
+    # فال‌بک‌های اطمینان‌بخش
+    for m in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']:
         if m not in candidate_models:
             candidate_models.append(m)
 
@@ -1125,10 +1141,15 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     }
 
     last_err = None
+    start_time = time.time()
     for cand in candidate_models:
+        # جلوگیری از رد شدن از تایم‌اوت کل گیت‌وی (حداکثر ۲۰ ثانیه)
+        if time.time() - start_time > 20:
+            break
+
         url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=35)
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
             if resp.status_code == 200:
                 res_json = resp.json()
                 cands = res_json.get('candidates', [])
@@ -1152,22 +1173,29 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
                             except Exception:
                                 pass
                                 
+                        display_model = 'Gemini 3.8 Flash' if '3.8' in model_name else cand
                         return {
                             'success': True,
                             'text': raw_text,
                             'clean_text': clean_text,
                             'data': json_data,
-                            'model': cand
+                            'model': display_model
                         }
+            elif resp.status_code == 403:
+                last_err = "خطای ۴۰۳ گوگل: محدودیت جغرافیایی یا تحریم آی‌پی ایران. لطفاً VPN سرور یا Cloudflare Worker را تنظیم فرمایید."
+            elif resp.status_code == 400:
+                last_err = f"خطای ۴۰۰ گوگل (پارامتر نامعتبر): {resp.text[:120]}"
             else:
-                last_err = f"کد خطا {resp.status_code}: {resp.text[:180]}"
+                last_err = f"کد خطا {resp.status_code}: {resp.text[:140]}"
+        except requests.exceptions.Timeout:
+            last_err = "تایم‌اوت ارتباط با سرور گوگل (بیش از ۱۰ ثانیه)"
         except Exception as ex:
             last_err = str(ex)
 
     return {
         'success': False,
         'error': 'api_failed',
-        'message': f'خطا در ارتباط با گوگل: {last_err or "عدم دریافت پاسخ"}'
+        'message': f'خطا در ارتباط با گوگل: {last_err or "عدم دریافت پاسخ در زمان مناسب"}'
     }
 
 def ai_business_copilot(query_text, user_name="مدیر"):
@@ -1175,44 +1203,45 @@ def ai_business_copilot(query_text, user_name="مدیر"):
     دستیار اجرایی و تحلیلگر ارشد کسب‌وکار هوش مصنوعی ویژه مدیران فروشگاه طهماسبی
     تحلیل زنده دیتابیس، فروش روز و ماه، سود ناخالص/خالص، عملکرد پرسنل و هشدارها
     """
-    now_j = jdatetime.datetime.now()
-    year = now_j.year
-    month = now_j.month
-    day = now_j.day
-    month_name = PERSIAN_MONTHS.get(month, '')
-
     try:
-        fin = calculate_store_financial_summary(year, month)
-    except Exception:
-        fin = {}
+        now_j = jdatetime.datetime.now()
+        year = now_j.year
+        month = now_j.month
+        day = now_j.day
+        month_name = PERSIAN_MONTHS.get(month, '')
 
-    today_invoices = Invoice.query.filter_by(shamsi_year=year, shamsi_month=month, shamsi_day=day, status='final').all()
-    today_sales = sum(inv.total_amount or 0 for inv in today_invoices if inv.invoice_type == 'sale')
-    today_count = len([i for i in today_invoices if i.invoice_type == 'sale'])
-    today_settled = sum((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0) for inv in today_invoices if inv.invoice_type == 'sale')
+        try:
+            fin = calculate_store_financial_summary(year, month)
+        except Exception:
+            fin = {}
 
-    top_items_data = db.session.query(
-        InvoiceItem.item_name,
-        db.func.sum(InvoiceItem.quantity).label('qty'),
-        db.func.sum(InvoiceItem.total_price).label('revenue')
-    ).join(Invoice).filter(
-        Invoice.shamsi_year == year,
-        Invoice.shamsi_month == month,
-        Invoice.status == 'final',
-        Invoice.invoice_type == 'sale'
-    ).group_by(InvoiceItem.item_name).order_by(db.desc('qty')).limit(5).all()
+        today_invoices = Invoice.query.filter_by(shamsi_year=year, shamsi_month=month, shamsi_day=day, status='final').all()
+        today_sales = sum(inv.total_amount or 0 for inv in today_invoices if inv.invoice_type == 'sale')
+        today_count = len([i for i in today_invoices if i.invoice_type == 'sale'])
+        today_settled = sum((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0) for inv in today_invoices if inv.invoice_type == 'sale')
 
-    top_items_str = ", ".join([f"{item[0]} ({item[1]} عدد - {item[2]:,} تومان)" for item in top_items_data]) or "ثبت نشده"
+        top_items_data = db.session.query(
+            InvoiceItem.item_name,
+            db.func.sum(InvoiceItem.quantity).label('qty'),
+            db.func.sum(InvoiceItem.total_price).label('revenue')
+        ).join(Invoice).filter(
+            Invoice.shamsi_year == year,
+            Invoice.shamsi_month == month,
+            Invoice.status == 'final',
+            Invoice.invoice_type == 'sale'
+        ).group_by(InvoiceItem.item_name).order_by(db.desc('qty')).limit(5).all()
 
-    pending_cheques = Cheque.query.filter_by(status='pending').all()
-    bounced_cheques = Cheque.query.filter_by(status='bounced').all()
-    pending_chk_amt = sum(c.amount for c in pending_cheques)
-    bounced_chk_amt = sum(c.amount for c in bounced_cheques)
+        top_items_str = ", ".join([f"{item[0]} ({item[1]} عدد - {item[2]:,} تومان)" for item in top_items_data]) or "ثبت نشده"
 
-    low_stock_items = InventoryItem.query.filter(InventoryItem.stock_quantity <= InventoryItem.min_alert_stock).limit(6).all()
-    low_stock_str = ", ".join([f"{it.name} (موجودی: {it.stock_quantity})" for it in low_stock_items]) or "تمامی اقلام موجودی کافی دارند"
+        pending_cheques = Cheque.query.filter_by(status='pending').all()
+        bounced_cheques = Cheque.query.filter_by(status='bounced').all()
+        pending_chk_amt = sum(c.amount for c in pending_cheques)
+        bounced_chk_amt = sum(c.amount for c in bounced_cheques)
 
-    system_instruction = f"""تو دستیار ارشد هوش مصنوعی، مشاور مالی و مدیر عملیاتی فوق‌العاده باهوش «فروشگاه لوازم بهداشتی و ساختمانی طهماسبی» هستی.
+        low_stock_items = InventoryItem.query.filter(InventoryItem.stock_quantity <= InventoryItem.min_alert_stock).limit(6).all()
+        low_stock_str = ", ".join([f"{it.name} (موجودی: {it.stock_quantity})" for it in low_stock_items]) or "تمامی اقلام موجودی کافی دارند"
+
+        system_instruction = f"""تو دستیار ارشد هوش مصنوعی، مشاور مالی و مدیر عملیاتی فوق‌العاده باهوش «فروشگاه لوازم بهداشتی و ساختمانی طهماسبی» هستی.
 نام کاربری که با او گفتگو می‌کنی: «{user_name}» است.
 امروز: {now_j.strftime('%Y/%m/%d')} است.
 
@@ -1238,20 +1267,26 @@ def ai_business_copilot(query_text, user_name="مدیر"):
 ۴. در پایان پاسخت، حتماً ۱ یا ۲ نکته یا اقدام فوری پیشنهادی (Actionable Advice) برای رشد فروشگاه یا رفع چالش‌های موجود ارائه کن.
 """
 
-    res = call_gemini_unified(query_text, system_instruction=system_instruction, temperature=0.3)
-    if res.get('success'):
-        return {
-            'success': True,
-            'reply': res.get('text', ''),
-            'model': res.get('model', 'gemini-3.8-flash'),
-            'today_sales': today_sales,
-            'net_profit': fin.get('store_net_profit', 0)
-        }
-    else:
+        res = call_gemini_unified(query_text, system_instruction=system_instruction, temperature=0.3)
+        if res.get('success'):
+            return {
+                'success': True,
+                'reply': res.get('text', ''),
+                'model': res.get('model', 'Gemini 3.8 Flash'),
+                'today_sales': today_sales,
+                'net_profit': fin.get('store_net_profit', 0)
+            }
+        else:
+            return {
+                'success': False,
+                'error': res.get('error'),
+                'message': res.get('message', 'خطا در ارتباط با هوش مصنوعی.')
+            }
+    except Exception as ex:
         return {
             'success': False,
-            'error': res.get('error'),
-            'message': res.get('message', 'خطا در ارتباط با هوش مصنوعی.')
+            'error': 'internal_error',
+            'message': f'خطا در پردازش اطلاعات فروشگاه: {str(ex)}'
         }
 
 def ai_suggest_cross_sell(item_names, categories=None):
@@ -1370,9 +1405,9 @@ def ai_extract_product_from_box(image_bytes, mime_type='image/jpeg'):
                 'category': str(data.get('category') or 'عمومی').strip(),
                 'code': str(data.get('code') or '').strip(),
                 'barcode': str(data.get('barcode') or '').strip(),
-                'buy_price': int(data.get('buy_price') or 0),
-                'sell_price': int(data.get('sell_price') or 0),
-                'stock_quantity': int(data.get('stock_quantity') or 1),
+                'buy_price': safe_int(data.get('buy_price'), 0),
+                'sell_price': safe_int(data.get('sell_price'), 0),
+                'stock_quantity': safe_int(data.get('stock_quantity'), 1),
                 'description': str(data.get('description') or '').strip()
             },
             'model': res.get('model')

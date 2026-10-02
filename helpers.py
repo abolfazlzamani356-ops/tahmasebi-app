@@ -1092,12 +1092,12 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
             'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است. لطفاً در پنل تنظیمات مدیر، کلید خود را وارد نمایید.'
         }
 
-    # نقشه‌برداری هوشمند مدل‌ها به مدل‌های رسمی و فعال Google API
+    # نقشه‌برداری هوشمند مدل‌ها به مدل‌های رسمی و پرسرعت Google API (زیر ۲ ثانیه)
     MODEL_ALIAS_MAP = {
-        'gemini-3.8-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'],
+        'gemini-3.8-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest'],
         'gemini-3.5-flash-lite': ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3-flash-preview'],
-        'gemini-2.5-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
-        'gemini-1.5-pro': ['gemini-pro-latest', 'gemini-3-flash-preview', 'gemini-flash-latest'],
+        'gemini-2.5-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest'],
+        'gemini-1.5-pro': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-latest'],
         'gemini-1.5-flash': ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview']
     }
 
@@ -1106,7 +1106,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
         if m not in candidate_models:
             candidate_models.append(m)
 
-    for m in ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest']:
+    for m in ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest']:
         if m not in candidate_models:
             candidate_models.append(m)
 
@@ -1128,7 +1128,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
         "contents": [{"parts": parts}],
         "generationConfig": {
             "temperature": temperature,
-            "maxOutputTokens": 2048
+            "maxOutputTokens": 1536
         }
     }
     if json_mode:
@@ -1142,14 +1142,13 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     last_err = None
     start_time = time.time()
     for cand in candidate_models:
-        # جلوگیری از رد شدن از تایم‌اوت کل ارتباط
-        if time.time() - start_time > 35:
+        # جلوگیری قاطع از رد شدن از سقف تایم‌اوت گیت‌وی لیارا/انجین‌ایکس (حداکثر ۱۸ ثانیه)
+        if time.time() - start_time > 18:
             break
 
         url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
         try:
-            # مدل اول ۲۸ ثانیه مهلت دارد تا متن‌های تفصیلی تولید شوند
-            cand_timeout = 28 if cand == candidate_models[0] else 12
+            cand_timeout = 10 if cand == candidate_models[0] else 6
             resp = requests.post(url, json=payload, headers=headers, timeout=cand_timeout)
             if resp.status_code == 200:
                 res_json = resp.json()

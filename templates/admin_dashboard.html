@@ -1831,6 +1831,9 @@
                 return await res.json();
             } else {
                 const text = await res.text();
+                if (res.status === 502 || res.status === 504) {
+                    return { success: false, message: 'سرور برنامه در حال اعمال تغییرات و راه‌اندازی مجدد است یا ارتباط موقتاً با تاخیر مواجه شد (کد ' + res.status + '). لطفاً چند لحظه بعد مجدداً روی دکمه ارسال بزنید.' };
+                }
                 return { success: false, message: 'پاسخ سرور در قالب نامعتبر دریافت شد (' + res.status + '). لطفاً اتصال اینترنت یا کلید هوش مصنوعی را بررسی نمایید.' };
             }
         })

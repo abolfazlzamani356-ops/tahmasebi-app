@@ -896,7 +896,12 @@ def test_gemini_route():
                 contents="وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"
             )
             if sdk_resp and sdk_resp.text:
-                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد! ✅'})
+                if st:
+                    st.gemini_api_key = api_key
+                    st.gemini_model = model
+                    st.gemini_base_url = base_url
+                    db.session.commit()
+                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد و تنظیمات ذخیره گردید! ✅'})
         except Exception as sdk_err:
             app.logger.info(f"SDK test fallback for {cand}: {sdk_err}")
 
@@ -914,9 +919,14 @@ def test_gemini_route():
     for cand in candidate_test_models:
         url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            resp = requests.post(url, json=payload, headers=headers, timeout=8)
             if resp.status_code == 200:
-                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد! ✅'})
+                if st:
+                    st.gemini_api_key = api_key
+                    st.gemini_model = model
+                    st.gemini_base_url = base_url
+                    db.session.commit()
+                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد و تنظیمات ذخیره گردید! ✅'})
             else:
                 raw_text = resp.text or ''
                 clean_text = re.sub(r'<[^>]*>', '', raw_text).strip()

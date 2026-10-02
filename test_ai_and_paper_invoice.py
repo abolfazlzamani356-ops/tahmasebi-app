@@ -120,10 +120,11 @@ def test_ai_scan_missing_image_and_key(client):
         assert data2['error'] == 'no_api_key'
         assert "کلید API" in data2['message']
     finally:
-        # بازگردانی کلید در صورت وجود
+        # بازگردانی کلید
         with app.app_context():
-            if sett and old_key:
-                sett.gemini_api_key = old_key
+            sett = Settings.query.first()
+            if sett:
+                sett.gemini_api_key = old_key or os.environ.get('GEMINI_API_KEY', 'test_key_restored')
                 db.session.commit()
 
 def test_save_paper_invoice_file_and_serve(client):

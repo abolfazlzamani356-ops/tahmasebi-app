@@ -876,15 +876,15 @@ def test_gemini_route():
     if not base_url:
         base_url = 'https://generativelanguage.googleapis.com'
     
-    # نگاشت هوشمند مدل‌ها برای تست دقیق
+    # نگاشت هوشمند مدل‌ها به مدل‌های رسمی و فعال Google API
     MODEL_ALIAS_MAP = {
-        'gemini-3.8-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
-        'gemini-3.5-flash-lite': ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-flash'],
-        'gemini-2.5-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-        'gemini-1.5-pro': ['gemini-1.5-pro', 'gemini-2.5-flash'],
-        'gemini-1.5-flash': ['gemini-1.5-flash', 'gemini-2.5-flash']
+        'gemini-3.8-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'],
+        'gemini-3.5-flash-lite': ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3-flash-preview'],
+        'gemini-2.5-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
+        'gemini-1.5-pro': ['gemini-pro-latest', 'gemini-3-flash-preview', 'gemini-flash-latest'],
+        'gemini-1.5-flash': ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview']
     }
-    candidate_test_models = MODEL_ALIAS_MAP.get(model, [model, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'])
+    candidate_test_models = MODEL_ALIAS_MAP.get(model, [model, 'gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest'])
 
     # تست اولیه با SDK رسمی google-genai
     for cand in candidate_test_models:

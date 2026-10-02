@@ -61,7 +61,9 @@ def test_api_customer_lookup(client):
                 total_purchases=15000000
             )
             db.session.add(cust)
-            db.session.commit()
+        else:
+            cust.outstanding_balance = 2500000
+        db.session.commit()
 
     with client.session_transaction() as sess:
         sess['user_id'] = 1

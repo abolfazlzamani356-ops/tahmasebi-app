@@ -237,3 +237,41 @@ def test_api_test_gemini_endpoint(client):
         assert res.status_code == 200
         assert res.get_json()['success'] is True
         assert "با موفقیت برقرار شد" in res.get_json()['message']
+
+def test_api_ai_extract_product_box(client):
+    """تست استخراج خودکار کالا از روی تصویر جعبه/کارتن با هوش مصنوعی"""
+    with client.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['role'] = 'admin'
+
+    # تست بدون تصویر
+    res_no_img = client.post('/api/ai/extract_product_box')
+    assert res_no_img.status_code == 200
+    assert res_no_img.get_json()['success'] is False
+
+    # تست با تصویر و شبیه‌سازی استخراج موفق کالا
+    mock_box_data = {
+        'name': 'شیر ظرفشویی شودر مدل بیزانس کروم',
+        'brand': 'شودر',
+        'category': 'شیرآلات',
+        'code': 'SH-BYZ-01',
+        'buy_price': 3500000,
+        'sell_price': 4800000,
+        'stock_quantity': 4,
+        'description': 'دارای شلنگ شاوری و ۵ سال ضمانت بی قید و شرط'
+    }
+    with patch('helpers.call_gemini_unified') as mock_gemini:
+        mock_gemini.return_value = {
+            'success': True,
+            'data': mock_box_data,
+            'model': 'Google Gemini 3.8 Flash'
+        }
+        test_file = (io.BytesIO(b"fake-box-image-bytes"), "box.jpg")
+        res = client.post('/api/ai/extract_product_box', data={'box_image': test_file}, content_type='multipart/form-data')
+        assert res.status_code == 200
+        json_data = res.get_json()
+        assert json_data['success'] is True
+        assert json_data['data']['name'] == 'شیر ظرفشویی شودر مدل بیزانس کروم'
+        assert json_data['data']['brand'] == 'شودر'
+        assert json_data['data']['buy_price'] == 3500000
+        assert json_data['data']['sell_price'] == 4800000

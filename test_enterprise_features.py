@@ -87,10 +87,8 @@ def test_cheques_hub_and_customer_statement(client):
             db.session.commit()
             
         # Clean up any existing test cheque
-        old_chq = Cheque.query.filter_by(sayad_number='1234567890123456').first()
-        if old_chq:
-            db.session.delete(old_chq)
-            db.session.commit()
+        Cheque.query.filter_by(sayad_number='1234567890123456').delete()
+        db.session.commit()
 
         # Add a cheque via route
         cheque_data = {

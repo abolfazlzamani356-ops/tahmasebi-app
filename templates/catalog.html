@@ -1191,6 +1191,8 @@
         }
 
         // ==================== اسکن هوشمند کالا با هوش مصنوعی جمینای ====================
+        let aiBoxModalOpenedAt = 0;
+
         function openAiBoxScanModal(target) {
             target = target || 'catalog';
             const targetInp = document.getElementById('aiBoxScanTarget');
@@ -1202,11 +1204,13 @@
                 modal.style.display = 'flex';
                 modal.style.zIndex = '99999';
             }
+            aiBoxModalOpenedAt = Date.now();
 
             const promptDiv = document.getElementById('aiBoxUploadPrompt');
             const prevCont = document.getElementById('aiBoxPreviewContainer');
             const statusDiv = document.getElementById('aiBoxScanningStatus');
-            const fileInp = document.getElementById('aiBoxFileInput');
+            const camInp = document.getElementById('aiBoxCameraInput');
+            const galInp = document.getElementById('aiBoxGalleryInput');
 
             if (promptDiv) promptDiv.classList.remove('hidden');
             if (prevCont) {
@@ -1215,18 +1219,16 @@
             }
             if (statusDiv) statusDiv.classList.add('hidden');
 
-            if (fileInp) {
-                fileInp.value = '';
-                // باز کردن مستقیم و فوری دوربین یا گالری برای راحتی کاربر
-                try {
-                    fileInp.click();
-                } catch(e) {
-                    console.log('Direct click fallback:', e);
-                }
-            }
+            if (camInp) camInp.value = '';
+            if (galInp) galInp.value = '';
         }
 
-        function closeAiBoxScanModal() {
+        function closeAiBoxScanModal(e) {
+            if (e && e.target && e.target.id === 'aiBoxScanModal') {
+                if (Date.now() - (aiBoxModalOpenedAt || 0) < 350) {
+                    return; // جلوگیری از بسته شدن ناخواسته با لمس صفحه در موبایل
+                }
+            }
             const modal = document.getElementById('aiBoxScanModal');
             if (modal) {
                 modal.classList.add('hidden');
@@ -1318,54 +1320,96 @@
                 alert('خطای ارتباط با سرور: ' + err);
             });
         }
+
+        // پشتیبانی از چسباندن تصویر از کلیپ‌بورد در دسکتاپ (Ctrl+V)
+        window.addEventListener('paste', function(e) {
+            const modal = document.getElementById('aiBoxScanModal');
+            if (!modal || modal.classList.contains('hidden') || modal.style.display === 'none') return;
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    const fakeInput = { files: [blob] };
+                    processAiBoxScan(fakeInput);
+                    break;
+                }
+            }
+        });
     </script>
 
     <!-- ==================== مودال اسکن هوشمند کالا با هوش مصنوعی ==================== -->
-    <div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50" style="display: none;" onclick="if(event.target===this)closeAiBoxScanModal()">
-        <div class="bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl max-w-md w-full p-5 text-white space-y-4" onclick="event.stopPropagation()">
+    <div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-[99999]" style="display: none;" onclick="closeAiBoxScanModal(event)">
+        <div class="bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 text-white space-y-4" onclick="event.stopPropagation()">
+            <!-- سربرگ -->
             <div class="flex items-center justify-between border-b border-white/10 pb-3">
-                <div class="flex items-center gap-2.5">
-                    <span class="text-2xl p-1.5 bg-purple-500/20 rounded-xl">📸</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl p-2 bg-gradient-to-tr from-purple-600 to-pink-500 rounded-2xl shadow-md">📸</span>
                     <div>
                         <h3 class="text-sm font-black text-white">افزودن هوشمند با عکس جعبه کالا</h3>
-                        <p class="text-[11px] text-purple-300">استخراج خودکار مدل، برند و قیمت توسط Gemini</p>
+                        <p class="text-[11px] text-purple-300">شناسایی مدل، برند، قیمت و مشخصات با Google Gemini 3.8</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeAiBoxScanModal()" class="text-slate-400 hover:text-white text-xs bg-white/10 p-1.5 rounded-xl">✕</button>
+                <button type="button" onclick="closeAiBoxScanModal()" class="text-slate-400 hover:text-white text-xs bg-white/10 hover:bg-white/20 p-2 rounded-xl transition font-black">✕</button>
             </div>
 
-            <input type="file" id="aiBoxFileInput" accept="image/*" class="hidden" onchange="processAiBoxScan(this)">
             <input type="hidden" id="aiBoxScanTarget" value="catalog">
+            <input type="file" id="aiBoxCameraInput" accept="image/*" capture="environment" class="sr-only" onchange="processAiBoxScan(this)">
+            <input type="file" id="aiBoxGalleryInput" accept="image/*" class="sr-only" onchange="processAiBoxScan(this)">
 
-            <!-- باکس انتخاب تصویر یا دوربین -->
-            <div onclick="document.getElementById('aiBoxFileInput').click()" class="border-2 border-dashed border-purple-500/40 hover:border-purple-400 rounded-2xl p-6 text-center cursor-pointer transition bg-purple-950/20 hover:bg-purple-950/40 space-y-2">
-                <div id="aiBoxUploadPrompt">
-                    <span class="text-4xl block mb-2">📷</span>
-                    <span class="text-xs font-bold text-slate-200 block">برای عکسبرداری با دوربین یا انتخاب از گالری کلیک کنید</span>
-                    <span class="text-[10px] text-purple-300 block">پشتیبانی از عکس کارتن، بارکد، برچسب کالا و فاکتور خرید</span>
-                </div>
-                <div id="aiBoxPreviewContainer" class="hidden flex-col items-center space-y-2">
-                    <img id="aiBoxThumb" src="" alt="پیش‌نمایش" class="max-h-48 rounded-xl object-contain shadow-lg border border-white/10">
-                    <span id="aiBoxFileName" class="text-xs font-mono text-purple-200"></span>
+            <!-- گزینه‌های ورود تصویر -->
+            <div id="aiBoxUploadPrompt" class="space-y-3">
+                <p class="text-xs text-slate-300 text-center">
+                    روش مورد نظر خود را برای ثبت تصویر جعبه یا کارتن کالا انتخاب نمایید:
+                </p>
+
+                <!-- گزینه ۱: عکسبرداری با دوربین گوشی -->
+                <label for="aiBoxCameraInput" class="cursor-pointer flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-xl transition active:scale-[0.98] border border-white/20">
+                    <div class="flex items-center gap-3.5">
+                        <span class="text-3xl p-2 bg-white/20 rounded-2xl backdrop-blur-sm">📸</span>
+                        <div class="text-right">
+                            <span class="text-sm font-black block">عکسبرداری زنده با دوربین گوشی</span>
+                            <span class="text-[11px] text-purple-100 block mt-0.5">باز شدن مستقیم دوربین برای عکس گرفتن از کارتن یا جعبه کالا</span>
+                        </div>
+                    </div>
+                    <span class="text-lg font-black bg-white/20 rounded-xl px-2.5 py-1">←</span>
+                </label>
+
+                <!-- گزینه ۲: انتخاب از گالری -->
+                <label for="aiBoxGalleryInput" class="cursor-pointer flex items-center justify-between p-4 rounded-2xl bg-slate-800 hover:bg-slate-700/90 border border-white/10 text-white shadow-lg transition active:scale-[0.98]">
+                    <div class="flex items-center gap-3.5">
+                        <span class="text-3xl p-2 bg-white/10 rounded-2xl">🖼️</span>
+                        <div class="text-right">
+                            <span class="text-sm font-black block">انتخاب عکس از گالری / فایل‌ها</span>
+                            <span class="text-[11px] text-slate-400 block mt-0.5">آپلود عکسی که قبلاً با گوشی گرفته‌اید یا فاکتور خرید</span>
+                        </div>
+                    </div>
+                    <span class="text-lg font-black bg-white/10 rounded-xl px-2.5 py-1">←</span>
+                </label>
+
+                <div class="text-center pt-1">
+                    <span class="text-[11px] text-slate-400">💡 در کامپیوتر می‌توانید تصویر را Copy کرده و مستقیم روی این پنجره با کلیدهای <kbd class="bg-slate-800 border border-white/20 px-1.5 py-0.5 rounded text-amber-300 font-mono">Ctrl+V</kbd> پیست کنید.</span>
                 </div>
             </div>
 
-            <!-- نشانگر اسکن و پردازش -->
-            <div id="aiBoxScanningStatus" class="hidden p-3 bg-purple-950/50 border border-purple-500/30 rounded-xl text-center space-y-2">
-                <div class="flex items-center justify-center gap-2 text-xs font-black text-purple-300">
-                    <span class="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
+            <!-- پیش‌نمایش تصویر انتخاب‌شده -->
+            <div id="aiBoxPreviewContainer" class="hidden flex-col items-center space-y-3 p-3 bg-slate-950/60 rounded-2xl border border-white/10">
+                <img id="aiBoxThumb" src="" alt="پیش‌نمایش جعبه" class="max-h-56 max-w-full rounded-xl object-contain shadow-lg border border-purple-500/30">
+                <span id="aiBoxFileName" class="text-xs font-mono text-purple-200 truncate max-w-xs block"></span>
+            </div>
+
+            <!-- وضعیت اسکن و تحلیل هوش مصنوعی -->
+            <div id="aiBoxScanningStatus" class="hidden p-4 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 border border-purple-500/40 rounded-2xl text-center space-y-2.5 animate-pulse">
+                <div class="flex items-center justify-center gap-2.5 text-xs font-black text-purple-200">
+                    <span class="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
                     <span>هوش مصنوعی در حال تحلیل تصویر کالا...</span>
                 </div>
-                <p class="text-[10px] text-slate-400">استخراج هوشمند نام، برند، بارکد و قیمت‌ها</p>
+                <p class="text-[11px] text-purple-300">در حال خواندن نام محصول، برند، دسته‌بندی، بارکد و قیمت‌ها با مدل Google Gemini</p>
             </div>
 
-            <!-- دکمه‌ها -->
+            <!-- دکمه‌های پاورقی -->
             <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
                 <button type="button" onclick="closeAiBoxScanModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">
                     انصراف
-                </button>
-                <button type="button" onclick="document.getElementById('aiBoxFileInput').click()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl text-xs transition shadow-lg flex items-center gap-1.5">
-                    <span>📸</span> عکسبرداری یا انتخاب عکس
                 </button>
             </div>
         </div>

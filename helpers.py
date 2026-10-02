@@ -1092,23 +1092,21 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
             'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است. لطفاً در پنل تنظیمات مدیر، کلید خود را وارد نمایید.'
         }
 
-    # نقشه‌برداری هوشمند مدل‌های نام‌گذاری‌شده طهماسبی به مدل‌های رسمی Google API
+    # نقشه‌برداری هوشمند مدل‌ها به مدل‌های رسمی و فعال Google API
     MODEL_ALIAS_MAP = {
-        'gemini-3.8-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'],
-        'gemini-3.5-flash-lite': ['gemini-2.0-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-flash'],
-        'gemini-2.5-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-        'gemini-1.5-pro': ['gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-1.5-flash'],
-        'gemini-1.5-flash': ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash']
+        'gemini-3.8-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'],
+        'gemini-3.5-flash-lite': ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3-flash-preview'],
+        'gemini-2.5-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
+        'gemini-1.5-pro': ['gemini-pro-latest', 'gemini-3-flash-preview', 'gemini-flash-latest'],
+        'gemini-1.5-flash': ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview']
     }
 
     candidate_models = []
-    # اگر مدل انتخابی در نقشه موجود است، گزینه‌های معتبر آن را اضافه کن
     for m in MODEL_ALIAS_MAP.get(model_name, [model_name]):
         if m not in candidate_models:
             candidate_models.append(m)
 
-    # فال‌بک‌های اطمینان‌بخش
-    for m in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']:
+    for m in ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest']:
         if m not in candidate_models:
             candidate_models.append(m)
 
@@ -1120,8 +1118,8 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     if image_bytes:
         b64_img = base64.b64encode(image_bytes).decode('utf-8')
         parts.append({
-            "inline_data": {
-                "mime_type": mime_type or "image/jpeg",
+            "inlineData": {
+                "mimeType": mime_type or "image/jpeg",
                 "data": b64_img
             }
         })
@@ -1129,7 +1127,8 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     payload = {
         "contents": [{"parts": parts}],
         "generationConfig": {
-            "temperature": temperature
+            "temperature": temperature,
+            "maxOutputTokens": 2048
         }
     }
     if json_mode:
@@ -1143,13 +1142,15 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     last_err = None
     start_time = time.time()
     for cand in candidate_models:
-        # جلوگیری از رد شدن از تایم‌اوت کل گیت‌وی (حداکثر ۲۰ ثانیه)
-        if time.time() - start_time > 20:
+        # جلوگیری از رد شدن از تایم‌اوت کل ارتباط
+        if time.time() - start_time > 35:
             break
 
         url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            # مدل اول ۲۸ ثانیه مهلت دارد تا متن‌های تفصیلی تولید شوند
+            cand_timeout = 28 if cand == candidate_models[0] else 12
+            resp = requests.post(url, json=payload, headers=headers, timeout=cand_timeout)
             if resp.status_code == 200:
                 res_json = resp.json()
                 cands = res_json.get('candidates', [])
@@ -1188,7 +1189,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
             else:
                 last_err = f"کد خطا {resp.status_code}: {resp.text[:140]}"
         except requests.exceptions.Timeout:
-            last_err = "تایم‌اوت ارتباط با سرور گوگل (بیش از ۱۰ ثانیه)"
+            last_err = "تایم‌اوت ارتباط با سرور گوگل (پاسخ در زمان مناسب دریافت نشد، لطفاً مجدداً ارسال نمایید)"
         except Exception as ex:
             last_err = str(ex)
 
@@ -1265,6 +1266,7 @@ def ai_business_copilot(query_text, user_name="مدیر"):
 ۲. تمام مبالغ پولی را دقیقاً به «تومان» با ارقام تفکیک‌شده سه‌رقمی (کاما) بنویس.
 ۳. از بولت‌پوینت‌های جذاب و ایموجی‌های مناسب استفاده کن.
 ۴. در پایان پاسخت، حتماً ۱ یا ۲ نکته یا اقدام فوری پیشنهادی (Actionable Advice) برای رشد فروشگاه یا رفع چالش‌های موجود ارائه کن.
+۵. پاسخ را ساختاریافته، دقیق، متمرکز و بدون زیاده‌گویی بنویس تا سریع تولید و ارائه شود.
 """
 
         res = call_gemini_unified(query_text, system_instruction=system_instruction, temperature=0.3)

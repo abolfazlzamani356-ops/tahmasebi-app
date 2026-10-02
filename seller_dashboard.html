@@ -195,11 +195,12 @@
                 <label class="block text-xs font-bold text-slate-600 mb-1">شماره همراه خریدار:</label>
                 <input type="text" name="customer_phone" id="custPhoneInput" placeholder="0912..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-left font-bold" dir="ltr" onblur="checkCustomerDebt()" oninput="if(this.value.length >= 10) checkCustomerDebt()">
                 
-                <!-- هشدار هوشمند وضعیت اعتبار و بدهی معوقه خریدار -->
-                <div id="customerDebtBadge" class="hidden mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm">
-                    <div class="flex items-center gap-1.5">
+                <!-- هشدار هوشمند وضعیت اعتبار، رتبه AI و بدهی معوقه خریدار -->
+                <div id="customerDebtBadge" class="hidden mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm flex-wrap gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span id="customerDebtIcon" class="text-base">⚠️</span>
                         <span id="customerDebtText"></span>
+                        <span id="customerAiRiskBadge" class="hidden text-[10px] font-black px-2.5 py-0.5 rounded-lg border"></span>
                     </div>
                     <span id="customerDebtAmount" class="font-mono text-xs px-2.5 py-1 rounded-lg"></span>
                 </div>
@@ -357,6 +358,24 @@
                     <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
                     {% endfor %}
                 </datalist>
+
+                <!-- باکس پیشنهادهای هوشمند مکمل سبد خرید (AI Cross-Selling) -->
+                <div id="aiCrossSellBox" class="hidden mt-3 p-3.5 bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/60 rounded-2xl border border-indigo-500/30 space-y-2.5 shadow-sm">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base p-1 bg-indigo-500/20 rounded-lg">✨</span>
+                            <span class="text-xs font-black text-indigo-300">
+                                پیشنهادهای هوشمند مکمل سبد خرید (Google AI Cross-Sell)
+                            </span>
+                        </div>
+                        <span class="text-[10px] bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-lg border border-indigo-500/30 font-bold">
+                            تکمیل سبد مشتری & افزایش فروش
+                        </span>
+                    </div>
+                    <div id="aiCrossSellContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <!-- کارت‌های پیشنهاد هوشمند -->
+                    </div>
+                </div>
 
                 <!-- خلاصه اقلام و مبلغ نهایی فاکتور (یکپارچه و درشت) -->
                 <div class="mt-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-700/80 space-y-2">
@@ -1916,6 +1935,112 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         }
 
         calcPaymentBalances();
+        triggerAiCrossSellDebounced();
+    }
+
+    let aiCrossSellTimer = null;
+    let lastCrossSellPayload = '';
+
+    function triggerAiCrossSellDebounced() {
+        clearTimeout(aiCrossSellTimer);
+        aiCrossSellTimer = setTimeout(fetchAiCrossSellSuggestions, 600);
+    }
+
+    function fetchAiCrossSellSuggestions() {
+        const rows = document.querySelectorAll('.item-row');
+        const items = [];
+        const categories = [];
+
+        rows.forEach(r => {
+            const select = r.querySelector('.item-select');
+            const custom = r.querySelector('.item-name');
+            const cat = r.querySelector('.item-cat');
+            let name = '';
+            if (select && select.value) {
+                const opt = select.selectedOptions[0];
+                if (opt) name = opt.getAttribute('data-name') || '';
+            }
+            if (!name && custom && custom.value) name = custom.value.trim();
+            if (name) items.push(name);
+            if (cat && cat.value.trim()) categories.push(cat.value.trim());
+        });
+
+        const box = document.getElementById('aiCrossSellBox');
+        const container = document.getElementById('aiCrossSellContainer');
+        if (!box || !container) return;
+
+        if (items.length === 0) {
+            box.classList.add('hidden');
+            lastCrossSellPayload = '';
+            return;
+        }
+
+        const payloadStr = items.join('|') + '::' + categories.join('|');
+        if (payloadStr === lastCrossSellPayload) return;
+        lastCrossSellPayload = payloadStr;
+
+        fetch('/api/ai/suggest_cross_sell', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: items, categories: categories })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.suggestions && data.suggestions.length > 0) {
+                box.classList.remove('hidden');
+                let html = '';
+                data.suggestions.forEach(s => {
+                    const priceFormatted = s.estimated_price ? Number(s.estimated_price).toLocaleString('en-US') + ' ت' : 'قیمت استعلامی';
+                    const safeName = (s.name || '').replace(/'/g, "\\'");
+                    const safeCat = (s.category || '').replace(/'/g, "\\'");
+                    const pVal = s.estimated_price || 0;
+                    html += `
+                        <div class="p-2.5 rounded-xl bg-slate-900/90 border border-indigo-500/20 hover:border-indigo-400/50 transition flex items-center justify-between gap-2 shadow-sm">
+                            <div>
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <strong class="text-xs font-black text-white">${s.name}</strong>
+                                    <span class="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">${s.category || 'تکمیلی'}</span>
+                                    <span class="text-[11px] font-mono text-emerald-400 font-bold">${priceFormatted}</span>
+                                </div>
+                                <span class="text-[10px] text-indigo-300/80 block mt-0.5">${s.reason || 'مکمل پیشنهادی برای فاکتور جاری'}</span>
+                            </div>
+                            <button type="button" onclick="addSuggestedItemToInvoice('${safeName}', '${safeCat}', ${pVal})" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 whitespace-nowrap shadow-md">
+                                <span>➕</span> افزودن
+                            </button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                box.classList.add('hidden');
+            }
+        })
+        .catch(() => {
+            box.classList.add('hidden');
+        });
+    }
+
+    function addSuggestedItemToInvoice(name, category, price) {
+        addInvoiceItemRow();
+        const rows = document.querySelectorAll('.item-row');
+        const newRow = rows[rows.length - 1];
+        if (!newRow) return;
+
+        const nameInp = newRow.querySelector('.item-name');
+        const catInp = newRow.querySelector('.item-cat');
+        const priceInp = newRow.querySelector('.item-price');
+        const origInp = newRow.querySelector('.item-orig-price');
+
+        if (nameInp) nameInp.value = name;
+        if (catInp) catInp.value = category || 'عمومی';
+        if (priceInp) priceInp.value = price ? Number(price).toLocaleString('en-US') : '';
+        if (origInp) origInp.value = price ? Number(price).toLocaleString('en-US') : '';
+
+        if (priceInp) {
+            onPriceOrDiscountChange(priceInp, 'price');
+        } else {
+            calcTotal();
+        }
     }
 
     function calcPaymentBalances() {
@@ -2012,14 +2137,33 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                         document.getElementById('custNameInput').value = data.name;
                     }
                     badge.classList.remove('hidden');
+
+                    const riskBadge = document.getElementById('customerAiRiskBadge');
+                    if (riskBadge) {
+                        const tier = data.ai_risk_tier || 'A';
+                        const score = data.ai_credit_score !== undefined ? data.ai_credit_score : 100;
+                        const riskLabel = data.ai_risk_label || 'خوش‌حساب و معتبر';
+                        const riskSummary = data.ai_risk_summary || '';
+                        
+                        let badgeColor = 'bg-emerald-600 text-white border-emerald-400';
+                        if (tier === 'A') badgeColor = 'bg-blue-600 text-white border-blue-400';
+                        else if (tier === 'B') badgeColor = 'bg-amber-500 text-slate-900 border-amber-400';
+                        else if (tier === 'C') badgeColor = 'bg-rose-600 text-white border-rose-400';
+                        
+                        riskBadge.className = `text-[10px] font-black px-2.5 py-0.5 rounded-lg border shadow-sm ${badgeColor}`;
+                        riskBadge.innerText = `🤖 اعتبار AI: ${tier} (${score}٪) - ${riskLabel}`;
+                        riskBadge.title = riskSummary;
+                        riskBadge.classList.remove('hidden');
+                    }
+
                     if (data.outstanding_balance > 0) {
-                        badge.className = "mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm bg-rose-50 border border-rose-300 text-rose-800";
+                        badge.className = "mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm bg-rose-50 border border-rose-300 text-rose-800 flex-wrap gap-2";
                         iconElem.textContent = "🚨";
                         textElem.textContent = `توجه فروشنده: این خریدار مانده بدهی معوقه قبلی دارد!`;
                         amtElem.className = "font-mono text-xs px-2.5 py-1 rounded-lg bg-rose-200/80 text-rose-900 font-black";
                         amtElem.textContent = `${Number(data.outstanding_balance).toLocaleString()} تومان`;
                     } else {
-                        badge.className = "mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm bg-emerald-50 border border-emerald-300 text-emerald-800";
+                        badge.className = "mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm bg-emerald-50 border border-emerald-300 text-emerald-800 flex-wrap gap-2";
                         iconElem.textContent = "✅";
                         textElem.textContent = `خریدار معتبر: فاقد بدهی معوقه`;
                         amtElem.className = "font-mono text-xs px-2.5 py-1 rounded-lg bg-emerald-200/80 text-emerald-900 font-black";
@@ -2027,6 +2171,8 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                     }
                 } else {
                     badge.classList.add('hidden');
+                    const riskBadge = document.getElementById('customerAiRiskBadge');
+                    if (riskBadge) riskBadge.classList.add('hidden');
                 }
             })
             .catch(() => {});

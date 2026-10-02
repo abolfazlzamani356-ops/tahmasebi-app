@@ -1056,5 +1056,466 @@ def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, mod
         'message': f'خطا در ارتباط با وب‌سرویس هوش مصنوعی گوگل: {last_error or "پاسخی دریافت نشد"}'
     }
 
+def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_mode=False, system_instruction=None, temperature=0.2):
+    """
+    موتور ارتباط یکپارچه و هوشمند با Google AI (Gemini 3.8 Flash و مدل‌های روز)
+    پشتیبانی خودکار از ریورس پروکسی کلودفلر، کلیدهای جدید AQ و هدر x-goog-api-key
+    """
+    import os
+    import requests
+    import base64
+    
+    api_key = None
+    model_name = 'gemini-3.8-flash'
+    base_url = 'https://generativelanguage.googleapis.com'
+    
+    try:
+        st = Settings.query.first()
+        if st:
+            if st.gemini_api_key:
+                api_key = st.gemini_api_key.strip()
+            if st.gemini_model:
+                model_name = st.gemini_model.strip()
+            if st.gemini_base_url:
+                base_url = st.gemini_base_url.strip() or base_url
+    except Exception:
+        pass
+
+    if not api_key:
+        api_key = os.environ.get('GEMINI_API_KEY', '').strip()
+
+    if not api_key:
+        return {
+            'success': False,
+            'error': 'no_api_key',
+            'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است.'
+        }
+
+    candidate_models = [model_name]
+    for m in ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-1.5-pro']:
+        if m not in candidate_models:
+            candidate_models.append(m)
+
+    parts = []
+    if system_instruction:
+        parts.append({"text": f"دستورالعمل سیستمی:\n{system_instruction}\n---\n"})
+    parts.append({"text": prompt})
+
+    if image_bytes:
+        b64_img = base64.b64encode(image_bytes).decode('utf-8')
+        parts.append({
+            "inline_data": {
+                "mime_type": mime_type or "image/jpeg",
+                "data": b64_img
+            }
+        })
+
+    payload = {
+        "contents": [{"parts": parts}],
+        "generationConfig": {
+            "temperature": temperature
+        }
+    }
+    if json_mode:
+        payload["generationConfig"]["response_mime_type"] = "application/json"
+
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key
+    }
+
+    last_err = None
+    for cand in candidate_models:
+        url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=35)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                cands = res_json.get('candidates', [])
+                if cands:
+                    out_parts = cands[0].get('content', {}).get('parts', [])
+                    if out_parts:
+                        raw_text = out_parts[0].get('text', '').strip()
+                        clean_text = raw_text
+                        if clean_text.startswith('```json'):
+                            clean_text = clean_text[7:]
+                        elif clean_text.startswith('```'):
+                            clean_text = clean_text[3:]
+                        if clean_text.endswith('```'):
+                            clean_text = clean_text[:-3]
+                        clean_text = clean_text.strip()
+                        
+                        json_data = None
+                        if json_mode:
+                            try:
+                                json_data = json.loads(clean_text)
+                            except Exception:
+                                pass
+                                
+                        return {
+                            'success': True,
+                            'text': raw_text,
+                            'clean_text': clean_text,
+                            'data': json_data,
+                            'model': cand
+                        }
+            else:
+                last_err = f"کد خطا {resp.status_code}: {resp.text[:180]}"
+        except Exception as ex:
+            last_err = str(ex)
+
+    return {
+        'success': False,
+        'error': 'api_failed',
+        'message': f'خطا در ارتباط با گوگل: {last_err or "عدم دریافت پاسخ"}'
+    }
+
+def ai_business_copilot(query_text, user_name="مدیر"):
+    """
+    دستیار اجرایی و تحلیلگر ارشد کسب‌وکار هوش مصنوعی ویژه مدیران فروشگاه طهماسبی
+    تحلیل زنده دیتابیس، فروش روز و ماه، سود ناخالص/خالص، عملکرد پرسنل و هشدارها
+    """
+    now_j = jdatetime.datetime.now()
+    year = now_j.year
+    month = now_j.month
+    day = now_j.day
+    month_name = PERSIAN_MONTHS.get(month, '')
+
+    try:
+        fin = calculate_store_financial_summary(year, month)
+    except Exception:
+        fin = {}
+
+    today_invoices = Invoice.query.filter_by(shamsi_year=year, shamsi_month=month, shamsi_day=day, status='final').all()
+    today_sales = sum(inv.total_amount or 0 for inv in today_invoices if inv.invoice_type == 'sale')
+    today_count = len([i for i in today_invoices if i.invoice_type == 'sale'])
+    today_settled = sum((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0) for inv in today_invoices if inv.invoice_type == 'sale')
+
+    top_items_data = db.session.query(
+        InvoiceItem.item_name,
+        db.func.sum(InvoiceItem.quantity).label('qty'),
+        db.func.sum(InvoiceItem.total_price).label('revenue')
+    ).join(Invoice).filter(
+        Invoice.shamsi_year == year,
+        Invoice.shamsi_month == month,
+        Invoice.status == 'final',
+        Invoice.invoice_type == 'sale'
+    ).group_by(InvoiceItem.item_name).order_by(db.desc('qty')).limit(5).all()
+
+    top_items_str = ", ".join([f"{item[0]} ({item[1]} عدد - {item[2]:,} تومان)" for item in top_items_data]) or "ثبت نشده"
+
+    pending_cheques = Cheque.query.filter_by(status='pending').all()
+    bounced_cheques = Cheque.query.filter_by(status='bounced').all()
+    pending_chk_amt = sum(c.amount for c in pending_cheques)
+    bounced_chk_amt = sum(c.amount for c in bounced_cheques)
+
+    low_stock_items = InventoryItem.query.filter(InventoryItem.stock_quantity <= InventoryItem.min_alert_stock).limit(6).all()
+    low_stock_str = ", ".join([f"{it.name} (موجودی: {it.stock_quantity})" for it in low_stock_items]) or "تمامی اقلام موجودی کافی دارند"
+
+    system_instruction = f"""تو دستیار ارشد هوش مصنوعی، مشاور مالی و مدیر عملیاتی فوق‌العاده باهوش «فروشگاه لوازم بهداشتی و ساختمانی طهماسبی» هستی.
+نام کاربری که با او گفتگو می‌کنی: «{user_name}» است.
+امروز: {now_j.strftime('%Y/%m/%d')} است.
+
+خلاصه وضعیت زنده دیتابیس فروشگاه:
+- فروش ناخالص ماه {month_name}: {fin.get('gross_sales', 0):,} تومان
+- مرجوعی ماه: {fin.get('returns_amount', 0):,} تومان
+- فروش خالص ماه: {fin.get('net_sales', 0):,} تومان
+- سود ناخالص برآورد شده: {fin.get('estimated_gross_profit', 0):,} تومان (حاشیه سود: {fin.get('gross_margin_percent', 0)}%)
+- کل بار مالی حقوق و پورسانت پرسنل: {fin.get('total_payroll', 0):,} تومان
+- کل هزینه‌های جاری و اجاره: {fin.get('total_expenses', 0) + fin.get('total_rent', 0):,} تومان
+- سود خالص قطعی فروشگاه تا این لحظه: {fin.get('store_net_profit', 0):,} تومان
+- مانده بدهی نسیه مشتریان در این ماه: {fin.get('remaining_balance', 0):,} تومان
+- آمار امروز ({day} {month_name}): {today_count} فاکتور فروش به مبلغ {today_sales:,} تومان (دریافتی نقد/کارتخوان: {today_settled:,} تومان)
+- پرفروش‌ترین کالاهای ماه: {top_items_str}
+- چک‌های در جریان: {len(pending_cheques)} فقره به مبلغ {pending_chk_amt:,} تومان
+- چک‌های برگشتی: {len(bounced_cheques)} فقره به مبلغ {bounced_chk_amt:,} تومان
+- هشدارهای کسری انبار: {low_stock_str}
+
+قوانین پاسخگویی:
+۱. به سوال کاربر با زبان فارسی روان، محترمانه، پرانرژی و سرشار از بینش مدیریتی و اقتصادی پاسخ بده.
+۲. تمام مبالغ پولی را دقیقاً به «تومان» با ارقام تفکیک‌شده سه‌رقمی (کاما) بنویس.
+۳. از بولت‌پوینت‌های جذاب و ایموجی‌های مناسب استفاده کن.
+۴. در پایان پاسخت، حتماً ۱ یا ۲ نکته یا اقدام فوری پیشنهادی (Actionable Advice) برای رشد فروشگاه یا رفع چالش‌های موجود ارائه کن.
+"""
+
+    res = call_gemini_unified(query_text, system_instruction=system_instruction, temperature=0.3)
+    if res.get('success'):
+        return {
+            'success': True,
+            'reply': res.get('text', ''),
+            'model': res.get('model', 'gemini-3.8-flash'),
+            'today_sales': today_sales,
+            'net_profit': fin.get('store_net_profit', 0)
+        }
+    else:
+        return {
+            'success': False,
+            'error': res.get('error'),
+            'message': res.get('message', 'خطا در ارتباط با هوش مصنوعی.')
+        }
+
+def ai_suggest_cross_sell(item_names, categories=None):
+    """
+    پیشنهاد هوشمند اقلام مکمل و تکمیلی سبد خرید (Cross-Selling & Upselling)
+    ویژه صنف لوازم بهداشتی و ساختمانی
+    """
+    if not item_names:
+        return {'success': True, 'suggestions': []}
+
+    categories = categories or []
+    items_text = ", ".join(item_names)
+    cats_text = ", ".join(categories)
+
+    rule_suggestions = []
+    combined_str = (items_text + " " + cats_text).lower()
+
+    if any(k in combined_str for k in ['روشویی', 'کابین', 'کابینت', 'سنگ']):
+        rule_suggestions.extend([
+            {'name': 'شیر روشویی پایه بلند لوکس', 'category': 'شیرآلات', 'estimated_price': 2200000, 'reason': 'مکمل ضروری کاسه روشویی و کابینت'},
+            {'name': 'سیفون اتوماتیک روشویی پاپ‌آپ', 'category': 'سایر و اکسسوری', 'estimated_price': 350000, 'reason': 'آب‌بندی استاندارد زیر کاسه'},
+            {'name': 'شیلنگ پیسوار حصیری استیل (جفت)', 'category': 'سایر و اکسسوری', 'estimated_price': 180000, 'reason': 'اتصال آب سرد و گرم به شیر روشویی'},
+            {'name': 'آینه باکس تاچ ال‌ای‌دی ضد بخار', 'category': 'آینه و آینه بک‌لایت', 'estimated_price': 1650000, 'reason': 'هارمونی کامل با کابینت روشویی'}
+        ])
+
+    if any(k in combined_str for k in ['سینک', 'گرانیتی', 'استیل']):
+        rule_suggestions.extend([
+            {'name': 'شیر ظرفشویی شاوری شلنگدار دو منظوره', 'category': 'شیرآلات', 'estimated_price': 3400000, 'reason': 'شستشوی آسان گوشه‌های لگن سینک'},
+            {'name': 'سیفون دو لگنه فانتزی با زیرآب', 'category': 'سایر و اکسسوری', 'estimated_price': 480000, 'reason': 'خروج بهینه آب و جلوگیری از بوی نامطبوع'},
+            {'name': 'سبد رول شستشوی میوه و استند کشویی', 'category': 'سایر و اکسسوری', 'estimated_price': 320000, 'reason': 'اکسسوری محبوب روی لگن سینک'}
+        ])
+
+    if any(k in combined_str for k in ['هود', 'داتیس', 'اخوان']):
+        rule_suggestions.extend([
+            {'name': 'لوله خرطومی آلومینیومی نسوز ۱۰ متری', 'category': 'سایر و اکسسوری', 'estimated_price': 250000, 'reason': 'هدایت دود و هوای مکش به خروجی'},
+            {'name': 'تبدیل خروجی هود ۱۲ به ۱۵ با بست فلزی', 'category': 'سایر و اکسسوری', 'estimated_price': 90000, 'reason': 'فیت کردن دهانه لوله هود'}
+        ])
+
+    if any(k in combined_str for k in ['توالت فرنگی', 'فرنگی', 'کرد', 'مروارید']):
+        rule_suggestions.extend([
+            {'name': 'بوگیر ژله‌ای توالت فرنگی (موم‌دار)', 'category': 'سایر و اکسسوری', 'estimated_price': 140000, 'reason': 'آب‌بندی ۱۰۰٪ کف و عدم نشت بو'},
+            {'name': 'شیر توالت اهرمی برنجی با شلنگ ریزبافت', 'category': 'شیرآلات', 'estimated_price': 1450000, 'reason': 'ست ضروری کنار فرنگی'},
+            {'name': 'شیر پیسوار فیلتردار ۱/۲ اینچ', 'category': 'سایر و اکسسوری', 'estimated_price': 120000, 'reason': 'کنترل ورودی آب مخزن فرنگی'}
+        ])
+
+    if any(k in combined_str for k in ['دوش', 'شیر حمام', 'علم']):
+        rule_suggestions.extend([
+            {'name': 'علم دوش دوکاره یونیورست با گوشی تلفنی', 'category': 'علم دوش', 'estimated_price': 1850000, 'reason': 'حمام لوکس همراه با ماساژور'},
+            {'name': 'کنجی حمام استیل ضدزنگ ۳ طبقه', 'category': 'سایر و اکسسوری', 'estimated_price': 290000, 'reason': 'نگهداری شوینده‌ها در محوطه دوش'}
+        ])
+
+    catalog_matches = []
+    try:
+        for r in rule_suggestions[:4]:
+            p_cat = ProductCatalog.query.filter(
+                ProductCatalog.is_active == True,
+                or_(
+                    ProductCatalog.category == r['category'],
+                    ProductCatalog.name.contains(r['category'])
+                )
+            ).first()
+            if p_cat:
+                catalog_matches.append({
+                    'name': p_cat.name,
+                    'category': p_cat.category,
+                    'estimated_price': p_cat.sale_price or r['estimated_price'],
+                    'reason': r['reason'],
+                    'in_catalog': True,
+                    'catalog_id': p_cat.id
+                })
+            else:
+                catalog_matches.append({
+                    'name': r['name'],
+                    'category': r['category'],
+                    'estimated_price': r['estimated_price'],
+                    'reason': r['reason'],
+                    'in_catalog': False,
+                    'catalog_id': None
+                })
+    except Exception:
+        catalog_matches = rule_suggestions[:4]
+
+    return {
+        'success': True,
+        'source': 'ai_catalog_rules',
+        'suggestions': catalog_matches
+    }
+
+def ai_extract_product_from_box(image_bytes, mime_type='image/jpeg'):
+    """
+    استخراج آنی مشخصات، برند، مدل، بارکد و قیمت کالا از تصویر جعبه، کارتن یا فاکتور خرید
+    """
+    prompt = """تصویر این کارتن، جعبه کالا، بارکد یا فاکتور خرید در صنف لوازم بهداشتی و ساختمانی را بادقت بخوان.
+مشخصات را صرفاً در قالب یک شیء معتبر JSON استخراج کن:
+{
+  "name": "نام تجاری دقیق و کامل کالا مثلا: شیر ظرفشویی شاوری شودر مدل بیزانس کروم",
+  "brand": "برند کالا مانند: شودر، قهرمان، اخوان، داتیس، راسان، مروارید، لوتوس، چینی کرد، فونیکس",
+  "category": "یکی از دسته‌ها: روشویی کابینتی، شیرآلات، سینک، هود، گاز صفحه‌ای، توالت فرنگی، فلاش تانک، علم دوش، فر توکار، سایر و اکسسوری",
+  "code": "کد مدل یا کد فنی کالا",
+  "barcode": "بارکد عددی در صورت رویت",
+  "buy_price": 0,
+  "sell_price": 0,
+  "stock_quantity": 1,
+  "description": "ویژگی‌ها مانند رنگ، جنس، ابعاد و گارانتی"
+}
+فقط و فقط یک شیء معتبر JSON خروجی بده."""
+
+    res = call_gemini_unified(prompt, image_bytes=image_bytes, mime_type=mime_type, json_mode=True, temperature=0.1)
+    if res.get('success') and res.get('data'):
+        data = res['data']
+        return {
+            'success': True,
+            'data': {
+                'name': str(data.get('name') or 'کالای جدید شناسایی‌شده').strip(),
+                'brand': str(data.get('brand') or '').strip(),
+                'category': str(data.get('category') or 'عمومی').strip(),
+                'code': str(data.get('code') or '').strip(),
+                'barcode': str(data.get('barcode') or '').strip(),
+                'buy_price': int(data.get('buy_price') or 0),
+                'sell_price': int(data.get('sell_price') or 0),
+                'stock_quantity': int(data.get('stock_quantity') or 1),
+                'description': str(data.get('description') or '').strip()
+            },
+            'model': res.get('model')
+        }
+    return {
+        'success': False,
+        'message': res.get('message', 'امکان استخراج مشخصات از تصویر وجود نداشت.')
+    }
+
+def ai_customer_credit_risk(customer_id):
+    """
+    اعتبارسنجی هوشمند خریدار، تحلیل سوابق چک‌های صیادی و ارزیابی ریسک فروش نسیه
+    """
+    cust = db.session.get(Customer, customer_id)
+    if not cust:
+        return {'success': False, 'message': 'مشتری یافت نشد'}
+
+    invoices = Invoice.query.filter_by(customer_id=cust.id).all()
+    cheques = Cheque.query.filter(or_(Cheque.customer_phone == cust.phone, Cheque.customer_name == cust.name)).all()
+
+    total_spent = sum(inv.total_amount or 0 for inv in invoices if inv.status == 'final')
+    passed_chk = len([c for c in cheques if c.status == 'passed'])
+    bounced_chk = len([c for c in cheques if c.status == 'bounced'])
+    pending_chk = len([c for c in cheques if c.status == 'pending'])
+
+    score = 100
+    if bounced_chk > 0:
+        score -= (bounced_chk * 30)
+    if cust.outstanding_balance > (cust.credit_limit or 50000000):
+        score -= 20
+    elif cust.outstanding_balance > 0:
+        score -= 10
+
+    if total_spent > 100000000 and bounced_chk == 0:
+        score = min(100, score + 10)
+
+    score = max(10, min(100, score))
+
+    if score >= 85:
+        tier = 'A+'
+        risk_label = 'بسیار کم‌ریسک و مشتری طلایی'
+    elif score >= 70:
+        tier = 'A'
+        risk_label = 'خوش‌حساب و معتبر'
+    elif score >= 50:
+        tier = 'B'
+        risk_label = 'ریسک متوسط (فروش نسیه با احتیاط)'
+    else:
+        tier = 'C'
+        risk_label = 'پرریسک (توصیه: فقط نقدی یا چک معتبر تضمین‌شده)'
+
+    if cust.outstanding_balance > 0:
+        sms_draft = f"جناب آقای/سرکار خانم {cust.name} گرامی، با سلام و احترام از حسن انتخاب شما در فروشگاه‌های طهماسبی. مانده حساب دفتری شما مبلغ {cust.outstanding_balance:,} تومان می‌باشد. خواهشمند است جهت هماهنگی تسویه با واحد حسابداری تماس حاصل فرمایید. با سپاس."
+    else:
+        sms_draft = f"جناب آقای/سرکار خانم {cust.name} عزیز، از اعتماد و خرید شما از فروشگاه‌های ساختمانی طهماسبی صمیمانه سپاسگزاریم. کلیه اقلام فاکتور شما شامل گارانتی و خدمات پس از فروش می‌باشند."
+
+    summary = f"امتیاز {score} از ۱۰۰ ({tier}) - {risk_label} | کل خرید: {total_spent:,} تومان | مانده بدهی: {cust.outstanding_balance:,} تومان | چک پاس شده: {passed_chk} | چک برگشتی: {bounced_chk}"
+
+    cust.ai_credit_score = score
+    cust.ai_risk_tier = tier
+    cust.ai_risk_summary = summary
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    return {
+        'success': True,
+        'customer_id': cust.id,
+        'customer_name': cust.name,
+        'score': score,
+        'tier': tier,
+        'risk_label': risk_label,
+        'total_spent': total_spent,
+        'outstanding_balance': cust.outstanding_balance,
+        'passed_cheques': passed_chk,
+        'bounced_cheques': bounced_chk,
+        'pending_cheques': pending_chk,
+        'summary': summary,
+        'sms_draft': sms_draft
+    }
+
+def ai_audit_store_anomalies(limit=15):
+    """
+    ممیزی و دیده‌بان هوشمند خطاهای مالی، تخفیف‌های غیرمجاز و فروش با زیان
+    """
+    anomalies = []
+    
+    loss_items = db.session.query(InvoiceItem, Invoice).join(Invoice).filter(
+        Invoice.status == 'final',
+        Invoice.invoice_type == 'sale',
+        InvoiceItem.unit_buy_price > 0,
+        InvoiceItem.unit_sell_price < InvoiceItem.unit_buy_price
+    ).order_by(Invoice.id.desc()).limit(limit).all()
+
+    for it, inv in loss_items:
+        loss_per_unit = (it.unit_buy_price - it.unit_sell_price)
+        total_loss = loss_per_unit * it.quantity
+        anomalies.append({
+            'severity': 'danger',
+            'type': 'loss_sale',
+            'title': f'فروش زیر قیمت خرید در فاکتور {inv.invoice_number}',
+            'invoice_id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'customer_name': inv.customer_name,
+            'details': f"کالای «{it.item_name}» به قیمت خرید {it.unit_buy_price:,} با قیمت فروش {it.unit_sell_price:,} تومان فاکتور شده است (زیان کل: {total_loss:,} تومان).",
+            'date': inv.shamsi_date_time
+        })
+
+    high_disc_invoices = Invoice.query.filter(
+        Invoice.status == 'final',
+        Invoice.invoice_type == 'sale',
+        Invoice.subtotal_amount > 1000000,
+        Invoice.discount_amount > (Invoice.subtotal_amount * 0.25)
+    ).order_by(Invoice.id.desc()).limit(limit).all()
+
+    for inv in high_disc_invoices:
+        disc_pct = round((inv.discount_amount / inv.subtotal_amount) * 100, 1) if inv.subtotal_amount else 0
+        anomalies.append({
+            'severity': 'warning',
+            'type': 'high_discount',
+            'title': f'تخفیف غیرعادی ({disc_pct}٪) در فاکتور {inv.invoice_number}',
+            'invoice_id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'customer_name': inv.customer_name,
+            'details': f"مبلغ ناخالص: {inv.subtotal_amount:,} تومان | تخفیف اعمال‌شده: {inv.discount_amount:,} تومان.",
+            'date': inv.shamsi_date_time
+        })
+
+    neg_stock_items = InventoryItem.query.filter(InventoryItem.stock_quantity < 0).limit(5).all()
+    for it in neg_stock_items:
+        anomalies.append({
+            'severity': 'danger',
+            'type': 'negative_stock',
+            'title': f'موجودی منفی در انبار: {it.name}',
+            'invoice_id': None,
+            'invoice_number': 'انبار',
+            'customer_name': it.shop.name if it.shop else 'مرکزی',
+            'details': f"موجودی ثبت‌شده در سیستم: {it.stock_quantity} عدد است. لطفاً اصلاح انبارگردانی انجام شود.",
+            'date': 'هم‌اکنون'
+        })
+
+    return anomalies
+
 
 

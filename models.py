@@ -151,6 +151,9 @@ class Customer(db.Model):
     credit_limit = db.Column(db.BigInteger, default=50_000_000) # سقف اعتبار نسیه
     total_purchases = db.Column(db.BigInteger, default=0) # جمع کل خریدها
     outstanding_balance = db.Column(db.BigInteger, default=0) # مانده بدهی دفتری
+    ai_credit_score = db.Column(db.Integer, default=100) # امتیاز اعتباری هوشمند (0 تا 100)
+    ai_risk_tier = db.Column(db.String(20), default='A') # سطح ریسک هوش مصنوعی: A+, A, B, C
+    ai_risk_summary = db.Column(db.Text, nullable=True) # خلاصه تحلیل اعتباری هوش مصنوعی
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     invoices = db.relationship('Invoice', backref='customer', lazy=True)
@@ -164,7 +167,10 @@ class Customer(db.Model):
             'customer_type': self.customer_type or 'regular',
             'credit_limit': self.credit_limit or 0,
             'total_purchases': self.total_purchases or 0,
-            'outstanding_balance': self.outstanding_balance or 0
+            'outstanding_balance': self.outstanding_balance or 0,
+            'ai_credit_score': self.ai_credit_score or 100,
+            'ai_risk_tier': self.ai_risk_tier or 'A',
+            'ai_risk_summary': self.ai_risk_summary or ''
         }
 
 class InventoryItem(db.Model):
@@ -286,6 +292,7 @@ class Invoice(db.Model):
     sms_sent = db.Column(db.Boolean, default=False) # آیا پیامک گارانتی ارسال شده است
     sms_sent_at = db.Column(db.String(40), nullable=True) # زمان ارسال پیامک
     paper_invoice_image = db.Column(db.String(255), nullable=True) # نام فایل عکس فاکتور کاغذی/دفتری
+    ai_audit_flags = db.Column(db.Text, nullable=True) # هشدارهای ممیزی و مغایرت هوش مصنوعی
     seller = db.relationship('User', foreign_keys=[seller_id])
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')

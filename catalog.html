@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>کاتالوگ مرجع و لیست قیمت پایه | مجموعه فروشگاه‌های طهماسبی</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <script src="{{ url_for('static', filename='libs/tailwind/tailwind.js') }}"></script>
+    <link href="{{ url_for('static', filename='libs/fonts/vazirmatn.css') }}" rel="stylesheet" type="text/css" />
     <style>
         *, *::before, *::after { box-sizing: border-box; }
         html, body {
@@ -263,6 +263,9 @@
                     </button>
                     {% endif %}
                     {% if can_manage_stock %}
+                    <button type="button" onclick="openAiBoxScanModal('catalog')" class="bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black px-3.5 py-2.5 rounded-2xl text-xs transition shadow flex items-center gap-1.5 animate-pulse">
+                        <span>📸</span> افزودن با عکس جعبه (AI)
+                    </button>
                     <button onclick="openAddModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-3.5 py-2.5 rounded-2xl text-xs transition shadow flex items-center gap-1">
                         ➕ افزودن تکی
                     </button>
@@ -1186,7 +1189,162 @@
                 input.value = input.value.replace(/,/g, '');
             });
         }
+
+        // ==================== اسکن هوشمند کالا با هوش مصنوعی جمینای ====================
+        function openAiBoxScanModal(target) {
+            target = target || 'catalog';
+            const targetInp = document.getElementById('aiBoxScanTarget');
+            if (targetInp) targetInp.value = target;
+
+            const modal = document.getElementById('aiBoxScanModal');
+            if (modal) modal.classList.remove('hidden');
+
+            const promptDiv = document.getElementById('aiBoxUploadPrompt');
+            const prevCont = document.getElementById('aiBoxPreviewContainer');
+            const statusDiv = document.getElementById('aiBoxScanningStatus');
+            const fileInp = document.getElementById('aiBoxFileInput');
+
+            if (fileInp) fileInp.value = '';
+            if (promptDiv) promptDiv.classList.remove('hidden');
+            if (prevCont) {
+                prevCont.classList.add('hidden');
+                prevCont.classList.remove('flex');
+            }
+            if (statusDiv) statusDiv.classList.add('hidden');
+        }
+
+        function closeAiBoxScanModal() {
+            const modal = document.getElementById('aiBoxScanModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function processAiBoxScan(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+
+            const promptDiv = document.getElementById('aiBoxUploadPrompt');
+            const prevCont = document.getElementById('aiBoxPreviewContainer');
+            const thumb = document.getElementById('aiBoxThumb');
+            const fileNameSpan = document.getElementById('aiBoxFileName');
+            const statusDiv = document.getElementById('aiBoxScanningStatus');
+
+            if (promptDiv) promptDiv.classList.add('hidden');
+            if (prevCont) {
+                prevCont.classList.remove('hidden');
+                prevCont.classList.add('flex');
+            }
+            if (fileNameSpan) fileNameSpan.innerText = file.name;
+            if (statusDiv) statusDiv.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (thumb) thumb.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            const formData = new FormData();
+            formData.append('box_image', file);
+
+            fetch('/api/ai/extract_product_box', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(resp => {
+                if (statusDiv) statusDiv.classList.add('hidden');
+                if (resp.success && resp.data) {
+                    const d = resp.data;
+                    closeAiBoxScanModal();
+
+                    if (typeof openAddModal === 'function') openAddModal();
+
+                    const addModal = document.getElementById('addModal');
+                    if (addModal) {
+                        const nameInp = addModal.querySelector('input[name="name"]');
+                        const brandInp = addModal.querySelector('input[name="brand"]');
+                        const catSelect = addModal.querySelector('select[name="category"]');
+                        const codeInp = addModal.querySelector('input[name="code"]');
+                        const buyInp = addModal.querySelector('input[name="buy_price"]');
+                        const sellInp = addModal.querySelector('input[name="sell_price"]');
+                        const descInp = addModal.querySelector('textarea[name="description"]');
+
+                        if (nameInp) nameInp.value = d.name || '';
+                        if (brandInp) brandInp.value = d.brand || '';
+                        if (codeInp) codeInp.value = d.code || d.barcode || '';
+                        if (buyInp && d.buy_price) buyInp.value = Number(d.buy_price).toLocaleString('en-US');
+                        if (sellInp && d.sell_price) sellInp.value = Number(d.sell_price).toLocaleString('en-US');
+                        if (descInp && d.description) descInp.value = d.description;
+                        if (catSelect && d.category) {
+                            for (let opt of catSelect.options) {
+                                if (opt.value === d.category || opt.text.includes(d.category)) {
+                                    opt.selected = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    alert(`✅ مشخصات کالا «${d.name}» با هوش مصنوعی جمینای استخراج شد و در فرم کاتالوگ قرار گرفت.`);
+                } else {
+                    alert('خطا در خواندن تصویر: ' + (resp.message || 'امکان استخراج کالا وجود نداشت.'));
+                }
+            })
+            .catch(err => {
+                if (statusDiv) statusDiv.classList.add('hidden');
+                alert('خطای ارتباط با سرور: ' + err);
+            });
+        }
     </script>
+
+    <!-- ==================== مودال اسکن هوشمند کالا با هوش مصنوعی ==================== -->
+    <div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50">
+        <div class="bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl max-w-md w-full p-5 text-white space-y-4">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl p-1.5 bg-purple-500/20 rounded-xl">📸</span>
+                    <div>
+                        <h3 class="text-sm font-black text-white">افزودن هوشمند با عکس جعبه کالا</h3>
+                        <p class="text-[11px] text-purple-300">استخراج خودکار مدل، برند و قیمت توسط Gemini 3.8</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAiBoxScanModal()" class="text-slate-400 hover:text-white text-xs bg-white/10 p-1.5 rounded-xl">✕</button>
+            </div>
+
+            <input type="file" id="aiBoxFileInput" accept="image/*" capture="environment" class="hidden" onchange="processAiBoxScan(this)">
+            <input type="hidden" id="aiBoxScanTarget" value="catalog">
+
+            <!-- باکس انتخاب تصویر یا دوربین -->
+            <div onclick="document.getElementById('aiBoxFileInput').click()" class="border-2 border-dashed border-purple-500/40 hover:border-purple-400 rounded-2xl p-6 text-center cursor-pointer transition bg-purple-950/20 hover:bg-purple-950/40 space-y-2">
+                <div id="aiBoxUploadPrompt">
+                    <span class="text-4xl block mb-2">📷</span>
+                    <span class="text-xs font-bold text-slate-200 block">برای عکسبرداری با دوربین یا انتخاب عکس کلیک کنید</span>
+                    <span class="text-[10px] text-purple-300 block">پشتیبانی از عکس کارتن، بارکد، برچسب کالا و فاکتور خرید</span>
+                </div>
+                <div id="aiBoxPreviewContainer" class="hidden flex-col items-center space-y-2">
+                    <img id="aiBoxThumb" src="" alt="پیش‌نمایش" class="max-h-48 rounded-xl object-contain shadow-lg border border-white/10">
+                    <span id="aiBoxFileName" class="text-xs font-mono text-purple-200"></span>
+                </div>
+            </div>
+
+            <!-- نشانگر اسکن و پردازش -->
+            <div id="aiBoxScanningStatus" class="hidden p-3 bg-purple-950/50 border border-purple-500/30 rounded-xl text-center space-y-2">
+                <div class="flex items-center justify-center gap-2 text-xs font-black text-purple-300">
+                    <span class="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
+                    <span>هوش مصنوعی در حال تحلیل تصویر با Gemini 3.8...</span>
+                </div>
+                <p class="text-[10px] text-slate-400">استخراج هوشمند نام، برند، بارکد و قیمت‌ها</p>
+            </div>
+
+            <!-- دکمه‌ها -->
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="closeAiBoxScanModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">
+                    انصراف
+                </button>
+                <button type="button" onclick="document.getElementById('aiBoxFileInput').click()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl text-xs transition shadow-lg flex items-center gap-1.5">
+                    <span>📸</span> انتخاب عکس یا دوربین
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 

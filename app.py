@@ -29,7 +29,9 @@ from helpers import (
     parse_smart_invoice_text, get_inventory_ai_insights,
     safe_int, safe_float, normalize_persian_text, calculate_store_financial_summary,
     send_invoice_sms, build_catalog_search_filter, get_persian_word_variants,
-    ai_scan_paper_invoice
+    ai_scan_paper_invoice,
+    ai_business_copilot, ai_suggest_cross_sell, ai_extract_product_from_box,
+    ai_customer_credit_risk, ai_audit_store_anomalies
 )
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -204,6 +206,10 @@ def initialize_database():
             ("settings", "gemini_api_key", "TEXT"),
             ("settings", "gemini_model", "TEXT DEFAULT 'gemini-3.8-flash'"),
             ("settings", "gemini_base_url", "TEXT DEFAULT 'https://generativelanguage.googleapis.com'"),
+            ("customers", "ai_credit_score", "INTEGER DEFAULT 100"),
+            ("customers", "ai_risk_tier", "TEXT DEFAULT 'A'"),
+            ("customers", "ai_risk_summary", "TEXT"),
+            ("invoices", "ai_audit_flags", "TEXT"),
         ]
 
 
@@ -918,6 +924,107 @@ def test_gemini_route():
     except Exception as e:
         return jsonify({'success': False, 'message': f'خطای شبکه در ارتباط با گوگل: {str(e)}'}), 500
 
+# ==================== ماژول‌های ۵گانه اکوسیستم هوش مصنوعی طهماسبی ====================
+
+@app.route('/api/ai/copilot', methods=['POST'])
+def api_ai_copilot():
+    """ستون ۱: دستیار استراتژیک و هوشمند کسب‌وکار ویژه مدیریت فروشگاه"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز (فقط مدیریت)'}), 403
+
+    query = ''
+    if request.is_json:
+        query = request.json.get('query', '').strip()
+    if not query:
+        query = request.form.get('query', '').strip()
+
+    if not query:
+        return jsonify({'success': False, 'message': 'لطفاً پرسش یا درخواست خود را مطرح فرمایید.'}), 400
+
+    user = db.session.get(User, session.get('user_id'))
+    user_name = user.full_name if user else 'مدیر گرامی'
+
+    res = ai_business_copilot(query, user_name=user_name)
+    status_code = 200 if res.get('success') else (400 if res.get('error') == 'no_api_key' else 500)
+    return jsonify(res), status_code
+
+@app.route('/api/ai/suggest_cross_sell', methods=['POST'])
+def api_ai_suggest_cross_sell():
+    """ستون ۲: موتور هوشمند پیشنهاد اقلام مکمل سبد خرید (Cross-Selling & Upselling)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 401
+
+    items = []
+    categories = []
+    if request.is_json:
+        items = request.json.get('items', [])
+        categories = request.json.get('categories', [])
+    else:
+        raw_items = request.form.get('items', '')
+        if raw_items:
+            items = [x.strip() for x in raw_items.split(',') if x.strip()]
+        raw_cats = request.form.get('categories', '')
+        if raw_cats:
+            categories = [x.strip() for x in raw_cats.split(',') if x.strip()]
+
+    res = ai_suggest_cross_sell(items, categories)
+    return jsonify(res)
+
+@app.route('/api/ai/extract_product_box', methods=['POST'])
+def api_ai_extract_product_box():
+    """ستون ۳: استخراج و ثبت آنی کالا در انبار و کاتالوگ از روی تصویر جعبه/کارتن/بارکد"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید.'}), 401
+
+    image_bytes = None
+    mime_type = 'image/jpeg'
+
+    file = request.files.get('box_image') or request.files.get('file') or request.files.get('image')
+    if file and file.filename:
+        mime_type = file.content_type or 'image/jpeg'
+        image_bytes = file.read()
+    elif request.is_json or request.form.get('image_base64'):
+        b64_data = request.json.get('image_base64', '') if request.is_json else request.form.get('image_base64', '')
+        if b64_data:
+            if ',' in b64_data:
+                header, encoded = b64_data.split(',', 1)
+                if 'png' in header:
+                    mime_type = 'image/png'
+                elif 'webp' in header:
+                    mime_type = 'image/webp'
+            else:
+                encoded = b64_data
+            try:
+                image_bytes = base64.b64decode(encoded)
+            except Exception:
+                image_bytes = None
+
+    if not image_bytes:
+        return jsonify({'success': False, 'message': 'تصویر جعبه یا بارکد کالا دریافت نشد.'}), 400
+
+    res = ai_extract_product_from_box(image_bytes, mime_type=mime_type)
+    status_code = 200 if res.get('success') else (400 if res.get('error') == 'no_api_key' else 500)
+    return jsonify(res), status_code
+
+@app.route('/api/ai/customer_risk/<int:customer_id>', methods=['GET'])
+def api_ai_customer_risk(customer_id):
+    """ستون ۴: رادار هوشمند ریسک اعتباری مشتری و پیش‌نویس پیامک هوشمند پیگیری/تشکر"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً وارد شوید.'}), 401
+
+    res = ai_customer_credit_risk(customer_id)
+    return jsonify(res)
+
+@app.route('/api/ai/audit_anomalies', methods=['GET'])
+def api_ai_audit_anomalies():
+    """ستون ۵: دیده‌بان ممیزی و کشف خطاهای مالی، فروش با زیان و تخفیف‌های غیرمجاز"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت سیستم است.'}), 403
+
+    limit = safe_int(request.args.get('limit', 20), 20)
+    anomalies = ai_audit_store_anomalies(limit=limit)
+    return jsonify({'success': True, 'anomalies': anomalies, 'count': len(anomalies)})
+
 @app.route('/api/invoice/<int:invoice_id>/details')
 def api_invoice_details(invoice_id):
     """دریافت جزئیات کامل فاکتور و تصویر دفتری جهت مقایسه دوطرفه هوشمند"""
@@ -1490,6 +1597,16 @@ def add_invoice():
         new_inv.real_profit = new_inv.total_amount - new_inv.actual_buy_cost
         new_inv.has_custom_items = has_any_custom
 
+        # ممیزی هوشمند آنی فاکتور توسط هوش مصنوعی
+        audit_warnings = []
+        if new_inv.invoice_type == 'sale' and new_inv.status == 'final':
+            if new_inv.actual_buy_cost > 0 and new_inv.real_profit < 0:
+                audit_warnings.append(f"فروش با زیان: مبلغ فاکتور ({new_inv.total_amount:,}) کمتر از بهای تمام‌شده ({new_inv.actual_buy_cost:,}) است.")
+            if new_inv.subtotal_amount > 1000000 and (new_inv.discount_amount or 0) > (new_inv.subtotal_amount * 0.25):
+                disc_p = round(((new_inv.discount_amount or 0) / new_inv.subtotal_amount) * 100, 1)
+                audit_warnings.append(f"تخفیف بالا: {disc_p}٪ تخفیف اعمال شده است.")
+        if audit_warnings:
+            new_inv.ai_audit_flags = " | ".join(audit_warnings)
 
         # ثبت چک‌های صیادی ایجاد شده
         for chk_data in cheques_to_create:
@@ -1516,6 +1633,10 @@ def add_invoice():
                 customer.total_purchases = max(0, customer.total_purchases - new_inv.total_amount)
                 if new_inv.remaining_balance > 0:
                     customer.outstanding_balance = max(0, customer.outstanding_balance - new_inv.remaining_balance)
+            try:
+                ai_customer_credit_risk(customer.id)
+            except Exception:
+                pass
 
         db.session.commit()
         
@@ -2002,6 +2123,15 @@ def edit_invoice(invoice_id):
         inv.real_profit = inv.total_amount - inv.actual_buy_cost
         inv.has_custom_items = has_any_custom
 
+        # ممیزی هوشمند آنی فاکتور پس از ویرایش
+        audit_warnings = []
+        if inv.invoice_type == 'sale' and inv.status == 'final':
+            if inv.actual_buy_cost > 0 and inv.real_profit < 0:
+                audit_warnings.append(f"فروش با زیان: مبلغ فاکتور ({inv.total_amount:,}) کمتر از بهای تمام‌شده ({inv.actual_buy_cost:,}) است.")
+            if inv.subtotal_amount > 1000000 and (inv.discount_amount or 0) > (inv.subtotal_amount * 0.25):
+                disc_p = round(((inv.discount_amount or 0) / inv.subtotal_amount) * 100, 1)
+                audit_warnings.append(f"تخفیف بالا: {disc_p}٪ تخفیف اعمال شده است.")
+        inv.ai_audit_flags = " | ".join(audit_warnings) if audit_warnings else None
 
         # ایجاد چک‌های جدید
         for chk_data in cheques_to_create:
@@ -2028,6 +2158,10 @@ def edit_invoice(invoice_id):
                 customer.total_purchases = max(0, customer.total_purchases - inv.total_amount)
                 if inv.remaining_balance > 0:
                     customer.outstanding_balance = max(0, customer.outstanding_balance - inv.remaining_balance)
+            try:
+                ai_customer_credit_risk(customer.id)
+            except Exception:
+                pass
 
         db.session.commit()
 
@@ -3211,6 +3345,12 @@ def api_customer_lookup():
         ).first()
     
     if customer:
+        risk_info = ai_customer_credit_risk(customer.id) if (not customer.ai_risk_summary) else {
+            'score': customer.ai_credit_score or 100,
+            'tier': customer.ai_risk_tier or 'A',
+            'summary': customer.ai_risk_summary or '',
+            'risk_label': 'بسیار کم‌ریسک و مشتری طلایی' if (customer.ai_credit_score or 100) >= 85 else ('خوش‌حساب و معتبر' if (customer.ai_credit_score or 100) >= 70 else ('ریسک متوسط (با احتیاط)' if (customer.ai_credit_score or 100) >= 50 else 'پرریسک (فقط نقدی)'))
+        }
         return jsonify({
             'found': True,
             'id': customer.id,
@@ -3218,7 +3358,11 @@ def api_customer_lookup():
             'phone': customer.phone or '',
             'outstanding_balance': customer.outstanding_balance or 0,
             'total_purchases': customer.total_purchases or 0,
-            'customer_type': customer.customer_type or 'regular'
+            'customer_type': customer.customer_type or 'regular',
+            'ai_credit_score': risk_info.get('score', 100),
+            'ai_risk_tier': risk_info.get('tier', 'A'),
+            'ai_risk_label': risk_info.get('risk_label', 'خوش‌حساب و معتبر'),
+            'ai_risk_summary': risk_info.get('summary', '')
         })
     return jsonify({'found': False})
 

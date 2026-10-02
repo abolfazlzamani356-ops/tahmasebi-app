@@ -1092,13 +1092,15 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
             'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است. لطفاً در پنل تنظیمات مدیر، کلید خود را وارد نمایید.'
         }
 
-    # نقشه‌برداری هوشمند مدل‌ها به مدل‌های رسمی و پرسرعت Google API (زیر ۲ ثانیه)
+    # نقشه‌برداری هوشمند مدل‌ها به مدل‌های رسمی، باثبات و پرسرعت Google API (سریع‌ترین پاسخ‌دهی و نرخ درخواست ۱۵ در دقیقه)
     MODEL_ALIAS_MAP = {
-        'gemini-3.8-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest'],
-        'gemini-3.5-flash-lite': ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3-flash-preview'],
-        'gemini-2.5-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest'],
-        'gemini-1.5-pro': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-latest'],
-        'gemini-1.5-flash': ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview']
+        'gemini-3.8-flash': ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-3.1-flash-lite': ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
+        'gemini-3.5-flash-lite': ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'],
+        'gemini-3-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-2.5-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-1.5-pro': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-1.5-flash': ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']
     }
 
     candidate_models = []
@@ -1106,7 +1108,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
         if m not in candidate_models:
             candidate_models.append(m)
 
-    for m in ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest']:
+    for m in ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']:
         if m not in candidate_models:
             candidate_models.append(m)
 
@@ -1128,7 +1130,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
         "contents": [{"parts": parts}],
         "generationConfig": {
             "temperature": temperature,
-            "maxOutputTokens": 1536
+            "maxOutputTokens": 1024
         }
     }
     if json_mode:
@@ -1142,13 +1144,16 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     last_err = None
     start_time = time.time()
     for cand in candidate_models:
-        # جلوگیری قاطع از رد شدن از سقف تایم‌اوت گیت‌وی لیارا/انجین‌ایکس (حداکثر ۱۸ ثانیه)
-        if time.time() - start_time > 18:
+        # تضمین قطعی اینکه کل فرآیند از ۲۰ ثانیه بیشتر نشود تا با لیمیت ۳۰ ثانیه‌ای سرور و خطای ۵۰۲ روبرو نشویم
+        elapsed = time.time() - start_time
+        if elapsed > 20:
             break
 
         url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
         try:
-            cand_timeout = 10 if cand == candidate_models[0] else 6
+            # زمان مجاز برای مدل اول تا ۲۰ ثانیه است که زمان کاملاً کافی برای تولید گزارش کامل حتی با اینترنت متغیر فراهم می‌کند
+            time_left = max(5, int(22 - (time.time() - start_time)))
+            cand_timeout = min(20, time_left) if cand == candidate_models[0] else min(7, time_left)
             resp = requests.post(url, json=payload, headers=headers, timeout=cand_timeout)
             if resp.status_code == 200:
                 res_json = resp.json()
@@ -1181,14 +1186,24 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
                             'data': json_data,
                             'model': display_model
                         }
+            elif resp.status_code == 429:
+                last_err = "محدودیت تعداد درخواست در دقیقه گوگل (Rate Limit 429): در حساب رایگان گوگل، حداکثر تعداد درخواست در دقیقه پر شده است. لطفاً ۱ دقیقه صبر فرمایید یا در تنظیمات از مدل سریع Flash Lite استفاده نمایید."
+                # برای جلوگیری از مسدودیت بیشتر کلید، بلافاصله متوقف شو
+                break
+            elif resp.status_code == 503:
+                last_err = "سرور گوگل به دلیل ترافیک بالا موقتاً پاسخ نداد (503 Service Unavailable). در حال تلاش با مدل جایگزین..."
+                continue
             elif resp.status_code == 403:
-                last_err = "خطای ۴۰۳ گوگل: محدودیت جغرافیایی یا تحریم آی‌پی ایران. لطفاً VPN سرور یا Cloudflare Worker را تنظیم فرمایید."
+                last_err = "خطای ۴۰۳ گوگل: دسترسی نامعتبر یا محدودیت جغرافیایی آی‌پی. لطفاً اتصال Cloudflare Worker یا کلید را بررسی نمایید."
+                break
             elif resp.status_code == 400:
                 last_err = f"خطای ۴۰۰ گوگل (پارامتر نامعتبر): {resp.text[:120]}"
             else:
                 last_err = f"کد خطا {resp.status_code}: {resp.text[:140]}"
         except requests.exceptions.Timeout:
-            last_err = "تایم‌اوت ارتباط با سرور گوگل (پاسخ در زمان مناسب دریافت نشد، لطفاً مجدداً ارسال نمایید)"
+            last_err = "تایم‌اوت ارتباط با سرور گوگل: پاسخ در مهلت مقرر (۲۰ ثانیه) از سرور گوگل دریافت نشد. لطفاً مجدداً ارسال نمایید."
+            # اگر مدل اول در ۲۰ ثانیه پاسخ نداد، فرصت کافی برای مدل دوم نمانده تا از خطای ۵۰۲ سرور جلوگیری شود
+            break
         except Exception as ex:
             last_err = str(ex)
 
@@ -1265,7 +1280,7 @@ def ai_business_copilot(query_text, user_name="مدیر"):
 ۲. تمام مبالغ پولی را دقیقاً به «تومان» با ارقام تفکیک‌شده سه‌رقمی (کاما) بنویس.
 ۳. از بولت‌پوینت‌های جذاب و ایموجی‌های مناسب استفاده کن.
 ۴. در پایان پاسخت، حتماً ۱ یا ۲ نکته یا اقدام فوری پیشنهادی (Actionable Advice) برای رشد فروشگاه یا رفع چالش‌های موجود ارائه کن.
-۵. پاسخ را ساختاریافته، دقیق، متمرکز و بدون زیاده‌گویی بنویس تا سریع تولید و ارائه شود.
+۵. پاسخ را ساختاریافته، بسیار جذاب، مستقیم، بدون حاشیه‌پردازی و حداکثر در ۲۵۰ الی ۳۵۰ کلمه ارائه کن تا خروجی با حداکثر سرعت تولید شود.
 """
 
         res = call_gemini_unified(query_text, system_instruction=system_instruction, temperature=0.3)

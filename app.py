@@ -876,15 +876,17 @@ def test_gemini_route():
     if not base_url:
         base_url = 'https://generativelanguage.googleapis.com'
     
-    # نگاشت هوشمند مدل‌ها به مدل‌های رسمی و فعال Google API
+    # نگاشت هوشمند مدل‌ها به مدل‌های رسمی، فعال و باثبات Google API
     MODEL_ALIAS_MAP = {
-        'gemini-3.8-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'],
-        'gemini-3.5-flash-lite': ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3-flash-preview'],
-        'gemini-2.5-flash': ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
-        'gemini-1.5-pro': ['gemini-pro-latest', 'gemini-3-flash-preview', 'gemini-flash-latest'],
-        'gemini-1.5-flash': ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview']
+        'gemini-3.8-flash': ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-3.1-flash-lite': ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'],
+        'gemini-3.5-flash-lite': ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'],
+        'gemini-3-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-2.5-flash': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-1.5-pro': ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'],
+        'gemini-1.5-flash': ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']
     }
-    candidate_test_models = MODEL_ALIAS_MAP.get(model, [model, 'gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest'])
+    candidate_test_models = MODEL_ALIAS_MAP.get(model, [model, 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'])
 
     # تست اولیه با SDK رسمی google-genai
     for cand in candidate_test_models:
@@ -930,7 +932,10 @@ def test_gemini_route():
             else:
                 raw_text = resp.text or ''
                 clean_text = re.sub(r'<[^>]*>', '', raw_text).strip()
-                if resp.status_code == 403:
+                if resp.status_code == 429:
+                    last_err_msg = "خطای ۴۲۹ گوگل (محدودیت تعداد درخواست در دقیقه): سقف حساب رایگان پر شده است. لطفاً ۱ دقیقه صبر کرده و مجدداً دکمه تست را بزنید."
+                    break
+                elif resp.status_code == 403:
                     last_err_msg = (
                         f"خطای ۴۰۳ گوگل: دسترسی نامعتبر یا محدودیت جغرافیایی/تحریم آی‌پی.\n"
                         f"• در صورت استفاده در سرور ایران (لیارا)، آدرس Cloudflare Worker (gemini_base_url) را تنظیم فرمایید.\n"

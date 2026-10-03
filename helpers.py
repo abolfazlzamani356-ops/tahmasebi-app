@@ -845,6 +845,7 @@ def send_invoice_sms(invoice, base_url=None):
         return False, f"خطای شبکه در ارسال پیامک: {str(e)}"
 
 
+DEFAULT_AI_PROXY = 'https://tahmasebi-app.onrender.com/api/ai/proxy'
 DEFAULT_CLOUDFLARE_PROXY = 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev'
 
 def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, model_name=None):
@@ -1014,7 +1015,9 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     
     api_key = None
     model_name = 'gemini-3.8-flash'
-    base_url = DEFAULT_CLOUDFLARE_PROXY
+    is_foreign_server = bool(os.environ.get('RENDER') or os.environ.get('RENDER_INSTANCE_ID'))
+    default_target = 'https://generativelanguage.googleapis.com' if is_foreign_server else DEFAULT_AI_PROXY
+    base_url = default_target
     
     try:
         st = Settings.query.first()
@@ -1025,8 +1028,8 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
                 model_name = st.gemini_model.strip()
             if st.gemini_base_url and st.gemini_base_url.strip():
                 custom_url = st.gemini_base_url.strip()
-                if 'googleapis.com' in custom_url:
-                    base_url = DEFAULT_CLOUDFLARE_PROXY
+                if not is_foreign_server and 'googleapis.com' in custom_url:
+                    base_url = default_target
                 else:
                     base_url = custom_url
     except Exception:

@@ -297,12 +297,12 @@
 
                     <div class="pt-3 border-t border-white/5">
                         <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
-                            <span>🌐 آدرس پایه API / ریورس پروکسی گذر از تحریم (ویژه سرورهای ایران مانند لیارا)</span>
-                            <span class="text-[10px] text-amber-400">پیش‌فرض: رسمی گوگل</span>
+                            <span>🌐 آدرس پایه API / ریورس پروکسی گذر از تحریم و فیلترینگ (ویژه سرور ایران لیارا)</span>
+                            <span class="text-[10px] text-emerald-400 font-bold">پروکسی اختصاصی فعال طهماسبی</span>
                         </label>
-                        <input type="text" id="gemini_base_url_input" name="gemini_base_url" value="{{ settings.gemini_base_url or 'https://generativelanguage.googleapis.com' }}" placeholder="https://generativelanguage.googleapis.com یا آدرس ورکر کلودفلر" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs font-mono text-cyan-300 outline-none focus:border-cyan-500" dir="ltr">
+                        <input type="text" id="gemini_base_url_input" name="gemini_base_url" value="{{ settings.gemini_base_url or 'https://tahmasebi-app.onrender.com/api/ai/proxy' }}" placeholder="https://tahmasebi-app.onrender.com/api/ai/proxy" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs font-mono text-cyan-300 outline-none focus:border-cyan-500" dir="ltr">
                         <span class="text-[11px] text-slate-400 block mt-1">
-                            💡 اگر برنامه روی هاست‌های ایرانی (مثل لیارا) مستقر است، به دلیل تحریم آی‌پی ایران از سمت گوگل (خطای ۴۰۳)، یک Cloudflare Worker رایگان بسازید و آدرس آن را اینجا قرار دهید تا بدون خطا کار کند.
+                            💡 جهت دور زدن قطعی و تحریم‌های سرورهای ایران، سیستم به طور خودکار از نود اختصاصی ضدتحریم خارج از کشور Render استفاده می‌کند تا نیازی به VPN یا پروکسی خارجی نباشد.
                         </span>
                     </div>
 

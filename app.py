@@ -305,11 +305,11 @@ def initialize_database():
     try:
         st = Settings.query.first()
         if not st:
-            st = Settings(gemini_base_url='https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev')
+            st = Settings(gemini_base_url='https://tahmasebi-app.onrender.com/api/ai/proxy')
             db.session.add(st)
             db.session.commit()
         elif not st.gemini_base_url or 'googleapis.com' in st.gemini_base_url:
-            st.gemini_base_url = 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev'
+            st.gemini_base_url = 'https://tahmasebi-app.onrender.com/api/ai/proxy'
             db.session.commit()
     except Exception:
         db.session.rollback()
@@ -862,6 +862,46 @@ def api_scan_invoice():
         status_code = 400 if scan_result.get('error') == 'no_api_key' else 200
         return jsonify(scan_result), status_code
 
+@app.route('/api/ai/proxy/<path:subpath>', methods=['GET', 'POST', 'OPTIONS'])
+def ai_external_proxy(subpath):
+    """
+    ریورس پروکسی اختصاصی هوش مصنوعی:
+    این اندپوینت به سرورهای ایرانی (مثل لیارا) اجازه می‌دهد بدون فیلترینگ و بدون تحریم
+    از طریق این سرور به گوگل متصل شوند.
+    """
+    from flask import Response
+    if request.method == 'OPTIONS':
+        resp = Response()
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Headers'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        return resp
+
+    target_url = f"https://generativelanguage.googleapis.com/{subpath}"
+    params = dict(request.args)
+    headers = {
+        'Content-Type': request.headers.get('Content-Type', 'application/json')
+    }
+    for h in ['x-goog-api-key', 'Authorization']:
+        if h in request.headers:
+            headers[h] = request.headers[h]
+
+    try:
+        import requests
+        if request.method == 'POST':
+            req_data = request.get_data()
+            g_resp = requests.post(target_url, params=params, data=req_data, headers=headers, timeout=22)
+        else:
+            g_resp = requests.get(target_url, params=params, headers=headers, timeout=22)
+
+        res = Response(g_resp.content, status=g_resp.status_code)
+        for h, v in g_resp.headers.items():
+            if h.lower() in ['content-type']:
+                res.headers[h] = v
+        return res
+    except Exception as ex:
+        return jsonify({'error': {'message': f'Proxy forwarding error: {str(ex)}'}}), 502
+
 @app.route('/api/ai/test_gemini', methods=['POST'])
 def test_gemini_route():
     """تست صحت و اتصال کلید API گوگل جمینای از پنل تنظیمات"""
@@ -877,9 +917,9 @@ def test_gemini_route():
         return jsonify({'success': False, 'message': 'کلید API وارد نشده است.'}), 400
     
     model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
-    base_url = (request.form.get('gemini_base_url') or (request.json.get('gemini_base_url') if request.is_json else None) or (st.gemini_base_url if st else None) or 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev').strip()
+    base_url = (request.form.get('gemini_base_url') or (request.json.get('gemini_base_url') if request.is_json else None) or (st.gemini_base_url if st else None) or 'https://tahmasebi-app.onrender.com/api/ai/proxy').strip()
     if not base_url or 'googleapis.com' in base_url:
-        base_url = 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev'
+        base_url = 'https://tahmasebi-app.onrender.com/api/ai/proxy'
     
     # نگاشت هوشمند مدل‌ها به مدل‌های رسمی، فعال و باثبات Google API
     MODEL_ALIAS_MAP = {

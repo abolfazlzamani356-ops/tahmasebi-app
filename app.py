@@ -303,8 +303,13 @@ def initialize_database():
         db.session.rollback()
 
     try:
-        if not Settings.query.first():
-            db.session.add(Settings())
+        st = Settings.query.first()
+        if not st:
+            st = Settings(gemini_base_url='https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev')
+            db.session.add(st)
+            db.session.commit()
+        elif not st.gemini_base_url or 'googleapis.com' in st.gemini_base_url:
+            st.gemini_base_url = 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev'
             db.session.commit()
     except Exception:
         db.session.rollback()
@@ -872,9 +877,9 @@ def test_gemini_route():
         return jsonify({'success': False, 'message': 'کلید API وارد نشده است.'}), 400
     
     model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
-    base_url = (request.form.get('gemini_base_url') or (request.json.get('gemini_base_url') if request.is_json else None) or (st.gemini_base_url if st else None) or 'https://generativelanguage.googleapis.com').strip()
-    if not base_url:
-        base_url = 'https://generativelanguage.googleapis.com'
+    base_url = (request.form.get('gemini_base_url') or (request.json.get('gemini_base_url') if request.is_json else None) or (st.gemini_base_url if st else None) or 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev').strip()
+    if not base_url or 'googleapis.com' in base_url:
+        base_url = 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev'
     
     # نگاشت هوشمند مدل‌ها به مدل‌های رسمی، فعال و باثبات Google API
     MODEL_ALIAS_MAP = {

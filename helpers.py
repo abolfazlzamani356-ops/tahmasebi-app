@@ -845,45 +845,37 @@ def send_invoice_sms(invoice, base_url=None):
         return False, f"خطای شبکه در ارسال پیامک: {str(e)}"
 
 
+DEFAULT_CLOUDFLARE_PROXY = 'https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev'
+
 def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, model_name=None):
     """
     اسکن و تحلیل هوشمند تصویر فاکتور دست‌نویس یا چاپی با استفاده از Google AI Studio (Gemini Vision)
     ویژه استخراج اقلام، قیمت‌ها، پکیج‌های ترکیبی (مانند کابینت با سنگ) و تخفیف‌ها در صنف لوازم ساختمانی و بهداشتی
     """
-    import base64
-    import os
-    import requests
-    from models import Settings
-
-    # استخراج کلید API
-    if not api_key:
-        try:
-            st = Settings.query.first()
-            if st and st.gemini_api_key:
-                api_key = st.gemini_api_key.strip()
-        except Exception:
-            pass
-
-    if not api_key:
-        api_key = os.environ.get('GEMINI_API_KEY', '').strip()
-
-    if not api_key:
+    if not image_bytes:
         return {
             'success': False,
-            'error': 'no_api_key',
-            'message': 'کلید API هوش مصنوعی گوگل ثبت نشده است. لطفاً در منوی تنظیمات سیستم، کلید Google AI خود را وارد نمایید.'
+            'error': 'no_image',
+            'message': 'تصویری برای پردازش ارسال نشده است.'
         }
 
-    # تعیین مدل
-    if not model_name:
-        try:
-            st = Settings.query.first()
-            if st and st.gemini_model:
-                model_name = st.gemini_model.strip()
-        except Exception:
-            pass
-    if not model_name:
-        model_name = 'gemini-3.8-flash'
+    # بهینه‌سازی و فشرده‌سازی تصویر در سمت سرور در صورت بزرگ بودن
+    try:
+        if len(image_bytes) > 600 * 1024:
+            import io
+            from PIL import Image
+            img = Image.open(io.BytesIO(image_bytes))
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            max_dim = 1600
+            if max(img.width, img.height) > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            out_buf = io.BytesIO()
+            img.save(out_buf, format='JPEG', quality=80, optimize=True)
+            image_bytes = out_buf.getvalue()
+            mime_type = 'image/jpeg'
+    except Exception:
+        pass
 
     prompt_text = """تو یک حسابدار هوشمند و فوق‌العاده دقیق در صنف لوازم بهداشتی و ساختمانی (فروشگاه طهماسبی) هستی.
 وظیفه تو خواندن تصویر این برگه فاکتور دست‌نویس یا دفتری و تبدیل دقیق آن به ساختار استاندارد فاکتور است.
@@ -925,135 +917,89 @@ def ai_scan_paper_invoice(image_bytes, mime_type='image/jpeg', api_key=None, mod
   "payment_note": "",
   "raw_notes": ""
 }
-فقط و فقط یک شیء معتبر JSON خروجی بده، بدون هیچ توضیح یا علامت اضافه.
-"""
+فقط و فقط یک شیء معتبر JSON خروجی بده، بدون هیچ توضیح یا علامت اضافه."""
 
-    b64_image = base64.b64encode(image_bytes).decode('utf-8')
+    res = call_gemini_unified(
+        prompt=prompt_text,
+        image_bytes=image_bytes,
+        mime_type=mime_type,
+        json_mode=True,
+        temperature=0.1
+    )
 
-    # مدل‌های کاندید برای ارسال درخواست با فال‌بک خودکار
-    candidate_models = [model_name]
-    for fallback in ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']:
-        if fallback not in candidate_models:
-            candidate_models.append(fallback)
+    if not res.get('success'):
+        return {
+            'success': False,
+            'error': res.get('error', 'api_failed'),
+            'message': res.get('message', 'خطا در ارتباط با وب‌سرویس هوش مصنوعی گوگل')
+        }
 
-    base_url = 'https://generativelanguage.googleapis.com'
+    data = res.get('data')
+    if not data and res.get('clean_text'):
+        try:
+            data = json.loads(res.get('clean_text'))
+        except Exception:
+            pass
+
+    if not data or not isinstance(data, dict):
+        return {
+            'success': False,
+            'error': 'invalid_json',
+            'message': 'هوش مصنوعی نتوانست اقلام فاکتور را در قالب ساختاریافته استخراج کند. لطفاً از وضوح تصویر اطمینان حاصل فرمایید.'
+        }
+
+    # استانداردسازی داده‌ها
+    sanitized_items = []
+    calc_subtotal = 0
+    for it in data.get('items', []):
+        q = int(it.get('quantity') or 1)
+        if q <= 0:
+            q = 1
+        up = int(it.get('unit_price') or 0)
+        tp = int(it.get('total_price') or (up * q))
+        disc = int(it.get('discount') or 0)
+        calc_subtotal += (up * q)
+        sanitized_items.append({
+            'name': str(it.get('name') or 'کالای فاکتور').strip(),
+            'category': str(it.get('category') or 'عمومی').strip(),
+            'quantity': q,
+            'unit_price': up,
+            'total_price': tp,
+            'discount': disc,
+            'is_bundle': bool(it.get('is_bundle', False)),
+            'description': str(it.get('description') or '').strip()
+        })
+
+    subtot = int(data.get('subtotal_amount') or calc_subtotal)
+    disc_tot = int(data.get('discount_amount') or 0)
+    gtot = int(data.get('grand_total') or (subtot - disc_tot))
+
+    parsed_response = {
+        'customer_name': str(data.get('customer_name') or '').strip(),
+        'customer_phone': str(data.get('customer_phone') or '').strip(),
+        'date': str(data.get('date') or '').strip(),
+        'items': sanitized_items,
+        'subtotal_amount': subtot,
+        'discount_amount': disc_tot,
+        'grand_total': gtot,
+        'payment_note': str(data.get('payment_note') or '').strip(),
+        'raw_notes': str(data.get('raw_notes') or '').strip()
+    }
+
     try:
-        st = Settings.query.first()
-        if st and st.gemini_base_url:
-            base_url = st.gemini_base_url.strip() or 'https://generativelanguage.googleapis.com'
+        log_activity(
+            f"تحلیل موفق فاکتور دفتری توسط هوش مصنوعی ({res.get('model')}) با استخراج {len(sanitized_items)} قلم کالا",
+            user_name="موتور هوش مصنوعی Gemini",
+            category="هوش مصنوعی",
+            details=f"مبلغ کل: {gtot:,} تومان"
+        )
     except Exception:
         pass
 
-    last_error = None
-    for cand_model in candidate_models:
-        url = f"{base_url.rstrip('/')}/v1beta/models/{cand_model}:generateContent?key={api_key}"
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt_text},
-                        {
-                            "inline_data": {
-                                "mime_type": mime_type or "image/jpeg",
-                                "data": b64_image
-                            }
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.1,
-                "response_mime_type": "application/json"
-            }
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": api_key
-        }
-
-        try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=35)
-            if resp.status_code == 200:
-                result_json = resp.json()
-                # استخراج پاسخ متنی
-                candidates = result_json.get('candidates', [])
-                if candidates:
-                    parts = candidates[0].get('content', {}).get('parts', [])
-                    if parts:
-                        raw_text = parts[0].get('text', '').strip()
-                        # پاکسازی احتمالی تگ‌های مارک‌داون
-                        if raw_text.startswith('```json'):
-                            raw_text = raw_text[7:]
-                        elif raw_text.startswith('```'):
-                            raw_text = raw_text[3:]
-                        if raw_text.endswith('```'):
-                            raw_text = raw_text[:-3]
-                        raw_text = raw_text.strip()
-
-                        data = json.loads(raw_text)
-                        
-                        # استانداردسازی داده‌ها
-                        sanitized_items = []
-                        calc_subtotal = 0
-                        for it in data.get('items', []):
-                            q = int(it.get('quantity') or 1)
-                            if q <= 0:
-                                q = 1
-                            up = int(it.get('unit_price') or 0)
-                            tp = int(it.get('total_price') or (up * q))
-                            disc = int(it.get('discount') or 0)
-                            calc_subtotal += (up * q)
-                            sanitized_items.append({
-                                'name': str(it.get('name') or 'کالای فاکتور').strip(),
-                                'category': str(it.get('category') or 'عمومی').strip(),
-                                'quantity': q,
-                                'unit_price': up,
-                                'total_price': tp,
-                                'discount': disc,
-                                'is_bundle': bool(it.get('is_bundle', False)),
-                                'description': str(it.get('description') or '').strip()
-                            })
-
-                        subtot = int(data.get('subtotal_amount') or calc_subtotal)
-                        disc_tot = int(data.get('discount_amount') or 0)
-                        gtot = int(data.get('grand_total') or (subtot - disc_tot))
-
-                        parsed_response = {
-                            'customer_name': str(data.get('customer_name') or '').strip(),
-                            'customer_phone': str(data.get('customer_phone') or '').strip(),
-                            'date': str(data.get('date') or '').strip(),
-                            'items': sanitized_items,
-                            'subtotal_amount': subtot,
-                            'discount_amount': disc_tot,
-                            'grand_total': gtot,
-                            'payment_note': str(data.get('payment_note') or '').strip(),
-                            'raw_notes': str(data.get('raw_notes') or '').strip()
-                        }
-
-                        try:
-                            log_activity(
-                                f"تحلیل موفق فاکتور دفتری توسط هوش مصنوعی ({cand_model}) با استخراج {len(sanitized_items)} قلم کالا",
-                                user_name="موتور هوش مصنوعی Gemini",
-                                category="هوش مصنوعی",
-                                details=f"مبلغ کل: {gtot:,} تومان"
-                            )
-                        except Exception:
-                            pass
-
-                        return {
-                            'success': True,
-                            'data': parsed_response,
-                            'model_used': cand_model
-                        }
-            else:
-                last_error = f"کد خطا {resp.status_code}: {resp.text[:200]}"
-        except Exception as ex:
-            last_error = str(ex)
-
     return {
-        'success': False,
-        'error': 'api_error',
-        'message': f'خطا در ارتباط با وب‌سرویس هوش مصنوعی گوگل: {last_error or "پاسخی دریافت نشد"}'
+        'success': True,
+        'data': parsed_response,
+        'model_used': res.get('model')
     }
 
 def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_mode=False, system_instruction=None, temperature=0.2):
@@ -1068,7 +1014,7 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
     
     api_key = None
     model_name = 'gemini-3.8-flash'
-    base_url = 'https://generativelanguage.googleapis.com'
+    base_url = DEFAULT_CLOUDFLARE_PROXY
     
     try:
         st = Settings.query.first()
@@ -1077,8 +1023,12 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
                 api_key = st.gemini_api_key.strip()
             if st.gemini_model:
                 model_name = st.gemini_model.strip()
-            if st.gemini_base_url:
-                base_url = st.gemini_base_url.strip() or base_url
+            if st.gemini_base_url and st.gemini_base_url.strip():
+                custom_url = st.gemini_base_url.strip()
+                if 'googleapis.com' in custom_url:
+                    base_url = DEFAULT_CLOUDFLARE_PROXY
+                else:
+                    base_url = custom_url
     except Exception:
         pass
 

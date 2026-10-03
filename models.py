@@ -115,7 +115,7 @@ class Settings(db.Model):
     public_domain = db.Column(db.String(100), default='tahmasebistore.ir')
     gemini_api_key = db.Column(db.String(255), nullable=True) # کلید API گوگل هوش مصنوعی (Google AI Studio)
     gemini_model = db.Column(db.String(50), default='gemini-3.8-flash') # مدل پیش‌فرض هوش مصنوعی (Gemini 3.8 Flash)
-    gemini_base_url = db.Column(db.String(255), default='https://generativelanguage.googleapis.com') # آدرس پایه API یا ریورس پروکسی گذر از تحریم لیارا
+    gemini_base_url = db.Column(db.String(255), default='https://nameless-mountain-929bgemini-proxy.abolfazlzamani356.workers.dev') # آدرس پایه API یا ریورس پروکسی گذر از تحریم لیارا
 
 
 class BankAccount(db.Model):

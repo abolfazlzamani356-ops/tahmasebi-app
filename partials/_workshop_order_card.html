@@ -135,13 +135,6 @@
         </div>
     </div>
 
-    <!-- مبالغ مالی (در صورت وجود) -->
-    {% if ord.customer_price and ord.customer_price > 0 %}
-    <div class="bg-slate-900/60 p-2 rounded-xl border border-white/5 text-[10px] flex items-center justify-between">
-        <span class="text-slate-400">قیمت فروش:</span>
-        <span class="font-black text-emerald-400">{{ "{:,}".format(ord.customer_price) }} ت</span>
-    </div>
-    {% endif %}
 
     <!-- دکمه‌های اقدام سریع کارت کانبان -->
     <div class="pt-2 border-t border-white/5 flex items-center justify-between gap-1">

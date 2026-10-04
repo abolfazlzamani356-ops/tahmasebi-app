@@ -655,13 +655,13 @@
                 </div>
             </div>
 
-            <!-- بخش ۵: فوریت، زمان‌بندی و مالی -->
+            <!-- بخش ۵: اولویت، موعد تحویل و کارگاه -->
             <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 space-y-4">
                 <div class="flex items-center gap-2 pb-2 border-b border-white/5">
-                    <span class="text-indigo-400 font-bold text-xs">⏰ ۵. فوریت، موعد تحویل و مبالغ مالی</span>
+                    <span class="text-indigo-400 font-bold text-xs">⏰ ۵. اولویت، موعد تحویل و هماهنگی کارگاه</span>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                         <label class="block text-[11px] font-bold text-slate-300 mb-1">میزان فوریت و اولویت</label>
                         <select name="priority" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold">
@@ -682,37 +682,15 @@
                         <input type="text" name="assigned_worker" value="آقای حسینی (کارگاه مرکزی)"
                                class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold">
                     </div>
-
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-300 mb-1">قیمت توافقی فروش (تومان)</label>
-                        <input type="text" name="customer_price" id="cust_price_inp" placeholder="0" oninput="formatFinancials(this)"
-                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-black text-center text-emerald-400">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-300 mb-1">بهای برآوردی ساخت کارگاه (تومان)</label>
-                        <input type="text" name="estimated_cost" placeholder="0" oninput="formatFinancials(this)"
-                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-center">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-300 mb-1">بیعانه دریافتی از مشتری (تومان)</label>
-                        <input type="text" name="prepaid_amount" id="prepaid_inp" placeholder="0" oninput="formatFinancials(this)"
-                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-center text-amber-300">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-300 mb-1">مانده قابل تسویه مشتری</label>
-                        <div id="balance_preview" class="w-full bg-[#1a2234]/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-black text-center text-indigo-300">
-                            ۰ تومان
-                        </div>
-                    </div>
                 </div>
 
                 <!-- نکات حساس ساخت -->
                 <div class="pt-2">
                     <label class="block text-[11px] font-bold text-rose-300 mb-1">⚠️ نکات حساس، خطوط شیارها و تذکرات ساخت کارگاه:</label>
                     <textarea name="special_notes" rows="2" placeholder="مثال: کف کابین بسیار حساس است و کاملاً ضدآب شود، خطوط شیار درب‌ها تراز باشد، لولای ضدزنگ باکیفیت نصب شود..."
+                              class="w-full bg-[#1a2234] border border-white/15 rounded-xl p-3 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+            </div>
                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl p-3 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"></textarea>
                 </div>
             </div>
@@ -868,25 +846,6 @@ function updateDimText() {
     }
 }
 
-// فرمت اعداد مالی و مانده بدهی
-function formatFinancials(el) {
-    let val = el.value.replace(/[^0-9]/g, '');
-    if (val) {
-        el.value = parseInt(val, 10).toLocaleString('en-US');
-    }
-    
-    const custPrice = parseInt((document.getElementById('cust_price_inp').value || '0').replace(/,/g, ''), 10) || 0;
-    const prepaid = parseInt((document.getElementById('prepaid_inp').value || '0').replace(/,/g, ''), 10) || 0;
-    const rem = custPrice - prepaid;
-    
-    const balEl = document.getElementById('balance_preview');
-    balEl.textContent = rem.toLocaleString('en-US') + ' تومان';
-    if (rem > 0) {
-        balEl.className = "w-full bg-rose-950/40 border border-rose-500/30 rounded-xl px-3 py-2 text-xs font-black text-center text-rose-300";
-    } else {
-        balEl.className = "w-full bg-emerald-950/40 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-black text-center text-emerald-300";
-    }
-}
 
 // پیش‌نمایش تصویر آپلود شده
 function previewUploadImage(input, index) {

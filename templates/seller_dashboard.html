@@ -13,6 +13,14 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
+        <a href="{{ url_for('workshop_orders_hub') }}" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-orange-500/25">
+            <span>🔨</span> سفارش ساخت کارگاه
+            {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}
+            <span class="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] font-black animate-pulse">
+                {{ pending_workshop_orders_count }}
+            </span>
+            {% endif %}
+        </a>
         <a href="#leaderboard" class="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
             <span>🏆</span> سکوی رقابت ماه
         </a>
@@ -88,6 +96,32 @@
         </span>
     </div>
     {% endif %}
+</div>
+
+<!-- بنر دسترسی سریع به سفارشات ساخت کارگاهی کابینت، روشویی، آینه و باکس -->
+<div class="glass-card p-4 mb-6 border-r-4 border-r-amber-500 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center text-xl flex-shrink-0">
+            🔨
+        </div>
+        <div>
+            <h4 class="text-xs font-black text-white flex items-center gap-2">
+                <span>سفارشات ساخت کارگاهی (کابینت، روشویی، آینه و باکس سفارشی)</span>
+                <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">واحد کارگاه طهماسبی</span>
+            </h4>
+            <p class="text-[11px] text-slate-400 mt-0.5">ثبت مشخصات فنی کابین، ابعاد دقیق، رنگ بدنه و درب، آینه و باکس جهت ارجاع فوری به کارگاه تولیدی</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
+        <a href="{{ url_for('workshop_orders_hub') }}" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-black px-4 py-2 rounded-xl shadow-lg shadow-orange-500/20 transition flex items-center gap-1.5">
+            <span>➕</span> ثبت و پیگیری سفارشات کارگاه
+            {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}
+            <span class="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] font-black animate-pulse">
+                {{ pending_workshop_orders_count }}
+            </span>
+            {% endif %}
+        </a>
+    </div>
 </div>
 
 <!-- دستیار صوتی و متنی هوشمند ثبت فاکتور (AI Assistant) -->

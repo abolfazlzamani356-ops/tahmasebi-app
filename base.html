@@ -343,6 +343,15 @@
                     <span>📦</span> انبارداری
                 </a>
 
+                <a href="{{ url_for('workshop_orders_hub') }}" class="nav-pill relative {% if request.endpoint == 'workshop_orders_hub' %}active{% endif %}" title="سفارشات ساخت کارگاه (کابین، آینه، باکس)">
+                    <span>🔨</span> کارگاه
+                    {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}
+                    <span class="absolute -top-1.5 -right-1 px-1.5 py-0.2 min-w-[18px] text-[10px] font-black rounded-full bg-rose-500 text-white animate-pulse text-center">
+                        {{ pending_workshop_orders_count }}
+                    </span>
+                    {% endif %}
+                </a>
+
                 {% if session.get('role') == 'admin' or session.get('can_manage_inventory') %}
                 <a href="{{ url_for('catalog_view') }}" class="nav-pill {% if request.endpoint == 'catalog_view' %}active{% endif %}">
                     <span>📋</span> کاتالوگ

@@ -43,6 +43,15 @@
                 </select>
             </form>
 
+            <a href="{{ url_for('workshop_orders_hub') }}" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition flex items-center gap-1.5">
+                <span>🔨</span> سفارشات کارگاه
+                {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}
+                <span class="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] font-black animate-pulse">
+                    {{ pending_workshop_orders_count }}
+                </span>
+                {% endif %}
+            </a>
+
             <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-1.5">
                 <span>➕</span> تعریف پرسنل جدید
             </button>

@@ -1,0 +1,1016 @@
+{% extends 'base.html' %}
+
+{% block title %}میز کار و سفارشات ساخت کارگاهی (کابین، آینه، باکس) • فروشگاه طهماسبی{% endblock %}
+
+{% block content %}
+<!-- هدر اصلی و دکمه‌های اقدام سریع -->
+<div class="glass-card p-6 mb-6">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-5 border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-2xl shadow-lg shadow-orange-500/30 flex-shrink-0 text-white">
+                🔨
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="font-black text-white text-lg">میز کار سفارشات ساخت کارگاهی (روشویی، آینه و باکس سفارشی)</h2>
+                    <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-2.5 py-0.5 rounded-full">واحد تولید و کارگاه</span>
+                </div>
+                <p class="text-xs text-slate-400 font-medium mt-1">مدیریت سفارشات ساخت سفارشی، صدور حواله فنی، هماهنگی با استادکار کارگاه (آقای حسینی) و پیگیری تحویل</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+            <!-- سوئیچ بین نمای کانبان و جدول -->
+            <div class="bg-[#1a2234] p-1 rounded-xl border border-white/10 flex items-center gap-1">
+                <a href="{{ url_for('workshop_orders_hub', view='kanban', status=status_filter, priority=priority_filter, q=search_query, seller_id=seller_filter, overdue='1' if overdue_only else '') }}" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 {% if view_mode != 'table' %}bg-indigo-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">
+                    <span>📋</span> نمای کانبان
+                </a>
+                <a href="{{ url_for('workshop_orders_hub', view='table', status=status_filter, priority=priority_filter, q=search_query, seller_id=seller_filter, overdue='1' if overdue_only else '') }}" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 {% if view_mode == 'table' %}bg-indigo-600 text-white shadow{% else %}text-slate-400 hover:text-white{% endif %}">
+                    <span>📑</span> نمای جدول
+                </a>
+            </div>
+
+            <!-- دکمه ثبت سفارش جدید -->
+            <button onclick="openNewOrderModal()" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition flex items-center gap-1.5 cursor-pointer">
+                <span>➕</span> ثبت سفارش جدید کارگاه
+            </button>
+        </div>
+    </div>
+
+    <!-- کارت‌های آمار و KPI کارگاه -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-5">
+        <a href="{{ url_for('workshop_orders_hub', view=view_mode) }}" class="bg-slate-900/80 hover:bg-slate-800/80 p-3.5 rounded-2xl border border-white/5 transition flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 font-bold">کل سفارشات:</span>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xl font-black text-white">{{ stats.total }}</span>
+                <span class="text-lg">📦</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('workshop_orders_hub', status='pending', view=view_mode) }}" class="bg-slate-900/80 hover:bg-amber-950/40 p-3.5 rounded-2xl border border-amber-500/30 transition flex flex-col justify-between">
+            <span class="text-[11px] text-amber-300 font-bold">در انتظار تایید:</span>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xl font-black text-amber-400">{{ stats.pending }}</span>
+                <span class="text-lg">🕒</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('workshop_orders_hub', status='approved', view=view_mode) }}" class="bg-slate-900/80 hover:bg-blue-950/40 p-3.5 rounded-2xl border border-blue-500/30 transition flex flex-col justify-between">
+            <span class="text-[11px] text-blue-300 font-bold">تایید و ارجاع:</span>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xl font-black text-blue-400">{{ stats.approved }}</span>
+                <span class="text-lg">📋</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('workshop_orders_hub', status='in_production', view=view_mode) }}" class="bg-slate-900/80 hover:bg-indigo-950/40 p-3.5 rounded-2xl border border-indigo-500/30 transition flex flex-col justify-between">
+            <span class="text-[11px] text-indigo-300 font-bold">در حال ساخت کارگاه:</span>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xl font-black text-indigo-400">{{ stats.in_production }}</span>
+                <span class="text-lg">🔨</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('workshop_orders_hub', status='ready', view=view_mode) }}" class="bg-slate-900/80 hover:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-500/30 transition flex flex-col justify-between">
+            <span class="text-[11px] text-emerald-300 font-bold">آماده تحویل:</span>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xl font-black text-emerald-400">{{ stats.ready }}</span>
+                <span class="text-lg">✨</span>
+            </div>
+        </a>
+
+        <a href="{{ url_for('workshop_orders_hub', overdue='1', view=view_mode) }}" class="bg-slate-900/80 hover:bg-rose-950/40 p-3.5 rounded-2xl border {% if stats.overdue > 0 %}border-rose-500/60 ring-2 ring-rose-500/20{% else %}border-rose-500/20{% endif %} transition flex flex-col justify-between">
+            <span class="text-[11px] text-rose-300 font-bold flex items-center gap-1">
+                {% if stats.overdue > 0 %}<span class="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>{% endif %}
+                سفارشات دارای تاخیر:
+            </span>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xl font-black text-rose-400">{{ stats.overdue }}</span>
+                <span class="text-lg">⚠️</span>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- فرم فیلتر و جستجوی پیشرفته -->
+<div class="glass-card p-4 mb-6">
+    <form method="GET" action="{{ url_for('workshop_orders_hub') }}" class="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="view" value="{{ view_mode }}">
+        
+        <!-- جستجو در تمام فیلدها -->
+        <div class="flex-grow min-w-[240px]">
+            <div class="relative">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="جستجو بر اساس نام مشتری، تلفن، شماره سفارش، مدل، ابعاد..." 
+                       class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 pr-9">
+                <span class="absolute right-3 top-2.5 text-slate-400 text-xs">🔍</span>
+            </div>
+        </div>
+
+        <!-- فیلتر وضعیت -->
+        <div class="min-w-[140px]">
+            <select name="status" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="">همه وضعیت‌ها</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>در انتظار تایید</option>
+                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>تایید و ارجاع</option>
+                <option value="in_production" {% if status_filter == 'in_production' %}selected{% endif %}>در حال ساخت کارگاه</option>
+                <option value="ready" {% if status_filter == 'ready' %}selected{% endif %}>آماده تحویل</option>
+                <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>تحویل به مشتری</option>
+                <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>لغو شده</option>
+            </select>
+        </div>
+
+        <!-- فیلتر اولویت -->
+        <div class="min-w-[120px]">
+            <select name="priority" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="">همه اولویت‌ها</option>
+                <option value="normal" {% if priority_filter == 'normal' %}selected{% endif %}>عادی</option>
+                <option value="urgent" {% if priority_filter == 'urgent' %}selected{% endif %}>فوری 🔥</option>
+                <option value="emergency" {% if priority_filter == 'emergency' %}selected{% endif %}>اضطراری ⚡</option>
+            </select>
+        </div>
+
+        {% if is_admin and sellers %}
+        <!-- فیلتر فروشنده (مختص ادمین) -->
+        <div class="min-w-[140px]">
+            <select name="seller_id" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="">همه فروشندگان</option>
+                {% for s in sellers %}
+                    <option value="{{ s.id }}" {% if seller_filter == s.id %}selected{% endif %}>{{ s.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <!-- چک باکس تاخیر -->
+        <label class="flex items-center gap-1.5 bg-[#1a2234] px-3 py-2 rounded-xl border border-white/10 text-xs text-slate-300 cursor-pointer hover:bg-slate-800">
+            <input type="checkbox" name="overdue" value="1" {% if overdue_only %}checked{% endif %} class="rounded text-rose-500 focus:ring-0">
+            <span class="text-rose-400 font-bold">فقط تاخیردارها ⚠️</span>
+        </label>
+
+        <!-- دکمه‌ها -->
+        <div class="flex items-center gap-2">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                <span>⚡</span> فیلتر
+            </button>
+            {% if search_query or status_filter or priority_filter or seller_filter or overdue_only %}
+            <a href="{{ url_for('workshop_orders_hub', view=view_mode) }}" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold transition" title="پاکسازی همه فیلترها">
+                ✕ پاکسازی
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if view_mode != 'table' %}
+<!-- ==================== نمای بورد کانبان (مرحله‌ای کارگاه) ==================== -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start mb-12">
+
+    <!-- ستون ۱: در انتظار بررسی و تایید -->
+    <div class="bg-[#111827]/90 rounded-2xl border border-amber-500/30 p-3.5 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-amber-500/20">
+            <div class="flex items-center gap-2">
+                <span class="text-base">🕒</span>
+                <h3 class="text-xs font-black text-amber-300">در انتظار تایید</h3>
+            </div>
+            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full text-[11px] font-black">
+                {{ kanban.pending|length }}
+            </span>
+        </div>
+
+        <div class="space-y-3 flex-grow overflow-y-auto max-h-[750px] pr-1">
+            {% for ord in kanban.pending %}
+                {% include 'partials/_workshop_order_card.html' with context %}
+            {% else %}
+                <div class="text-center py-10 text-slate-500 text-xs font-medium">سفارشی در این وضعیت نیست</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ستون ۲: تایید و ارجاع به کارگاه -->
+    <div class="bg-[#111827]/90 rounded-2xl border border-blue-500/30 p-3.5 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-blue-500/20">
+            <div class="flex items-center gap-2">
+                <span class="text-base">📋</span>
+                <h3 class="text-xs font-black text-blue-300">تایید و ارجاع به کارگاه</h3>
+            </div>
+            <span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full text-[11px] font-black">
+                {{ kanban.approved|length }}
+            </span>
+        </div>
+
+        <div class="space-y-3 flex-grow overflow-y-auto max-h-[750px] pr-1">
+            {% for ord in kanban.approved %}
+                {% include 'partials/_workshop_order_card.html' with context %}
+            {% else %}
+                <div class="text-center py-10 text-slate-500 text-xs font-medium">سفارشی در این وضعیت نیست</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ستون ۳: در حال ساخت در کارگاه -->
+    <div class="bg-[#111827]/90 rounded-2xl border border-indigo-500/30 p-3.5 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-indigo-500/20">
+            <div class="flex items-center gap-2">
+                <span class="text-base">🔨</span>
+                <h3 class="text-xs font-black text-indigo-300">در حال ساخت در کارگاه</h3>
+            </div>
+            <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full text-[11px] font-black">
+                {{ kanban.in_production|length }}
+            </span>
+        </div>
+
+        <div class="space-y-3 flex-grow overflow-y-auto max-h-[750px] pr-1">
+            {% for ord in kanban.in_production %}
+                {% include 'partials/_workshop_order_card.html' with context %}
+            {% else %}
+                <div class="text-center py-10 text-slate-500 text-xs font-medium">سفارشی در حال ساخت نیست</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ستون ۴: آماده تحویل -->
+    <div class="bg-[#111827]/90 rounded-2xl border border-emerald-500/30 p-3.5 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-emerald-500/20">
+            <div class="flex items-center gap-2">
+                <span class="text-base">✨</span>
+                <h3 class="text-xs font-black text-emerald-300">آماده تحویل</h3>
+            </div>
+            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[11px] font-black">
+                {{ kanban.ready|length }}
+            </span>
+        </div>
+
+        <div class="space-y-3 flex-grow overflow-y-auto max-h-[750px] pr-1">
+            {% for ord in kanban.ready %}
+                {% include 'partials/_workshop_order_card.html' with context %}
+            {% else %}
+                <div class="text-center py-10 text-slate-500 text-xs font-medium">سفارش آماده‌ای موجود نیست</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ستون ۵: تحویل نهایی شده -->
+    <div class="bg-[#111827]/90 rounded-2xl border border-slate-700/60 p-3.5 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+            <div class="flex items-center gap-2">
+                <span class="text-base">✅</span>
+                <h3 class="text-xs font-black text-slate-300">تحویل به مشتری</h3>
+            </div>
+            <span class="bg-slate-800 text-slate-300 border border-white/10 px-2 py-0.5 rounded-full text-[11px] font-black">
+                {{ kanban.delivered|length }}
+            </span>
+        </div>
+
+        <div class="space-y-3 flex-grow overflow-y-auto max-h-[750px] pr-1">
+            {% for ord in kanban.delivered %}
+                {% include 'partials/_workshop_order_card.html' with context %}
+            {% else %}
+                <div class="text-center py-10 text-slate-500 text-xs font-medium">سفارشی ثبت نشده</div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+{% else %}
+<!-- ==================== نمای جدول تفصیلی ==================== -->
+<div class="glass-card overflow-hidden mb-12">
+    <div class="overflow-x-auto">
+        <table class="w-full text-right border-collapse">
+            <thead>
+                <tr>
+                    <th class="py-3 px-3">شماره سفارش / تاریخ</th>
+                    <th class="py-3 px-3">مشتری و فروشنده</th>
+                    <th class="py-3 px-3">محصول و مدل</th>
+                    <th class="py-3 px-3">ابعاد دقیق (cm)</th>
+                    <th class="py-3 px-3">رنگ و متریال</th>
+                    <th class="py-3 px-3">استادکار</th>
+                    <th class="py-3 px-3">مهلت تحویل</th>
+                    <th class="py-3 px-3">وضعیت مرحله</th>
+                    <th class="py-3 px-3 text-center">عملیات</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5 text-xs">
+                {% for ord in orders %}
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="py-3 px-3">
+                        <span class="font-mono font-black text-indigo-400 block">{{ ord.order_number }}</span>
+                        <span class="text-[10px] text-slate-400">{{ ord.shamsi_date }}</span>
+                        {% if ord.priority == 'emergency' %}
+                            <span class="inline-block mt-1 bg-rose-500/20 text-rose-300 text-[10px] px-1.5 py-0.5 rounded font-black border border-rose-500/30">⚡ اضطراری</span>
+                        {% elif ord.priority == 'urgent' %}
+                            <span class="inline-block mt-1 bg-amber-500/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-black border border-amber-500/30">🔥 فوری</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="py-3 px-3">
+                        <span class="font-bold text-white block">{{ ord.customer_name }}</span>
+                        {% if ord.customer_phone %}
+                            <a href="tel:{{ ord.customer_phone }}" class="text-[11px] text-slate-400 hover:text-indigo-300 dir-ltr inline-block">{{ ord.customer_phone }}</a>
+                        {% endif %}
+                        <div class="text-[10px] text-slate-500 mt-0.5">
+                            {{ ord.shop.name if ord.shop else '' }} • {{ ord.seller.full_name if ord.seller else '' }}
+                        </div>
+                    </td>
+
+                    <td class="py-3 px-3">
+                        <span class="font-bold text-slate-200 block">{{ ord.product_type }}</span>
+                        {% if ord.model_name %}
+                            <span class="text-[11px] text-amber-300 font-semibold">مدل: {{ ord.model_name }}</span>
+                        {% endif %}
+                        {% if ord.door_drawer_config %}
+                            <span class="text-[10px] text-slate-400 block">چیدمان: {{ ord.door_drawer_config }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="py-3 px-3 font-mono font-bold text-slate-300">
+                        {{ ord.dimensions_text or '-' }}
+                    </td>
+
+                    <td class="py-3 px-3">
+                        <div class="space-y-0.5 text-[11px]">
+                            <div><span class="text-slate-400">بدنه:</span> <span class="font-bold text-white">{{ ord.body_color or 'سفید' }}</span></div>
+                            <div><span class="text-slate-400">درب:</span> <span class="font-bold text-indigo-300">{{ ord.door_color or 'سفید' }}</span></div>
+                            <div class="text-[10px] text-slate-400">{{ ord.sheet_thickness }}</div>
+                        </div>
+                    </td>
+
+                    <td class="py-3 px-3 font-semibold text-slate-300">
+                        {{ ord.assigned_worker or 'کارگاه مرکزی' }}
+                    </td>
+
+                    <td class="py-3 px-3">
+                        {% if ord.promised_delivery_date %}
+                            {% set is_over = ord.status not in ['delivered', 'cancelled'] and ord.promised_delivery_date.replace('-', '/') < today_shamsi %}
+                            {% if is_over %}
+                                <span class="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded text-[11px] font-black animate-pulse block text-center">
+                                    ⚠️ تاخیر ({{ ord.promised_delivery_date }})
+                                </span>
+                            {% else %}
+                                <span class="font-bold text-slate-300">{{ ord.promised_delivery_date }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-slate-500">-</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="py-3 px-3">
+                        {% if ord.status == 'pending' %}
+                            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-full font-black text-[11px]">در انتظار تایید</span>
+                        {% elif ord.status == 'approved' %}
+                            <span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded-full font-black text-[11px]">ارجاع به کارگاه</span>
+                        {% elif ord.status == 'in_production' %}
+                            <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-full font-black text-[11px]">در حال ساخت</span>
+                        {% elif ord.status == 'ready' %}
+                            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-full font-black text-[11px]">آماده تحویل</span>
+                        {% elif ord.status == 'delivered' %}
+                            <span class="bg-slate-700 text-slate-300 border border-slate-600 px-2.5 py-1 rounded-full font-black text-[11px]">تحویل شده</span>
+                        {% elif ord.status == 'cancelled' %}
+                            <span class="bg-rose-900/60 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded-full font-black text-[11px]">لغو شده</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="py-3 px-3 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <!-- چاپ حواله -->
+                            <a href="{{ url_for('print_workshop_order', order_id=ord.id) }}" target="_blank" 
+                               class="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white p-1.5 rounded-lg transition" title="چاپ حواله کارگاه">
+                                🖨️
+                            </a>
+
+                            <!-- اشتراک‌گذاری در پیام‌رسان -->
+                            <button onclick="openShareModal({{ ord.id }})" 
+                                    class="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white p-1.5 rounded-lg transition" title="اشتراک‌گذاری در روبیکا/ایتا/واتساپ">
+                                📱
+                            </button>
+
+                            <!-- تغییر وضعیت -->
+                            <button onclick='openStatusModal({{ ord.id }}, "{{ ord.order_number }}", "{{ ord.status }}", "{{ ord.assigned_worker|default("", true)|e }}", "{{ ord.admin_notes|default("", true)|e }}")'
+                                    class="bg-amber-600/30 hover:bg-amber-600 text-amber-200 hover:text-white p-1.5 rounded-lg transition" title="تغییر وضعیت یا یادداشت">
+                                🔄
+                            </button>
+
+                            <!-- حذف -->
+                            {% if is_admin or ord.status == 'pending' %}
+                            <button onclick="deleteWorkshopOrder({{ ord.id }}, '{{ ord.order_number }}')" 
+                                    class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 hover:text-white p-1.5 rounded-lg transition" title="حذف سفارش">
+                                🗑️
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="py-12 text-center text-slate-400 font-medium">
+                        هیچ سفارشی با شرایط جستجوی فعلی یافت نشد.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ==================== مودال ثبت سفارش جدید کارگاهی ==================== -->
+<div id="newOrderModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-[#111827] border border-white/15 rounded-3xl max-w-4xl w-full p-6 text-white max-h-[92vh] overflow-y-auto shadow-2xl relative my-auto">
+        <!-- هدر مودال -->
+        <div class="flex justify-between items-center pb-4 mb-5 border-b border-white/10 sticky top-0 bg-[#111827] z-10">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl p-2 bg-amber-500/20 text-amber-300 rounded-xl">🛠️</span>
+                <div>
+                    <h3 class="text-base font-black text-white">ثبت سفارش جدید ساخت کارگاهی (روشویی، آینه، باکس)</h3>
+                    <p class="text-xs text-slate-400 font-medium">فرم استاندارد فنی کارگاه تولیدی طهماسبی جهت ارسال به استادکار</p>
+                </div>
+            </div>
+            <button onclick="closeNewOrderModal()" class="text-slate-400 hover:text-white text-xl p-1.5 rounded-lg hover:bg-white/10 transition">✕</button>
+        </div>
+
+        <form id="newOrderForm" onsubmit="handleOrderSubmit(event)" enctype="multipart/form-data" class="space-y-6">
+            
+            <!-- بخش ۱: اطلاعات مشتری و فاکتور -->
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 space-y-4">
+                <div class="flex items-center gap-2 pb-2 border-b border-white/5">
+                    <span class="text-indigo-400 font-bold text-xs">👤 ۱. اطلاعات خریدار و شعبه</span>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">نام و نام‌خانوادگی مشتری <span class="text-rose-500">*</span></label>
+                        <input type="text" name="customer_name" required list="customersList" placeholder="مثال: آقای رضوی"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <datalist id="customersList">
+                            {% for c in customers %}
+                                <option value="{{ c.name }}">{{ c.phone or '' }}</option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">شماره تماس مشتری</label>
+                        <input type="tel" name="customer_phone" placeholder="مثال: 09121234567" dir="ltr"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white text-right focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    {% if is_admin %}
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">ثبت به نام شعبه</label>
+                        <select name="shop_id" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            {% for sh in shops %}
+                                <option value="{{ sh.id }}">{{ sh.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- بخش ۲: مشخصات فنی محصول و مدل -->
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 space-y-4">
+                <div class="flex items-center gap-2 pb-2 border-b border-white/5">
+                    <span class="text-indigo-400 font-bold text-xs">📦 ۲. نوع محصول و مدل سفارشی</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">نوع کالا <span class="text-rose-500">*</span></label>
+                        <select name="product_type" id="product_type_select" onchange="autoFillSpecs()" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="کابین روشویی">کابین روشویی</option>
+                            <option value="ست کامل کابین و آینه">ست کامل کابین و آینه</option>
+                            <option value="آینه و باکس">آینه و باکس</option>
+                            <option value="باکس دیواری تک">باکس دیواری تک</option>
+                            <option value="آینه تک (بک‌لایت / ساده)">آینه تک (بک‌لایت / ساده)</option>
+                            <option value="کابین سرامیکی پرسلان">کابین سرامیکی پرسلان</option>
+                            <option value="کابینت متفرقه سفارشی">کابینت متفرقه سفارشی</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">مدل کابین (از کاتالوگ یا طرح سفارشی)</label>
+                        <input type="text" name="model_name" id="model_name_input" list="modelSuggestions" placeholder="مثال: آرشام، آندره، هلیا، ماربل، بلوا"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <datalist id="modelSuggestions">
+                            <option value="آرشام">مدل آرشام (سفید / طوسی بتن)</option>
+                            <option value="آندره">مدل آندره</option>
+                            <option value="هلیا">مدل هلیا</option>
+                            <option value="ماربل">مدل ماربل (سنگ و مشکی)</option>
+                            <option value="دایمون">مدل دایمون</option>
+                            <option value="بلوا">مدل بلوا</option>
+                            <option value="آرتین">مدل آرتین</option>
+                            <option value="روما">مدل روما</option>
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">سنگ / کاسه روشویی</label>
+                        <select name="sink_type" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="بدون سنگ (فقط کابین)">بدون سنگ (فقط کابین)</option>
+                            <option value="کاسه روکار (سوراخ شیر از بالا)">کاسه روکار (سوراخ شیر از بالا)</option>
+                            <option value="سنگ لبه‌دار توکار">سنگ لبه‌دار توکار</option>
+                            <option value="صفحه و سنگ سرامیکی یکپارچه">صفحه و سنگ سرامیکی یکپارچه</option>
+                            <option value="سنگ ارسالی توسط مشتری">سنگ ارسالی توسط مشتری</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ابعاد دقیق سانتی‌متر -->
+                <div class="pt-2">
+                    <label class="block text-[11px] font-bold text-amber-300 mb-2">📐 ابعاد دقیق به سانتی‌متر (عرض × عمق × ارتفاع):</label>
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        <div>
+                            <input type="number" id="dim_width" name="width" placeholder="طول/عرض (cm)" oninput="updateDimText()"
+                                   class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-center text-white focus:outline-none focus:border-indigo-500">
+                            <span class="text-[10px] text-slate-400 block text-center mt-0.5">طول (عرض)</span>
+                        </div>
+                        <div>
+                            <input type="number" id="dim_depth" name="depth" placeholder="عمق (cm)" oninput="updateDimText()"
+                                   class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-center text-white focus:outline-none focus:border-indigo-500">
+                            <span class="text-[10px] text-slate-400 block text-center mt-0.5">عمق (پیشخوان)</span>
+                        </div>
+                        <div>
+                            <input type="number" id="dim_height" name="height" placeholder="ارتفاع (cm)" oninput="updateDimText()"
+                                   class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-center text-white focus:outline-none focus:border-indigo-500">
+                            <span class="text-[10px] text-slate-400 block text-center mt-0.5">ارتفاع کابین</span>
+                        </div>
+                        <div class="col-span-3 sm:col-span-1">
+                            <input type="text" id="dimensions_text" name="dimensions_text" placeholder="مثال: ۶۰×۴۰ ارتفاع ۶۰"
+                                   class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold text-center">
+                            <span class="text-[10px] text-indigo-300 block text-center mt-0.5">متن کامل ابعاد</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- بخش ۳: رنگ‌آمیزی و متریال فنی ساخت -->
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 space-y-4">
+                <div class="flex items-center gap-2 pb-2 border-b border-white/5">
+                    <span class="text-indigo-400 font-bold text-xs">🎨 ۳. مشخصات رنگ، ورق و یراق‌آلات</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">رنگ بدنه کابین</label>
+                        <input type="text" name="body_color" list="bodyColorList" placeholder="سفید، طوسی بتن، مشکی..." value="سفید"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <datalist id="bodyColorList">
+                            <option value="سفید">سفید مات/براق</option>
+                            <option value="طوسی بتن">طوسی بتن</option>
+                            <option value="مشکی ماربل">مشکی ماربل</option>
+                            <option value="گرین راش">گرین راش (طرح چوب)</option>
+                            <option value="والیس">والیس قهوه‌ای</option>
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">رنگ و روکش درب‌ها</label>
+                        <input type="text" name="door_color" list="doorColorList" placeholder="سفید استپ، طوسی بتن، سرمه‌ای..." value="طوسی بتن"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <datalist id="doorColorList">
+                            <option value="سفید استپ">سفید استپ</option>
+                            <option value="طوسی بتن">طوسی بتن</option>
+                            <option value="سرمه‌ای مات">سرمه‌ای مات</option>
+                            <option value="مشکی سوپر مات">مشکی سوپر مات</option>
+                            <option value="سبز صدری">سبز صدری</option>
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">نوع و ضخامت ورق</label>
+                        <select name="sheet_thickness" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold">
+                            <option value="ورق ۱۶ میل PVC ضدآب">ورق ۱۶ میل PVC ضدآب (استاندارد)</option>
+                            <option value="ورق ۱۲ میل PVC ضدآب">ورق ۱۲ میل PVC ضدآب</option>
+                            <option value="ترکیب ورق ۱۶ میل و رویه سرامیک">ترکیب ورق ۱۶ میل و رویه سرامیک</option>
+                            <option value="ام‌دی‌اف ضدآب روکش پلی‌اورتان">ام‌دی‌اف ضدآب روکش پلی‌اورتان</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">نوع لولا و یراق</label>
+                        <select name="hinge_type" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold">
+                            <option value="لولای تمام استیل ضدزنگ آرام‌بند">لولای تمام استیل ضدزنگ آرام‌بند</option>
+                            <option value="لولای آرام‌بند پمپی استاندارد">لولای آرام‌بند پمپی استاندارد</option>
+                            <option value="مگنتی فشاری تاچ (بدون دستگیره)">مگنتی فشاری تاچ (بدون دستگیره)</option>
+                            <option value="ریل کشو ساچمه‌ای ۳ زمانه ترمزدار">ریل کشو ساچمه‌ای ۳ زمانه ترمزدار</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">چیدمان درب و کشو</label>
+                        <input type="text" name="door_drawer_config" placeholder="مثال: ۲ درب، یا ۲ کشو، یا درب جکی"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">مشخصات آینه سفارشی</label>
+                        <input type="text" name="mirror_details" placeholder="مثال: گرد ۶۰ بک‌لایت تاچ / یا مستطیل ۴۰×۶۰"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">مشخصات باکس جانبی</label>
+                        <input type="text" name="box_details" placeholder="مثال: باکس همراه ۳۰×۶۰ همرنگ بدنه"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- بخش ۴: آپلود تصاویر و کروکی ساخت (۳ تصویر) -->
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-white/5">
+                    <span class="text-indigo-400 font-bold text-xs">📷 ۴. تصاویر نمونه طرح روبیکا، کروکی دستی و محل نصب (اختیاری)</span>
+                    <span class="text-[10px] text-slate-400 font-medium">فشرده‌سازی خودکار جهت ذخیره‌سازی سبک</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <!-- عکس ۱ -->
+                    <div class="border border-dashed border-white/20 rounded-2xl p-3 text-center hover:border-amber-500/50 transition">
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">عکس نمونه طرح / روبیکا</label>
+                        <div id="preview_box_1" class="w-full h-28 bg-[#1a2234] rounded-xl flex items-center justify-center overflow-hidden mb-2 border border-white/10 relative">
+                            <span class="text-slate-500 text-xs">🖼️ بدون عکس</span>
+                        </div>
+                        <input type="file" name="image_1_file" id="image_1_file" accept="image/*" onchange="previewUploadImage(this, 1)" class="text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:bg-indigo-600 file:text-white cursor-pointer w-full">
+                    </div>
+
+                    <!-- عکس ۲ -->
+                    <div class="border border-dashed border-white/20 rounded-2xl p-3 text-center hover:border-amber-500/50 transition">
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">نقشه دستی / کروکی ابعاد</label>
+                        <div id="preview_box_2" class="w-full h-28 bg-[#1a2234] rounded-xl flex items-center justify-center overflow-hidden mb-2 border border-white/10 relative">
+                            <span class="text-slate-500 text-xs">📐 بدون کروکی</span>
+                        </div>
+                        <input type="file" name="image_2_file" id="image_2_file" accept="image/*" onchange="previewUploadImage(this, 2)" class="text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:bg-indigo-600 file:text-white cursor-pointer w-full">
+                    </div>
+
+                    <!-- عکس ۳ -->
+                    <div class="border border-dashed border-white/20 rounded-2xl p-3 text-center hover:border-amber-500/50 transition">
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">عکس سنگ یا محل نصب</label>
+                        <div id="preview_box_3" class="w-full h-28 bg-[#1a2234] rounded-xl flex items-center justify-center overflow-hidden mb-2 border border-white/10 relative">
+                            <span class="text-slate-500 text-xs">🚰 بدون تصویر</span>
+                        </div>
+                        <input type="file" name="image_3_file" id="image_3_file" accept="image/*" onchange="previewUploadImage(this, 3)" class="text-[10px] text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:bg-indigo-600 file:text-white cursor-pointer w-full">
+                    </div>
+                </div>
+            </div>
+
+            <!-- بخش ۵: فوریت، زمان‌بندی و مالی -->
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 space-y-4">
+                <div class="flex items-center gap-2 pb-2 border-b border-white/5">
+                    <span class="text-indigo-400 font-bold text-xs">⏰ ۵. فوریت، موعد تحویل و مبالغ مالی</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">میزان فوریت و اولویت</label>
+                        <select name="priority" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold">
+                            <option value="normal">عادی (روال عادی کارگاه)</option>
+                            <option value="urgent">فوری 🔥 (تعهد زمانی حساس)</option>
+                            <option value="emergency">بسیار اضطراری ⚡ (تحویل فوری)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">تاریخ تعهد تحویل به مشتری</label>
+                        <input type="text" name="promised_delivery_date" placeholder="مثال: ۱۴۰۵/۰۷/۰۹"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold text-center">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">استادکار / مسئول کارگاه</label>
+                        <input type="text" name="assigned_worker" value="آقای حسینی (کارگاه مرکزی)"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">قیمت توافقی فروش (تومان)</label>
+                        <input type="text" name="customer_price" id="cust_price_inp" placeholder="0" oninput="formatFinancials(this)"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-black text-center text-emerald-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">بهای برآوردی ساخت کارگاه (تومان)</label>
+                        <input type="text" name="estimated_cost" placeholder="0" oninput="formatFinancials(this)"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-center">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">بیعانه دریافتی از مشتری (تومان)</label>
+                        <input type="text" name="prepaid_amount" id="prepaid_inp" placeholder="0" oninput="formatFinancials(this)"
+                               class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono text-center text-amber-300">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-300 mb-1">مانده قابل تسویه مشتری</label>
+                        <div id="balance_preview" class="w-full bg-[#1a2234]/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-black text-center text-indigo-300">
+                            ۰ تومان
+                        </div>
+                    </div>
+                </div>
+
+                <!-- نکات حساس ساخت -->
+                <div class="pt-2">
+                    <label class="block text-[11px] font-bold text-rose-300 mb-1">⚠️ نکات حساس، خطوط شیارها و تذکرات ساخت کارگاه:</label>
+                    <textarea name="special_notes" rows="2" placeholder="مثال: کف کابین بسیار حساس است و کاملاً ضدآب شود، خطوط شیار درب‌ها تراز باشد، لولای ضدزنگ باکیفیت نصب شود..."
+                              class="w-full bg-[#1a2234] border border-white/15 rounded-xl p-3 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+            </div>
+
+            <!-- دکمه‌های فرم -->
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="closeNewOrderModal()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-white/5 transition">
+                    انصراف
+                </button>
+                <button type="submit" id="submitOrderBtn" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-black px-6 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition flex items-center gap-2 cursor-pointer">
+                    <span>🔨</span> ثبت نهایی و صدور حواله کارگاه
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== مودال تغییر وضعیت و یادداشت کارگاه ==================== -->
+<div id="statusModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-white/15 rounded-3xl max-w-md w-full p-6 text-white shadow-2xl relative">
+        <div class="flex justify-between items-center pb-3 mb-4 border-b border-white/10">
+            <h3 class="text-sm font-black text-white flex items-center gap-2">
+                <span>🔄</span> تغییر مرحله ساخت سفارش <span id="statusModalOrderNum" class="text-indigo-400 font-mono"></span>
+            </h3>
+            <button onclick="closeStatusModal()" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+
+        <form id="statusForm" onsubmit="handleStatusSubmit(event)" class="space-y-4">
+            <input type="hidden" id="statusOrderId" name="order_id">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">مرحله جدید سفارش:</label>
+                <select id="statusSelect" name="status" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold">
+                    <option value="pending">🕒 در انتظار تایید</option>
+                    <option value="approved">📋 تایید و ارجاع به کارگاه</option>
+                    <option value="in_production">🔨 در حال ساخت در کارگاه</option>
+                    <option value="ready">✨ آماده تحویل در فروشگاه</option>
+                    <option value="delivered">✅ تحویل نهایی به خریدار</option>
+                    <option value="cancelled">❌ لغو سفارش</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">استادکار مسئول کارگاه:</label>
+                <input type="text" id="statusWorker" name="assigned_worker" class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">یادداشت داخلی پیگیری مدیریت:</label>
+                <textarea id="statusNotes" name="admin_notes" rows="2" class="w-full bg-[#1a2234] border border-white/15 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="یادداشت در مورد پیشرفت کارگاه، تغییرات یا تحویل..."></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button type="button" onclick="closeStatusModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">انصراف</button>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-black shadow-lg shadow-indigo-600/30 transition">
+                    ثبت تغییر وضعیت
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== مودال اشتراک‌گذاری در پیام‌رسان‌ها (روبیکا، ایتا، بله، واتساپ) ==================== -->
+<div id="shareModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-white/15 rounded-3xl max-w-lg w-full p-6 text-white shadow-2xl relative">
+        <div class="flex justify-between items-center pb-3 mb-4 border-b border-white/10">
+            <h3 class="text-sm font-black text-white flex items-center gap-2">
+                <span>📱</span> ارسال حواله سفارش به کارگاه / مشتری
+            </h3>
+            <button onclick="closeShareModal()" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-3">متن استاندارد فنی زیر را می‌توانید مستقیماً کپی کرده یا با یک کلیک در پیام‌رسان مورد نظرتان ارسال فرمایید:</p>
+
+        <div class="relative mb-4">
+            <textarea id="shareTextContent" readonly rows="10" class="w-full bg-[#1a2234] border border-white/15 rounded-2xl p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none"></textarea>
+            <button onclick="copyShareText()" id="copyShareBtn" class="absolute left-2.5 top-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1 cursor-pointer">
+                <span>📋</span> کپی متن
+            </button>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <a id="shareRubikaBtn" href="https://web.rubika.ir" target="_blank" class="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 p-2.5 rounded-xl text-xs font-bold text-center transition flex flex-col items-center gap-1">
+                <span class="text-lg">🟣</span> روبیکا
+            </a>
+            <a id="shareEitaaBtn" href="https://eitaa.com" target="_blank" class="bg-orange-600/30 hover:bg-orange-600 text-orange-200 hover:text-white border border-orange-500/40 p-2.5 rounded-xl text-xs font-bold text-center transition flex flex-col items-center gap-1">
+                <span class="text-lg">🟠</span> ایتا
+            </a>
+            <a id="shareWhatsAppBtn" href="#" target="_blank" class="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 p-2.5 rounded-xl text-xs font-bold text-center transition flex flex-col items-center gap-1">
+                <span class="text-lg">🟢</span> واتساپ
+            </a>
+            <a id="shareBaleBtn" href="https://ble.ir" target="_blank" class="bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white border border-blue-500/40 p-2.5 rounded-xl text-xs font-bold text-center transition flex flex-col items-center gap-1">
+                <span class="text-lg">🔵</span> بله
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== مودال پیش‌نمایش بزرگ تصویر ==================== -->
+<div id="imageLightboxModal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex items-center justify-center p-4 cursor-pointer" onclick="closeImageLightbox()">
+    <div class="relative max-w-4xl max-h-[90vh]">
+        <img id="lightboxImg" src="" alt="نمونه کارگاه" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/20">
+        <button class="absolute -top-3 -right-3 bg-white text-slate-900 rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg shadow-lg">✕</button>
+    </div>
+</div>
+
+<script>
+// ==================== مدیریت مودال‌ها ====================
+function openNewOrderModal() {
+    document.getElementById('newOrderModal').classList.remove('hidden');
+}
+
+function closeNewOrderModal() {
+    document.getElementById('newOrderModal').classList.add('hidden');
+}
+
+function openStatusModal(orderId, orderNum, currentStatus, worker, notes) {
+    document.getElementById('statusOrderId').value = orderId;
+    document.getElementById('statusModalOrderNum').textContent = orderNum;
+    document.getElementById('statusSelect').value = currentStatus || 'pending';
+    document.getElementById('statusWorker').value = worker || '';
+    document.getElementById('statusNotes').value = notes || '';
+    document.getElementById('statusModal').classList.remove('hidden');
+}
+
+function closeStatusModal() {
+    document.getElementById('statusModal').classList.add('hidden');
+}
+
+function openLightbox(src) {
+    if (!src) return;
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('imageLightboxModal').classList.remove('hidden');
+}
+
+function closeImageLightbox() {
+    document.getElementById('imageLightboxModal').classList.add('hidden');
+}
+
+// تولید خودکار متن ابعاد
+function updateDimText() {
+    const w = document.getElementById('dim_width').value.trim();
+    const d = document.getElementById('dim_depth').value.trim();
+    const h = document.getElementById('dim_height').value.trim();
+    
+    const parts = [];
+    if (w) parts.push(`عرض ${w}`);
+    if (d) parts.push(`عمق ${d}`);
+    if (h) parts.push(`ارتفاع ${h}`);
+    
+    if (parts.length > 0) {
+        document.getElementById('dimensions_text').value = parts.join(' × ');
+    }
+}
+
+// فرمت اعداد مالی و مانده بدهی
+function formatFinancials(el) {
+    let val = el.value.replace(/[^0-9]/g, '');
+    if (val) {
+        el.value = parseInt(val, 10).toLocaleString('en-US');
+    }
+    
+    const custPrice = parseInt((document.getElementById('cust_price_inp').value || '0').replace(/,/g, ''), 10) || 0;
+    const prepaid = parseInt((document.getElementById('prepaid_inp').value || '0').replace(/,/g, ''), 10) || 0;
+    const rem = custPrice - prepaid;
+    
+    const balEl = document.getElementById('balance_preview');
+    balEl.textContent = rem.toLocaleString('en-US') + ' تومان';
+    if (rem > 0) {
+        balEl.className = "w-full bg-rose-950/40 border border-rose-500/30 rounded-xl px-3 py-2 text-xs font-black text-center text-rose-300";
+    } else {
+        balEl.className = "w-full bg-emerald-950/40 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-black text-center text-emerald-300";
+    }
+}
+
+// پیش‌نمایش تصویر آپلود شده
+function previewUploadImage(input, index) {
+    const box = document.getElementById(`preview_box_${index}`);
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            box.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-xl cursor-pointer" onclick="openLightbox('${e.target.result}')">`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// ارسال فرم سفارش جدید
+async function handleOrderSubmit(e) {
+    e.preventDefault();
+    const form = document.getElementById('newOrderForm');
+    const submitBtn = document.getElementById('submitOrderBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span>⏳</span> در حال ثبت سفارش...';
+
+    const formData = new FormData(form);
+
+    try {
+        const response = await fetch('/api/workshop_orders/create', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message || 'سفارش با موفقیت ثبت شد!');
+            window.location.reload();
+        } else {
+            alert('خطا: ' + (result.message || 'ثبت سفارش ناموفق بود'));
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>🔨</span> ثبت نهایی و صدور حواله کارگاه';
+        }
+    } catch (err) {
+        alert('خطای اتصال به سرور: ' + err);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🔨</span> ثبت نهایی و صدور حواله کارگاه';
+    }
+}
+
+// ارسال تغییر وضعیت
+async function handleStatusSubmit(e) {
+    e.preventDefault();
+    const orderId = document.getElementById('statusOrderId').value;
+    const status = document.getElementById('statusSelect').value;
+    const assigned_worker = document.getElementById('statusWorker').value;
+    const admin_notes = document.getElementById('statusNotes').value;
+
+    try {
+        const response = await fetch(`/api/workshop_orders/${orderId}/update_status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, assigned_worker, admin_notes })
+        });
+        const result = await response.json();
+        if (result.success) {
+            window.location.reload();
+        } else {
+            alert('خطا: ' + (result.message || 'به‌روزرسانی ناموفق بود'));
+        }
+    } catch (err) {
+        alert('خطای سرور: ' + err);
+    }
+}
+
+// حذف سفارش کارگاه
+async function deleteWorkshopOrder(orderId, orderNum) {
+    if (!confirm(`آیا از حذف سفارش کارگاهی شماره ${orderNum} اطمینان دارید؟ این عملیات غیرقابل بازگشت است.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/workshop_orders/${orderId}/delete`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message);
+            window.location.reload();
+        } else {
+            alert('خطا در حذف: ' + (result.message || 'دسترسی غیرمجاز'));
+        }
+    } catch (err) {
+        alert('خطای اتصال: ' + err);
+    }
+}
+
+// اشتراک‌گذاری در پیام‌رسان‌ها
+async function openShareModal(orderId) {
+    try {
+        const res = await fetch(`/api/workshop_orders/${orderId}/share_text`);
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('shareTextContent').value = data.text;
+            const encodedText = encodeURIComponent(data.text);
+            document.getElementById('shareWhatsAppBtn').href = `https://api.whatsapp.com/send?text=${encodedText}`;
+            document.getElementById('shareModal').classList.remove('hidden');
+        } else {
+            alert('خطا در دریافت متن سفارش');
+        }
+    } catch (e) {
+        alert('خطا: ' + e);
+    }
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal').classList.add('hidden');
+}
+
+function copyShareText() {
+    const copyText = document.getElementById('shareTextContent');
+    copyText.select();
+    navigator.clipboard.writeText(copyText.value).then(() => {
+        const btn = document.getElementById('copyShareBtn');
+        btn.innerHTML = '<span>✅</span> کپی شد!';
+        setTimeout(() => {
+            btn.innerHTML = '<span>📋</span> کپی متن';
+        }, 2000);
+    });
+}
+</script>
+{% endblock %}

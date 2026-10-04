@@ -390,3 +390,120 @@ class AuditLog(db.Model):
     details = db.Column(db.Text, nullable=True) # جزئیات تکمیلی لاگ
     shamsi_date_time = db.Column(db.String(40), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class CustomWorkshopOrder(db.Model):
+    """مدل سفارشات ساخت کارگاهی کابینت، روشویی، آینه و باکس سفارشی فروشگاه طهماسبی"""
+    __tablename__ = 'custom_workshop_orders'
+    id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(50), unique=True, nullable=False, index=True) # e.g. ORD-1405-0101
+    
+    # اطلاعات فروشنده و شعبه
+    seller_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    shop_id = db.Column(db.Integer, db.ForeignKey('shops.id'), nullable=False)
+    
+    # اطلاعات مشتری
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
+    customer_name = db.Column(db.String(120), nullable=False) # مثلا آقای رضوی
+    customer_phone = db.Column(db.String(30), nullable=True)
+    
+    # اطلاعات فنی محصول سفارشی
+    product_type = db.Column(db.String(60), nullable=False, default='کابین روشویی') # کابین روشویی، باکس، آینه، ست کامل، کابین توکار، کابین سرامیکی، متفرقه
+    model_name = db.Column(db.String(100), nullable=True) # مثلا آرشام، آندره، هلیا، ماربل، دایمون، بلوا
+    
+    # ابعاد دقیق (سانتی‌متر)
+    width = db.Column(db.Integer, nullable=True) # طول / عرض مثلا ۶۰
+    depth = db.Column(db.Integer, nullable=True) # عمق مثلا ۴۰
+    height = db.Column(db.Integer, nullable=True) # ارتفاع مثلا ۴۰ یا ۶۰
+    dimensions_text = db.Column(db.String(100), nullable=True) # مثلا "۶۰×۴۰ ارتفاع ۶۰"
+    
+    # مشخصات رنگ و متریال
+    body_color = db.Column(db.String(80), nullable=True) # مثلا سفید، طوسی بتن، مشکی، گرین راش
+    door_color = db.Column(db.String(80), nullable=True) # مثلا سفید استپ، طوسی بتن، سرمه‌ای
+    sheet_thickness = db.Column(db.String(60), default='ورق ۱۶ میل PVC ضدآب') # ورق ۱۶ میل، ورق ۱۲ میل، سرامیک
+    hinge_type = db.Column(db.String(80), default='لولای تمام استیل آرام‌بند') # لولای تمام استیل، آرام‌بند، مگنتی
+    door_drawer_config = db.Column(db.String(100), nullable=True) # مثلا ۲ درب، ۲ کشو، درب و کشو، درب بغل بازشو
+    
+    # ملحقات (آینه، باکس، سنگ)
+    mirror_details = db.Column(db.String(150), nullable=True) # مثلا آینه ۴۰×۶۰ عمودی، آینه گرد ۶۰، بک‌لایت تاچ
+    box_details = db.Column(db.String(150), nullable=True) # مثلا باکس همراه ۴۰×۳۰، بدنه سفید درب طوسی بتن
+    sink_type = db.Column(db.String(100), nullable=True) # کاسه روکار، سنگ توکار، بدون سنگ، سنگ سرامیکی
+    
+    # وضعیت و اولویت
+    status = db.Column(db.String(30), default='pending', index=True) # pending, approved, in_production, ready, delivered, cancelled
+    priority = db.Column(db.String(20), default='normal') # normal, urgent, emergency
+    
+    # زمان‌بندی
+    promised_delivery_date = db.Column(db.String(40), nullable=True) # تاریخ تعهد تحویل به مشتری (شمسی مثلا ۱۴۰۵/۰۷/۰۹)
+    shamsi_date = db.Column(db.String(40), nullable=False) # تاریخ ثبت سفارش
+    shamsi_year = db.Column(db.Integer, nullable=False)
+    shamsi_month = db.Column(db.Integer, nullable=False)
+    delivered_at = db.Column(db.String(40), nullable=True) # تاریخ واقعی تحویل
+    
+    # تصاویر نمونه و نقشه (تا ۳ عکس، فایل یا base64)
+    image_1 = db.Column(db.Text, nullable=True) # عکس نمونه روبیکا / طرح
+    image_2 = db.Column(db.Text, nullable=True) # عکس نقشه یا کروکی
+    image_3 = db.Column(db.Text, nullable=True) # عکس تکمیلی
+    
+    # یادداشت‌های کارگاهی و حساس
+    special_notes = db.Column(db.Text, nullable=True) # نکات حساس ساخت
+    assigned_worker = db.Column(db.String(100), nullable=True) # استادکار / مسئول کارگاه (مثلا آقای حسینی)
+    admin_notes = db.Column(db.Text, nullable=True) # یادداشت داخلی مدیریت
+    
+    # مالی (اختیاری یا متصل به فاکتور)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=True)
+    estimated_cost = db.Column(db.BigInteger, default=0) # بهای ساخت برآوردی کارگاه (تومان)
+    customer_price = db.Column(db.BigInteger, default=0) # قیمت اعلام شده به مشتری (تومان)
+    prepaid_amount = db.Column(db.BigInteger, default=0) # بیعانه دریافتی
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # ارتباطات
+    seller = db.relationship('User', foreign_keys=[seller_id], backref='custom_orders')
+    shop = db.relationship('Shop', foreign_keys=[shop_id])
+    customer = db.relationship('Customer', foreign_keys=[customer_id])
+    invoice = db.relationship('Invoice', foreign_keys=[invoice_id])
+
+    def to_dict(self):
+        dim_str = self.dimensions_text
+        if not dim_str and (self.width or self.depth or self.height):
+            parts = []
+            if self.width: parts.append(f"عرض {self.width}")
+            if self.depth: parts.append(f"عمق {self.depth}")
+            if self.height: parts.append(f"ارتفاع {self.height}")
+            dim_str = " × ".join(parts)
+            
+        return {
+            'id': self.id,
+            'order_number': self.order_number,
+            'seller_id': self.seller_id,
+            'seller_name': self.seller.full_name if self.seller else '',
+            'shop_id': self.shop_id,
+            'shop_name': self.shop.name if self.shop else '',
+            'customer_name': self.customer_name,
+            'customer_phone': self.customer_phone or '',
+            'product_type': self.product_type,
+            'model_name': self.model_name or '',
+            'dimensions_text': dim_str or '',
+            'body_color': self.body_color or '',
+            'door_color': self.door_color or '',
+            'sheet_thickness': self.sheet_thickness or '',
+            'hinge_type': self.hinge_type or '',
+            'door_drawer_config': self.door_drawer_config or '',
+            'mirror_details': self.mirror_details or '',
+            'box_details': self.box_details or '',
+            'sink_type': self.sink_type or '',
+            'status': self.status,
+            'priority': self.priority,
+            'promised_delivery_date': self.promised_delivery_date or '',
+            'shamsi_date': self.shamsi_date,
+            'special_notes': self.special_notes or '',
+            'assigned_worker': self.assigned_worker or '',
+            'admin_notes': self.admin_notes or '',
+            'estimated_cost': self.estimated_cost or 0,
+            'customer_price': self.customer_price or 0,
+            'prepaid_amount': self.prepaid_amount or 0,
+            'remaining_balance': (self.customer_price or 0) - (self.prepaid_amount or 0),
+            'has_image': bool(self.image_1 or self.image_2 or self.image_3)
+        }

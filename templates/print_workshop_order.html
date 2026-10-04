@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حواله فنی ساخت کارگاه - {{ order.order_number }}</title>
+    <!-- Local Fonts & Styles -->
+    <link href="{{ url_for('static', filename='libs/fonts/vazirmatn.css') }}" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 20px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .page-sheet {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 28px 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 2px solid #0f172a;
+        }
+        .no-print {
+            max-width: 800px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-print {
+            background: #4f46e5;
+            color: #ffffff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-back {
+            background: #e2e8f0;
+            color: #334155;
+            text-decoration: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+        }
+        .header-title {
+            text-align: center;
+            flex-grow: 1;
+        }
+        .header-title h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 900;
+            color: #0f172a;
+        }
+        .header-title h2 {
+            margin: 4px 0 0 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #475569;
+        }
+        .order-badge {
+            background: #0f172a;
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+        .priority-badge {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .priority-normal { background: #e2e8f0; color: #334155; }
+        .priority-urgent { background: #fed7aa; color: #9a3412; border: 1px solid #f97316; }
+        .priority-emergency { background: #fecdd3; color: #9f1239; border: 1px solid #e11d48; animation: blinker 1.5s infinite; }
+        @keyframes blinker { 50% { opacity: 0.5; } }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 12px 14px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            border: 1px solid #cbd5e1;
+        }
+        .info-item {
+            font-size: 12px;
+        }
+        .info-label {
+            color: #64748B;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .info-val {
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .specs-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        .specs-table th, .specs-table td {
+            border: 1px solid #94a3b8;
+            padding: 8px 12px;
+            text-align: right;
+        }
+        .specs-table th {
+            background: #e2e8f0;
+            color: #1e293b;
+            font-weight: 800;
+            font-size: 12px;
+            width: 25%;
+        }
+        .specs-table td {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .specs-table .highlight-dim {
+            background: #fef08a;
+            font-size: 15px;
+            font-weight: 900;
+            color: #854d0e;
+        }
+        .specs-table .highlight-color {
+            background: #e0e7ff;
+            font-weight: 800;
+            color: #3730a3;
+        }
+
+        .alert-box {
+            background: #fff1f2;
+            border: 2px dashed #f43f5e;
+            color: #9f1239;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-weight: 800;
+            font-size: 13px;
+        }
+        .alert-box strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .images-container {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .order-img-box {
+            flex: 1;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 6px;
+            text-align: center;
+            background: #f8fafc;
+        }
+        .order-img-box img {
+            max-width: 100%;
+            max-height: 190px;
+            object-fit: contain;
+            border-radius: 4px;
+            display: block;
+            margin: 0 auto;
+        }
+        .order-img-box span {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 700;
+        }
+
+        .qc-section {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            margin-bottom: 18px;
+        }
+        .qc-title {
+            font-weight: 900;
+            font-size: 12px;
+            color: #1e293b;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .qc-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #334155;
+        }
+        .qc-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .qc-box {
+            width: 14px;
+            height: 14px;
+            border: 1.5px solid #475569;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .footer-signs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 24px;
+            padding-top: 14px;
+            border-top: 1px dashed #94a3b8;
+            text-align: center;
+        }
+        .sign-box {
+            height: 75px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .sign-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        @media print {
+            body { background: #ffffff; padding: 0; }
+            .page-sheet { box-shadow: none; border: 1.5px solid #000; padding: 18px 20px; }
+            .no-print { display: none !important; }
+            .priority-emergency { animation: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print">
+        <a href="{{ url_for('workshop_orders_hub') }}" class="btn-back">⬅ بازگشت به سفارشات کارگاه</a>
+        <button onclick="window.print()" class="btn-print">🖨️ چاپ برگه دستور ساخت (A4/A5)</button>
+    </div>
+
+    <div class="page-sheet">
+        <!-- Header -->
+        <div class="header">
+            <div style="width: 140px;">
+                <span style="font-size: 11px; color: #64748b; font-weight: 600;">تاریخ صدور حواله:</span>
+                <span style="font-weight: 800; display: block; font-size: 12px;">{{ order.shamsi_date }}</span>
+                {% if order.promised_delivery_date %}
+                <span style="font-size: 11px; color: #dc2626; font-weight: 800; display: block; margin-top: 3px;">
+                    ⏰ تحویل: {{ order.promised_delivery_date }}
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="header-title">
+                <h1>{{ settings.store_name or 'مجموعه فروشگاه‌های تخصصی طهماسبی' }}</h1>
+                <h2>حواله فنی و دستور کار ساخت کارگاهی (کابین، آینه، باکس)</h2>
+            </div>
+
+            <div style="text-align: left; width: 140px;">
+                <div class="order-badge">{{ order.order_number }}</div>
+                <div>
+                    {% if order.priority == 'emergency' %}
+                    <span class="priority-badge priority-emergency">⚡ اضطراری و بسیار فوری</span>
+                    {% elif order.priority == 'urgent' %}
+                    <span class="priority-badge priority-urgent">🔥 فوری</span>
+                    {% else %}
+                    <span class="priority-badge priority-normal">عادی</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Meta Info Grid -->
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">نام و سفارش مشتری:</span>
+                <span class="info-val">{{ order.customer_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">شماره تماس مشتری:</span>
+                <span class="info-val" dir="ltr">{{ order.customer_phone or '—' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">شعبه و فروشنده ثبت‌کننده:</span>
+                <span class="info-val">{{ order.shop.name if order.shop else 'مرکزی' }} / {{ order.seller.full_name if order.seller else '—' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">استادکار / واحد تولید:</span>
+                <span class="info-val" style="color: #4f46e5;">{{ order.assigned_worker or 'آقای حسینی (کارگاه مرکزی)' }}</span>
+            </div>
+        </div>
+
+        <!-- Technical Specifications Table -->
+        <table class="specs-table">
+            <tbody>
+                <tr>
+                    <th>نوع محصول سفارشی:</th>
+                    <td style="color: #4f46e5; font-size: 14px;">{{ order.product_type }}</td>
+                    <th>مدل کارگاه / کاتالوگ:</th>
+                    <td>{{ order.model_name or 'طرح سفارشی الگو' }}</td>
+                </tr>
+                <tr>
+                    <th>ابعاد دقیق ساخت (سانتی‌متر):</th>
+                    <td class="highlight-dim" colspan="3">
+                        📐 {{ order.dimensions_text or ('عرض ' ~ (order.width or '—') ~ ' × عمق ' ~ (order.depth or '—') ~ ' × ارتفاع ' ~ (order.height or '—')) }}
+                    </td>
+                </tr>
+                <tr>
+                    <th>رنگ و متریال بدنه:</th>
+                    <td class="highlight-color">{{ order.body_color or 'سفید' }}</td>
+                    <th>رنگ و طرح درب‌ها:</th>
+                    <td class="highlight-color">{{ order.door_color or 'سفید' }}</td>
+                </tr>
+                <tr>
+                    <th>نوع ورق و ضخامت:</th>
+                    <td>{{ order.sheet_thickness or 'ورق ۱۶ میل PVC ضدآب' }}</td>
+                    <th>نوع لولا و یراق‌آلات:</th>
+                    <td>{{ order.hinge_type or 'لولای تمام استیل آرام‌بند' }}</td>
+                </tr>
+                <tr>
+                    <th>چیدمان درب و کشوها:</th>
+                    <td>{{ order.door_drawer_config or 'استاندارد' }}</td>
+                    <th>سنگ روشویی همراه:</th>
+                    <td>{{ order.sink_type or 'بدون سنگ' }}</td>
+                </tr>
+                {% if order.mirror_details or order.box_details %}
+                <tr>
+                    <th>مشخصات آینه همراه:</th>
+                    <td>{{ order.mirror_details or 'ندارد' }}</td>
+                    <th>مشخصات باکس همراه:</th>
+                    <td>{{ order.box_details or 'ندارد' }}</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <!-- Special Notes / Quality instructions -->
+        {% if order.special_notes %}
+        <div class="alert-box">
+            <strong>⚠️ نکات بسیار مهم و حساس استادکار (حتماً مطالعه و رعایت شود):</strong>
+            {{ order.special_notes }}
+        </div>
+        {% endif %}
+
+        <!-- Sample Images / Sketches -->
+        {% if order.image_1 or order.image_2 or order.image_3 %}
+        <div class="images-container">
+            {% if order.image_1 %}
+            <div class="order-img-box">
+                <img src="{{ order.image_1 }}" alt="تصویر ۱">
+                <span>عکس نمونه کار / طرح درخواستی</span>
+            </div>
+            {% endif %}
+            {% if order.image_2 %}
+            <div class="order-img-box">
+                <img src="{{ order.image_2 }}" alt="تصویر ۲">
+                <span>عکس نقشه / کروکی دست‌نویس</span>
+            </div>
+            {% endif %}
+            {% if order.image_3 %}
+            <div class="order-img-box">
+                <img src="{{ order.image_3 }}" alt="تصویر ۳">
+                <span>تصویر تکمیلی محصول</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Quality Control (QC) Checklist for Workshop -->
+        <div class="qc-section">
+            <div class="qc-title">
+                <span>🔍</span> چک‌لیست کنترل کیفیت نهایی کارگاه (QC) پیش از خروج:
+            </div>
+            <div class="qc-grid">
+                <div class="qc-item"><span class="qc-box"></span> تطابق کامل ابعاد با متر</div>
+                <div class="qc-item"><span class="qc-box"></span> تراز و هم‌باد بودن خطوط درب‌ها</div>
+                <div class="qc-item"><span class="qc-box"></span> رگلاژ و نرمی لولاهای استیل</div>
+                <div class="qc-item"><span class="qc-box"></span> سلامت کامل ورق بدون خط و ضربه</div>
+                <div class="qc-item"><span class="qc-box"></span> چسب‌کاری آب‌بندی لبه‌ها (PVC)</div>
+                <div class="qc-item"><span class="qc-box"></span> بسته‌بندی، سلفون و برچسب مشتری</div>
+            </div>
+        </div>
+
+        <!-- Signatures -->
+        <div class="footer-signs">
+            <div class="sign-box">
+                <span class="sign-title">فروشنده ثبت‌کننده سفارش:</span>
+                <span style="font-weight: 700; font-size: 11px;">{{ order.seller.full_name if order.seller else '' }}</span>
+            </div>
+            <div class="sign-box">
+                <span class="sign-title">استادکار سازنده کارگاه:</span>
+                <span style="font-weight: 700; font-size: 11px;">{{ order.assigned_worker or 'آقای حسینی' }}</span>
+            </div>
+            <div class="sign-box">
+                <span class="sign-title">تاییدیه کنترل کیفیت و تحویل:</span>
+                <span style="font-weight: 700; font-size: 11px;">مدیریت تولید / انبار</span>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 14px; font-size: 10px; color: #94a3b8;">
+            سامانه هوشمند مدیریت فروشگاه‌ها و کارگاه طهماسبی • تلفن پشتیبانی: {{ settings.store_phone or '021-12345678' }}
+        </div>
+    </div>
+
+</body>
+</html>

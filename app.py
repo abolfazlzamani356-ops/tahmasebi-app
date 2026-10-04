@@ -20,7 +20,8 @@ from models import (
     db, Shop, Category, User, Settings, Customer, BankAccount,
     InventoryItem, StockLog, StockTransfer,
     Invoice, InvoiceItem, Cheque, SalarySlip,
-    PettyCashDeposit, Expense, AuditLog, ProductCatalog
+    PettyCashDeposit, Expense, AuditLog, ProductCatalog,
+    CustomWorkshopOrder
 )
 from helpers import (
     PERSIAN_MONTHS, DEFAULT_CATEGORIES, RETURN_REASONS,
@@ -245,6 +246,10 @@ def initialize_database():
             ("idx_stock_logs_item", "CREATE INDEX IF NOT EXISTS idx_stock_logs_item ON stock_logs (inventory_item_id)"),
             ("idx_users_role_active", "CREATE INDEX IF NOT EXISTS idx_users_role_active ON users (role, is_active)"),
             ("idx_expenses_year_month", "CREATE INDEX IF NOT EXISTS idx_expenses_year_month ON expenses (shamsi_year, shamsi_month)"),
+            ("idx_workshop_orders_status", "CREATE INDEX IF NOT EXISTS idx_workshop_orders_status ON custom_workshop_orders (status)"),
+            ("idx_workshop_orders_seller", "CREATE INDEX IF NOT EXISTS idx_workshop_orders_seller ON custom_workshop_orders (seller_id)"),
+            ("idx_workshop_orders_shop", "CREATE INDEX IF NOT EXISTS idx_workshop_orders_shop ON custom_workshop_orders (shop_id)"),
+            ("idx_workshop_orders_created", "CREATE INDEX IF NOT EXISTS idx_workshop_orders_created ON custom_workshop_orders (created_at DESC)"),
         ]
         for idx_name, idx_sql in indexes:
             try:
@@ -658,15 +663,20 @@ def can_manage_stock():
 @app.context_processor
 def inject_permissions():
     current_u = None
+    pending_workshop_orders_count = 0
     if 'user_id' in session:
         try:
             current_u = db.session.get(User, session['user_id'])
+            pending_workshop_orders_count = CustomWorkshopOrder.query.filter(
+                CustomWorkshopOrder.status.in_(['pending', 'approved', 'in_production'])
+            ).count()
         except Exception:
             current_u = None
     return {
         'is_admin': is_admin(),
         'can_manage_stock': can_manage_stock(),
-        'current_user': current_u
+        'current_user': current_u,
+        'pending_workshop_orders_count': pending_workshop_orders_count
     }
 
 # ==================== بهینه‌سازی تحویل دارایی‌های استاتیک و فشرده‌سازی GZIP ====================
@@ -5115,6 +5125,396 @@ def api_admin_financial_summary():
         'month': month,
         'month_name': PERSIAN_MONTHS.get(month, ''),
         'summary': summary
+    })
+
+# ==================== ماژول جامع سفارشات ساخت کارگاه (کابین، آینه، باکس سفارشی) ====================
+
+@app.route('/workshop_orders')
+def workshop_orders_hub():
+    """
+    میز کار و داشبورد مرکزی سفارشات ساخت کارگاه طهماسبی
+    امکان ثبت سفارش جدید برای فروشندگان، پیگیری وضعیت، و ارجاع و مدیریت برای ادمین
+    """
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user_id = session.get('user_id')
+    user_role = session.get('role', 'seller')
+    user = db.session.get(User, user_id)
+    if not user:
+        return redirect(url_for('login'))
+
+    is_user_admin = (user_role == 'admin' or user.role == 'admin')
+    
+    # فیلترها
+    status_filter = request.args.get('status', '').strip()
+    priority_filter = request.args.get('priority', '').strip()
+    search_query = request.args.get('q', '').strip()
+    seller_filter = request.args.get('seller_id', type=int)
+    overdue_only = request.args.get('overdue') == '1'
+    view_mode = request.args.get('view', 'kanban' if is_user_admin else 'table') # kanban / table
+    
+    query = CustomWorkshopOrder.query
+    
+    # اگر کاربر فروشنده است، سفارشات شعبه یا خودش را ببیند (مگر اینکه ادمین باشد)
+    if not is_user_admin:
+        if user.shop_id:
+            query = query.filter((CustomWorkshopOrder.seller_id == user.id) | (CustomWorkshopOrder.shop_id == user.shop_id))
+        else:
+            query = query.filter(CustomWorkshopOrder.seller_id == user.id)
+    elif seller_filter:
+        query = query.filter(CustomWorkshopOrder.seller_id == seller_filter)
+        
+    if status_filter:
+        query = query.filter(CustomWorkshopOrder.status == status_filter)
+        
+    if priority_filter:
+        query = query.filter(CustomWorkshopOrder.priority == priority_filter)
+        
+    if search_query:
+        norm_q = normalize_persian_text(search_query)
+        query = query.filter(
+            (CustomWorkshopOrder.customer_name.ilike(f'%{norm_q}%')) |
+            (CustomWorkshopOrder.customer_phone.ilike(f'%{search_query}%')) |
+            (CustomWorkshopOrder.order_number.ilike(f'%{search_query}%')) |
+            (CustomWorkshopOrder.model_name.ilike(f'%{norm_q}%')) |
+            (CustomWorkshopOrder.product_type.ilike(f'%{norm_q}%'))
+        )
+        
+    all_orders = query.order_by(CustomWorkshopOrder.created_at.desc()).all()
+    
+    kanban_boards = {
+        'pending': [],
+        'approved': [],
+        'in_production': [],
+        'ready': [],
+        'delivered': [],
+        'cancelled': []
+    }
+    
+    now_j = jdatetime.datetime.now()
+    today_shamsi = now_j.strftime('%Y/%m/%d')
+    
+    overdue_orders = []
+    for ord_item in all_orders:
+        st_key = ord_item.status if ord_item.status in kanban_boards else 'pending'
+        kanban_boards[st_key].append(ord_item)
+        if ord_item.status not in ['delivered', 'cancelled'] and ord_item.promised_delivery_date:
+            clean_prom = ord_item.promised_delivery_date.strip().replace('-', '/')
+            if clean_prom < today_shamsi:
+                overdue_orders.append(ord_item)
+                
+    if overdue_only:
+        orders_list = overdue_orders
+    else:
+        orders_list = all_orders
+        
+    stats = {
+        'total': len(all_orders),
+        'pending': len(kanban_boards['pending']),
+        'approved': len(kanban_boards['approved']),
+        'in_production': len(kanban_boards['in_production']),
+        'ready': len(kanban_boards['ready']),
+        'delivered': len(kanban_boards['delivered']),
+        'overdue': len(overdue_orders)
+    }
+    
+    all_sellers = User.query.filter_by(role='seller', is_active=True).all() if is_user_admin else []
+    all_shops = Shop.query.all()
+    all_customers = Customer.query.order_by(Customer.name).limit(100).all()
+    
+    return render_template(
+        'workshop_orders.html',
+        orders=orders_list,
+        kanban=kanban_boards,
+        stats=stats,
+        today_shamsi=today_shamsi,
+        sellers=all_sellers,
+        shops=all_shops,
+        customers=all_customers,
+        is_admin=is_user_admin,
+        status_filter=status_filter,
+        priority_filter=priority_filter,
+        search_query=search_query,
+        seller_filter=seller_filter,
+        overdue_only=overdue_only,
+        view_mode=view_mode
+    )
+
+@app.route('/api/workshop_orders/create', methods=['POST'])
+def api_create_workshop_order():
+    """ثبت سفارش جدید کارگاهی توسط فروشنده یا مدیریت"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 401
+        
+    user_id = session.get('user_id')
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'کاربر نامعتبر است.'}), 401
+        
+    data = request.form if request.form else (request.json or {})
+    
+    customer_name = (data.get('customer_name') or '').strip()
+    if not customer_name:
+        return jsonify({'success': False, 'message': 'نام مشتری الزامی است.'}), 400
+        
+    customer_phone = to_english_digits(data.get('customer_phone') or '')
+    product_type = (data.get('product_type') or 'کابین روشویی').strip()
+    model_name = (data.get('model_name') or '').strip()
+    
+    # ابعاد
+    width = safe_int(to_english_digits(data.get('width') or 0))
+    depth = safe_int(to_english_digits(data.get('depth') or 0))
+    height = safe_int(to_english_digits(data.get('height') or 0))
+    dimensions_text = (data.get('dimensions_text') or '').strip()
+    if not dimensions_text and (width or depth or height):
+        dims = []
+        if width: dims.append(f"عرض {width}")
+        if depth: dims.append(f"عمق {depth}")
+        if height: dims.append(f"ارتفاع {height}")
+        dimensions_text = " × ".join(dims)
+        
+    body_color = (data.get('body_color') or '').strip()
+    door_color = (data.get('door_color') or '').strip()
+    sheet_thickness = (data.get('sheet_thickness') or 'ورق ۱۶ میل PVC ضدآب').strip()
+    hinge_type = (data.get('hinge_type') or 'لولای تمام استیل آرام‌بند').strip()
+    door_drawer_config = (data.get('door_drawer_config') or '').strip()
+    mirror_details = (data.get('mirror_details') or '').strip()
+    box_details = (data.get('box_details') or '').strip()
+    sink_type = (data.get('sink_type') or '').strip()
+    
+    priority = (data.get('priority') or 'normal').strip()
+    promised_delivery_date = to_english_digits(data.get('promised_delivery_date') or '').strip()
+    special_notes = (data.get('special_notes') or '').strip()
+    assigned_worker = (data.get('assigned_worker') or 'آقای حسینی (کارگاه مرکزی)').strip()
+    
+    estimated_cost = safe_int(to_english_digits(data.get('estimated_cost') or 0))
+    customer_price = safe_int(to_english_digits(data.get('customer_price') or 0))
+    prepaid_amount = safe_int(to_english_digits(data.get('prepaid_amount') or 0))
+    
+    shop_id = user.shop_id or (Shop.query.first().id if Shop.query.first() else 1)
+    if is_admin() and data.get('shop_id'):
+        shop_id = safe_int(data.get('shop_id')) or shop_id
+        
+    seller_id = user.id
+    if is_admin() and data.get('seller_id'):
+        seller_id = safe_int(data.get('seller_id')) or user.id
+        
+    now_j = jdatetime.datetime.now()
+    shamsi_date = now_j.strftime('%Y/%m/%d %H:%M')
+    shamsi_year = now_j.year
+    shamsi_month = now_j.month
+    
+    today_count = CustomWorkshopOrder.query.filter_by(shamsi_year=shamsi_year).count() + 1
+    order_number = f"ORD-{shamsi_year}-{today_count:04d}"
+    
+    images = [None, None, None]
+    
+    # پردازش تصاویر آپلودی
+    for idx, key in enumerate(['image_1_file', 'image_2_file', 'image_3_file']):
+        file = request.files.get(key)
+        if file and file.filename:
+            try:
+                import io
+                from PIL import Image
+                img = Image.open(file.stream)
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+                max_dim = 1400
+                if max(img.width, img.height) > max_dim:
+                    img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=80, optimize=True)
+                b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                images[idx] = f"data:image/jpeg;base64,{b64}"
+            except Exception as e:
+                app.logger.warning(f"Error processing order image {key}: {e}")
+                
+    for idx, key in enumerate(['image_1', 'image_2', 'image_3']):
+        if not images[idx] and data.get(key):
+            val = data.get(key).strip()
+            if val.startswith('data:image'):
+                images[idx] = val
+                
+    customer = get_or_create_customer(customer_name, customer_phone)
+    customer_id = customer.id if customer else None
+    
+    new_order = CustomWorkshopOrder(
+        order_number=order_number,
+        seller_id=seller_id,
+        shop_id=shop_id,
+        customer_id=customer_id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        product_type=product_type,
+        model_name=model_name,
+        width=width,
+        depth=depth,
+        height=height,
+        dimensions_text=dimensions_text,
+        body_color=body_color,
+        door_color=door_color,
+        sheet_thickness=sheet_thickness,
+        hinge_type=hinge_type,
+        door_drawer_config=door_drawer_config,
+        mirror_details=mirror_details,
+        box_details=box_details,
+        sink_type=sink_type,
+        status='pending',
+        priority=priority,
+        promised_delivery_date=promised_delivery_date,
+        shamsi_date=shamsi_date,
+        shamsi_year=shamsi_year,
+        shamsi_month=shamsi_month,
+        image_1=images[0],
+        image_2=images[1],
+        image_3=images[2],
+        special_notes=special_notes,
+        assigned_worker=assigned_worker,
+        estimated_cost=estimated_cost,
+        customer_price=customer_price,
+        prepaid_amount=prepaid_amount
+    )
+    
+    try:
+        db.session.add(new_order)
+        db.session.commit()
+        log_activity(f"ثبت سفارش کارگاهی جدید {order_number} ({product_type} {model_name}) برای {customer_name}", user.full_name, "کارگاه")
+        return jsonify({
+            'success': True,
+            'message': f'سفارش کارگاهی {order_number} با موفقیت ثبت شد! 🔨',
+            'order_id': new_order.id,
+            'order_number': order_number,
+            'order': new_order.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'خطا در ثبت سفارش: {str(e)}'}), 500
+
+@app.route('/api/workshop_orders/<int:order_id>/update_status', methods=['POST'])
+def api_update_workshop_order_status(order_id):
+    """به‌روزرسانی وضعیت مرحله ساخت یا تحویل سفارش کارگاه"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 401
+        
+    user = db.session.get(User, session['user_id'])
+    order = db.session.get(CustomWorkshopOrder, order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'سفارش یافت نشد'}), 404
+    
+    data = request.json or request.form or {}
+    new_status = data.get('status')
+    if not new_status or new_status not in ['pending', 'approved', 'in_production', 'ready', 'delivered', 'cancelled']:
+        return jsonify({'success': False, 'message': 'وضعیت نامعتبر است'}), 400
+        
+    old_status = order.status
+    order.status = new_status
+    
+    if new_status == 'delivered':
+        now_j = jdatetime.datetime.now()
+        order.delivered_at = now_j.strftime('%Y/%m/%d %H:%M')
+        
+    if data.get('assigned_worker'):
+        order.assigned_worker = data.get('assigned_worker').strip()
+        
+    if data.get('admin_notes'):
+        order.admin_notes = data.get('admin_notes').strip()
+        
+    try:
+        db.session.commit()
+        STATUS_FA = {
+            'pending': 'در انتظار تایید',
+            'approved': 'تایید و ارجاع به کارگاه',
+            'in_production': 'در حال ساخت در کارگاه',
+            'ready': 'آماده تحویل',
+            'delivered': 'تحویل به مشتری',
+            'cancelled': 'لغو شده'
+        }
+        log_activity(f"تغییر وضعیت سفارش کارگاهی {order.order_number} از «{STATUS_FA.get(old_status)}» به «{STATUS_FA.get(new_status)}»", user.full_name, "کارگاه")
+        return jsonify({
+            'success': True,
+            'message': f'وضعیت سفارش به «{STATUS_FA.get(new_status)}» تغییر یافت.',
+            'status': new_status,
+            'status_fa': STATUS_FA.get(new_status)
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/workshop_orders/<int:order_id>/delete', methods=['POST', 'DELETE'])
+def api_delete_workshop_order(order_id):
+    """حذف سفارش کارگاه (فقط مدیریت یا فروشنده قبل از شروع ساخت)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 401
+        
+    user = db.session.get(User, session['user_id'])
+    order = db.session.get(CustomWorkshopOrder, order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'سفارش یافت نشد'}), 404
+    
+    if not (is_admin() or (order.seller_id == user.id and order.status == 'pending')):
+        return jsonify({'success': False, 'message': 'امکان حذف سفارش شروع‌شده فقط برای مدیریت مجاز است.'}), 403
+        
+    ord_num = order.order_number
+    try:
+        db.session.delete(order)
+        db.session.commit()
+        log_activity(f"حذف سفارش کارگاهی {ord_num}", user.full_name, "کارگاه")
+        return jsonify({'success': True, 'message': f'سفارش {ord_num} با موفقیت حذف گردید.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/workshop_orders/<int:order_id>/print')
+def print_workshop_order(order_id):
+    """برگه دستور ساخت و حواله فنی کارگاه (Print Job Sheet) با فرمت استاندارد A4/A5"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    order = db.session.get(CustomWorkshopOrder, order_id)
+    if not order:
+        return "سفارش مورد نظر یافت نشد.", 404
+    settings = Settings.query.first() or Settings()
+    
+    return render_template('print_workshop_order.html', order=order, settings=settings)
+
+@app.route('/api/workshop_orders/<int:order_id>/share_text')
+def api_share_workshop_order_text(order_id):
+    """تولید متن خلاصه فنی سفارش جهت ارسال سریع در روبیکا، ایتا، بله یا واتساپ"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 401
+        
+    order = db.session.get(CustomWorkshopOrder, order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'سفارش یافت نشد'}), 404
+        
+    prio_fa = 'عادی' if order.priority == 'normal' else ('فوری 🔥' if order.priority == 'urgent' else 'بسیار فوری و اضطراری ⚡')
+    
+    text = f"""🛠 *حواله دستور ساخت کارگاه طهماسبی*
+📌 *شماره سفارش:* {order.order_number}
+📅 *تاریخ ثبت:* {order.shamsi_date}
+👤 *مشتری:* {order.customer_name} {f'({order.customer_phone})' if order.customer_phone else ''}
+🏬 *شعبه و فروشنده:* {order.shop.name if order.shop else ''} - {order.seller.full_name if order.seller else ''}
+━━━━━━━━━━━━━━━━━━━
+📦 *نوع کالا و مدل:* {order.product_type} {f'مدل {order.model_name}' if order.model_name else ''}
+📐 *ابعاد دقیق:* {order.dimensions_text or 'طبق الگو'}
+🎨 *رنگ بدنه:* {order.body_color or 'سفید'}
+🚪 *رنگ و طرح درب:* {order.door_color or 'سفید'}
+🔩 *ورق و لولا:* {order.sheet_thickness} | {order.hinge_type}
+🗄️ *چیدمان درب/کشو:* {order.door_drawer_config or 'استاندارد'}
+🪞 *آینه و ملحقات:* {order.mirror_details or 'ندارد'}
+📦 *باکس:* {order.box_details or 'ندارد'}
+🚰 *سنگ روشویی:* {order.sink_type or 'بدون سنگ'}
+━━━━━━━━━━━━━━━━━━━
+🚨 *فوریت:* {prio_fa}
+⏰ *مهلت تحویل:* {order.promised_delivery_date or 'تعیین نشده'}
+👷 *استادکار کارگاه:* {order.assigned_worker or 'کارگاه مرکزی'}
+⚠️ *نکات حساس ساخت:* {order.special_notes or 'ندارد'}
+"""
+    return jsonify({
+        'success': True,
+        'order_number': order.order_number,
+        'text': text.strip()
     })
 
 if __name__ == '__main__':

@@ -5307,6 +5307,9 @@ def api_create_workshop_order():
     
     today_count = CustomWorkshopOrder.query.filter_by(shamsi_year=shamsi_year).count() + 1
     order_number = f"ORD-{shamsi_year}-{today_count:04d}"
+    while CustomWorkshopOrder.query.filter_by(order_number=order_number).first():
+        today_count += 1
+        order_number = f"ORD-{shamsi_year}-{today_count:04d}"
     
     images = [None, None, None]
     
@@ -5336,8 +5339,12 @@ def api_create_workshop_order():
             if val.startswith('data:image'):
                 images[idx] = val
                 
-    customer = get_or_create_customer(customer_name, customer_phone)
-    customer_id = customer.id if customer else None
+    customer_id = None
+    try:
+        customer = get_or_create_customer(customer_name, customer_phone)
+        customer_id = customer.id if customer else None
+    except Exception as e:
+        app.logger.warning(f"Error get_or_create_customer in workshop order: {e}")
     
     new_order = CustomWorkshopOrder(
         order_number=order_number,

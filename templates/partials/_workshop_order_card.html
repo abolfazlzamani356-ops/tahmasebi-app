@@ -137,33 +137,57 @@
 
 
     <!-- دکمه‌های اقدام سریع کارت کانبان -->
-    <div class="pt-2 border-t border-white/5 flex items-center justify-between gap-1">
-        <div class="flex items-center gap-1">
-            <!-- چاپ حواله فنی -->
-            <a href="{{ url_for('print_workshop_order', order_id=ord.id) }}" target="_blank" 
-               class="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white p-1.5 rounded-lg text-xs transition" title="چاپ حواله فنی کارگاه">
-                🖨️
-            </a>
-
-            <!-- اشتراک در پیام‌رسان -->
-            <button onclick="openShareModal({{ ord.id }})" 
-                    class="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white p-1.5 rounded-lg text-xs transition cursor-pointer" title="ارسال در روبیکا / ایتا / واتساپ">
-                📱
-            </button>
-
-            <!-- تغییر وضعیت یا یادداشت -->
-            <button onclick='openStatusModal({{ ord.id }}, "{{ ord.order_number }}", "{{ ord.status }}", "{{ ord.assigned_worker|default("", true)|e }}", "{{ ord.admin_notes|default("", true)|e }}")'
-                    class="bg-amber-600/30 hover:bg-amber-600 text-amber-200 hover:text-white p-1.5 rounded-lg text-xs transition cursor-pointer" title="تغییر وضعیت یا یادداشت کارگاه">
-                🔄
-            </button>
-        </div>
-
-        {% if is_admin or ord.status == 'pending' %}
-        <button onclick="deleteWorkshopOrder({{ ord.id }}, '{{ ord.order_number }}')" 
-                class="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 p-1.5 rounded-lg text-xs transition cursor-pointer" title="حذف سفارش">
-            🗑️
+    <div class="pt-2 border-t border-white/5 space-y-2">
+        {% if ord.status == 'pending' %}
+        <button onclick="quickAdvanceStatus({{ ord.id }}, 'approved', 'تایید و ارجاع به کارگاه')" 
+                class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[11px] font-black py-1.5 px-3 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>✅</span> تایید و ارجاع به کارگاه
+        </button>
+        {% elif ord.status == 'approved' %}
+        <button onclick="quickAdvanceStatus({{ ord.id }}, 'in_production', 'شروع ساخت در کارگاه')" 
+                class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] font-black py-1.5 px-3 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>🔨</span> شروع ساخت در کارگاه
+        </button>
+        {% elif ord.status == 'in_production' %}
+        <button onclick="quickAdvanceStatus({{ ord.id }}, 'ready', 'آماده تحویل در فروشگاه')" 
+                class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-[11px] font-black py-1.5 px-3 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>✨</span> اعلام آماده تحویل
+        </button>
+        {% elif ord.status == 'ready' %}
+        <button onclick="quickAdvanceStatus({{ ord.id }}, 'delivered', 'تحویل نهایی به خریدار')" 
+                class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-[11px] font-black py-1.5 px-3 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>📦</span> تحویل داده شد به مشتری
         </button>
         {% endif %}
+
+        <div class="flex items-center justify-between gap-1">
+            <div class="flex items-center gap-1">
+                <!-- چاپ حواله فنی -->
+                <a href="{{ url_for('print_workshop_order', order_id=ord.id) }}" target="_blank" 
+                   class="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white px-2 py-1 rounded-lg text-xs transition flex items-center gap-1" title="چاپ حواله فنی کارگاه">
+                    <span>🖨️</span> <span class="text-[10px]">چاپ</span>
+                </a>
+
+                <!-- اشتراک در پیام‌رسان -->
+                <button onclick="openShareModal({{ ord.id }})" 
+                        class="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white px-2 py-1 rounded-lg text-xs transition cursor-pointer flex items-center gap-1" title="ارسال در روبیکا / ایتا / واتساپ">
+                    <span>📱</span> <span class="text-[10px]">ارسال</span>
+                </button>
+
+                <!-- تغییر وضعیت یا یادداشت -->
+                <button onclick='openStatusModal({{ ord.id }}, "{{ ord.order_number }}", "{{ ord.status }}", "{{ ord.assigned_worker|default("", true)|e }}", "{{ ord.admin_notes|default("", true)|e }}")'
+                        class="bg-amber-600/30 hover:bg-amber-600 text-amber-200 hover:text-white px-2 py-1 rounded-lg text-xs transition cursor-pointer flex items-center gap-1" title="تغییر مرحله یا یادداشت">
+                    <span>🔄</span> <span class="text-[10px]">وضعیت</span>
+                </button>
+            </div>
+
+            {% if is_admin or ord.status == 'pending' %}
+            <button onclick="deleteWorkshopOrder({{ ord.id }}, '{{ ord.order_number }}')" 
+                    class="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 p-1.5 rounded-lg text-xs transition cursor-pointer" title="حذف سفارش">
+                🗑️
+            </button>
+            {% endif %}
+        </div>
     </div>
 
 </div>

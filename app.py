@@ -308,9 +308,11 @@ def initialize_database():
             st = Settings(gemini_base_url='https://tahmasebi-app.onrender.com/api/ai/proxy')
             db.session.add(st)
             db.session.commit()
-        elif not st.gemini_base_url or 'googleapis.com' in st.gemini_base_url:
-            st.gemini_base_url = 'https://tahmasebi-app.onrender.com/api/ai/proxy'
-            db.session.commit()
+        else:
+            cur_url = (st.gemini_base_url or '').strip()
+            if not cur_url or 'googleapis.com' in cur_url or 'workers.dev' in cur_url:
+                st.gemini_base_url = 'https://tahmasebi-app.onrender.com/api/ai/proxy'
+                db.session.commit()
     except Exception:
         db.session.rollback()
         
@@ -862,6 +864,35 @@ def api_scan_invoice():
         status_code = 400 if scan_result.get('error') == 'no_api_key' else 200
         return jsonify(scan_result), status_code
 
+# ==================== مکانیزم پایش سلامت و زنده نگه‌داشتن سرور Render ====================
+@app.route('/ping')
+@app.route('/health')
+def health_ping():
+    """بررسی وضعیت سلامت، پلتفرم اجرایی و نسخه سرور بدون نیاز به لاگین"""
+    is_foreign = bool(os.environ.get('RENDER') or os.environ.get('RENDER_INSTANCE_ID'))
+    return jsonify({
+        'status': 'ok',
+        'server': 'Render (خارج از کشور)' if is_foreign else 'Liara (سرور ایران)',
+        'proxy_available': True,
+        'version': 'v15-proxy-ready',
+        'timestamp': time.time()
+    }), 200
+
+def _render_keepalive_worker():
+    """ترد پس‌زمینه سبک برای زنده نگه‌داشتن نود Render جهت جلوگیری از ورود به حالت خواب"""
+    import time
+    import requests
+    while True:
+        try:
+            time.sleep(600)  # هر ۱۰ دقیقه یک‌بار پینگ می‌زند
+            requests.get('https://tahmasebi-app.onrender.com/ping', timeout=10)
+        except Exception:
+            pass
+
+import threading
+_keepalive_thread = threading.Thread(target=_render_keepalive_worker, daemon=True)
+_keepalive_thread.start()
+
 @app.route('/api/ai/proxy/<path:subpath>', methods=['GET', 'POST', 'OPTIONS'])
 def ai_external_proxy(subpath):
     """
@@ -890,14 +921,15 @@ def ai_external_proxy(subpath):
         import requests
         if request.method == 'POST':
             req_data = request.get_data()
-            g_resp = requests.post(target_url, params=params, data=req_data, headers=headers, timeout=22)
+            g_resp = requests.post(target_url, params=params, data=req_data, headers=headers, timeout=(10, 25))
         else:
-            g_resp = requests.get(target_url, params=params, headers=headers, timeout=22)
+            g_resp = requests.get(target_url, params=params, headers=headers, timeout=(10, 25))
 
         res = Response(g_resp.content, status=g_resp.status_code)
         for h, v in g_resp.headers.items():
             if h.lower() in ['content-type']:
                 res.headers[h] = v
+        res.headers['Access-Control-Allow-Origin'] = '*'
         return res
     except Exception as ex:
         return jsonify({'error': {'message': f'Proxy forwarding error: {str(ex)}'}}), 502
@@ -917,8 +949,10 @@ def test_gemini_route():
         return jsonify({'success': False, 'message': 'کلید API وارد نشده است.'}), 400
     
     model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
+    is_foreign = bool(os.environ.get('RENDER') or os.environ.get('RENDER_INSTANCE_ID'))
+    
     base_url = (request.form.get('gemini_base_url') or (request.json.get('gemini_base_url') if request.is_json else None) or (st.gemini_base_url if st else None) or 'https://tahmasebi-app.onrender.com/api/ai/proxy').strip()
-    if not base_url or 'googleapis.com' in base_url:
+    if not is_foreign and (not base_url or 'googleapis.com' in base_url or 'workers.dev' in base_url):
         base_url = 'https://tahmasebi-app.onrender.com/api/ai/proxy'
     
     # نگاشت هوشمند مدل‌ها به مدل‌های رسمی، فعال و باثبات Google API
@@ -933,26 +967,7 @@ def test_gemini_route():
     }
     candidate_test_models = MODEL_ALIAS_MAP.get(model, [model, 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'])
 
-    # تست اولیه با SDK رسمی google-genai
-    for cand in candidate_test_models:
-        try:
-            from google import genai
-            client = genai.Client(api_key=api_key)
-            sdk_resp = client.models.generate_content(
-                model=cand,
-                contents="وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"
-            )
-            if sdk_resp and sdk_resp.text:
-                if st:
-                    st.gemini_api_key = api_key
-                    st.gemini_model = model
-                    st.gemini_base_url = base_url
-                    db.session.commit()
-                return jsonify({'success': True, 'message': f'ارتباط با Google AI Pro (مدل {model} / {cand}) با موفقیت برقرار شد و تنظیمات ذخیره گردید! ✅'})
-        except Exception as sdk_err:
-            app.logger.info(f"SDK test fallback for {cand}: {sdk_err}")
-
-    # تست تکمیلی با REST API
+    # تست مستقیم و پرسرعت از طریق پروکسی تنظیم شده REST API (بدون فیلترینگ و بدون تایم‌اوت در ایران)
     payload = {
         "contents": [{"parts": [{"text": "وضعیت اتصال هوش مصنوعی را در یک کلمه بنویس: فعال"}]}]
     }
@@ -966,7 +981,7 @@ def test_gemini_route():
     for cand in candidate_test_models:
         url = f"{base_url.rstrip('/')}/v1beta/models/{cand}:generateContent?key={api_key}"
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=8)
+            resp = requests.post(url, json=payload, headers=headers, timeout=(8, 15))
             if resp.status_code == 200:
                 if st:
                     st.gemini_api_key = api_key
@@ -983,7 +998,7 @@ def test_gemini_route():
                 elif resp.status_code == 403:
                     last_err_msg = (
                         f"خطای ۴۰۳ گوگل: دسترسی نامعتبر یا محدودیت جغرافیایی/تحریم آی‌پی.\n"
-                        f"• در صورت استفاده در سرور ایران (لیارا)، آدرس Cloudflare Worker (gemini_base_url) را تنظیم فرمایید.\n"
+                        f"• در صورت استفاده در سرور ایران (لیارا)، سیستم به طور خودکار از پروکسی ضدتحریم رندر استفاده خواهد کرد.\n"
                         f"• همچنین در Google Cloud Console بررسی کنید سرویس Generative Language API فعال باشد."
                     )
                 elif resp.status_code == 401 and "ACCESS_TOKEN_TYPE_UNSUPPORTED" in raw_text:
@@ -4264,8 +4279,13 @@ def store_settings_view():
         
         # تنظیمات هوش مصنوعی گوگل (Google AI Pro / Gemini Studio)
         settings.gemini_api_key = request.form.get('gemini_api_key', '').strip()
-        settings.gemini_model = request.form.get('gemini_model', 'gemini-3.8-flash').strip() or 'gemini-3.8-flash'
-        settings.gemini_base_url = request.form.get('gemini_base_url', '').strip() or 'https://generativelanguage.googleapis.com'
+        submitted_url = request.form.get('gemini_base_url', '').strip()
+        is_foreign = bool(os.environ.get('RENDER') or os.environ.get('RENDER_INSTANCE_ID'))
+        default_target = 'https://generativelanguage.googleapis.com' if is_foreign else 'https://tahmasebi-app.onrender.com/api/ai/proxy'
+        if not submitted_url or (not is_foreign and ('googleapis.com' in submitted_url or 'workers.dev' in submitted_url)):
+            settings.gemini_base_url = default_target
+        else:
+            settings.gemini_base_url = submitted_url
         
         # آپلود لوگو اگر ارسال شده باشد
         logo_file = request.files.get('store_logo')

@@ -1028,8 +1028,12 @@ def call_gemini_unified(prompt, image_bytes=None, mime_type='image/jpeg', json_m
                 model_name = st.gemini_model.strip()
             if st.gemini_base_url and st.gemini_base_url.strip():
                 custom_url = st.gemini_base_url.strip()
-                if not is_foreign_server and 'googleapis.com' in custom_url:
-                    base_url = default_target
+                if not is_foreign_server:
+                    # روی سرورهای ایران (مثل لیارا)، دامنه‌های googleapis و workers.dev مسدود یا تحریم هستند و باید از نود پروکسی Render استفاده شود
+                    if not custom_url or 'googleapis.com' in custom_url or 'workers.dev' in custom_url:
+                        base_url = DEFAULT_AI_PROXY
+                    else:
+                        base_url = custom_url
                 else:
                     base_url = custom_url
     except Exception:

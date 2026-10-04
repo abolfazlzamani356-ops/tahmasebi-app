@@ -221,6 +221,13 @@ def initialize_database():
             except Exception:
                 pass
 
+        # پاکسازی رکوردهای تلفن خالی مشتریان برای جلوگیری از خطای UNIQUE در SQLite
+        try:
+            cursor.execute("UPDATE customers SET phone = NULL WHERE phone = ''")
+            conn.commit()
+        except Exception:
+            pass
+
         # ایجاد ایندکس‌های پرسرعت دیتابیس برای بهینه‌سازی موشکی کوئری‌ها
         indexes = [
             ("idx_invoices_year_month_status", "CREATE INDEX IF NOT EXISTS idx_invoices_year_month_status ON invoices (shamsi_year, shamsi_month, status)"),
@@ -5258,7 +5265,10 @@ def api_create_workshop_order():
     if not customer_name:
         return jsonify({'success': False, 'message': 'نام مشتری الزامی است.'}), 400
         
-    customer_phone = to_english_digits(data.get('customer_phone') or '')
+    customer_phone = to_english_digits(data.get('customer_phone') or '').strip() or None
+    if customer_phone:
+        import re
+        customer_phone = re.sub(r'[^\d]', '', customer_phone).strip() or None
     product_type = (data.get('product_type') or 'کابین روشویی').strip()
     model_name = (data.get('model_name') or '').strip()
     

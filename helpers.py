@@ -441,10 +441,12 @@ def get_or_create_customer(name, phone=None, address=None, customer_type='regula
     phone = (phone or '').strip()
     if phone:
         persian_digits = '۰۱۲۳۴۵۶۷۸۹'
-        arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+        arabic_digits = '٠١٢٣٤٥٦٧۸۹'
         for i in range(10):
             phone = phone.replace(persian_digits[i], str(i)).replace(arabic_digits[i], str(i))
-        phone = re.sub(r'[^\d]', '', phone) or None
+        phone = re.sub(r'[^\d]', '', phone).strip() or None
+    else:
+        phone = None
 
     customer = None
     if phone:
@@ -460,18 +462,31 @@ def get_or_create_customer(name, phone=None, address=None, customer_type='regula
             total_purchases=0,
             outstanding_balance=0
         )
-        db.session.add(customer)
-        db.session.commit()
+        try:
+            db.session.add(customer)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            if phone:
+                customer = Customer.query.filter_by(phone=phone).first()
+            if not customer:
+                customer = Customer.query.filter_by(name=name).first()
     else:
         changed = False
         if phone and not customer.phone:
-            customer.phone = phone
-            changed = True
+            # بررسی عدم تکرار شماره در دیتابیس
+            existing = Customer.query.filter_by(phone=phone).first()
+            if not existing:
+                customer.phone = phone
+                changed = True
         if address and not str(address).isdigit() and not customer.address:
             customer.address = str(address)
             changed = True
         if changed:
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
     return customer
 
 def calculate_store_financial_summary(year, month, settings=None):

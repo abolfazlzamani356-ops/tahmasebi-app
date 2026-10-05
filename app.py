@@ -2500,6 +2500,7 @@ def admin_dashboard():
     custom_invoices_all = [inv for inv in month_invoices if getattr(inv, 'has_custom_items', False)]
     custom_sales_total = sum(inv.total_amount for inv in custom_invoices_all)
     custom_profit_total = sum(inv.real_profit or 0 for inv in custom_invoices_all)
+    custom_pending_balance_total = sum(inv.remaining_balance or 0 for inv in custom_invoices_all if (inv.remaining_balance or 0) > 0 and not inv.is_settled)
 
     # فاکتورهای دارای مانده کل مجموعه جهت نمایش در پنل مدیریت
     admin_pending_invoices = Invoice.query.options(
@@ -2647,6 +2648,7 @@ def admin_dashboard():
         custom_invoices_count=len(custom_invoices_all),
         custom_sales_total=custom_sales_total,
         custom_profit_total=custom_profit_total,
+        custom_pending_balance_total=custom_pending_balance_total,
         settings=settings,
         logs=logs,
         top_selling_items=top_selling_items,

@@ -812,6 +812,10 @@
                 <span class="text-[10px] text-slate-400 block">تعداد فاکتور:</span>
                 <span class="text-xs font-black text-amber-300 font-mono">{{ custom_invoices_count }} فاکتور</span>
             </div>
+            <div class="bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-500/30 text-left">
+                <span class="text-[10px] text-rose-300 block">جمع کل مانده‌ها:</span>
+                <span class="text-xs font-black text-rose-300 font-mono">{{ "{:,}".format(custom_pending_balance_total or 0) }} ت</span>
+            </div>
             <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-left">
                 <span class="text-[10px] text-slate-400 block">جمع فروش اقلام:</span>
                 <span class="text-xs font-black text-white font-mono">{{ "{:,}".format(custom_sales_total) }} ت</span>

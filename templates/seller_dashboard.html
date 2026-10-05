@@ -1106,93 +1106,72 @@
     </div>
 </div>
 
-<!-- ==================== مودال هوشمند پکیج ترکیبی (کابین + سنگ با کسر هر دو از انبار و ۱ قیمت کل) ==================== -->
+<!-- ==================== مودال پیشرفته و هوشمند پکیج ترکیبی (چند قلمی با کسر انبار/کاتالوگ و ۱ قیمت کل) ==================== -->
 <div id="comboPackageModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 hidden">
-    <div class="bg-[#111827] border border-purple-500/30 rounded-3xl max-w-lg w-full p-5 sm:p-6 text-white shadow-2xl space-y-4 max-h-[94vh] overflow-y-auto custom-scrollbar relative">
+    <div class="bg-[#111827] border border-purple-500/40 rounded-3xl max-w-2xl w-full p-4 sm:p-6 text-white shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto custom-scrollbar relative">
         <div class="flex items-center justify-between pb-3 border-b border-white/10">
-            <div class="flex items-center gap-2">
-                <span class="text-xl p-2 bg-purple-500/20 text-purple-300 rounded-xl">✨</span>
+            <div class="flex items-center gap-2.5">
+                <span class="text-2xl p-2 bg-purple-500/20 text-purple-300 rounded-2xl border border-purple-500/30">✨</span>
                 <div>
-                    <h3 class="text-sm sm:text-base font-black text-white">پکیج ترکیبی کالاها (کسر از انبار)</h3>
-                    <p class="text-[11px] text-slate-400">کسر موجودی هر دو کالا از انبار با یک قیمت توافقی و دلخواه کل</p>
+                    <h3 class="text-sm sm:text-base font-black text-white">پکیج ترکیبی کالاها (چند قلم با ۱ قیمت کل)</h3>
+                    <p class="text-[11px] text-slate-400">امکان انتخاب ۲ یا چند کالا از انبار، کاتالوگ یا دستی، تعیین تعداد هر کدام و ثبت ۱ قیمت توافقی کل</p>
                 </div>
             </div>
-            <button type="button" onclick="closeComboModal()" class="text-slate-400 hover:text-white text-lg p-1 rounded-lg">✕</button>
+            <button type="button" onclick="closeComboModal()" class="text-slate-400 hover:text-white text-lg p-1.5 rounded-xl hover:bg-white/10 transition">✕</button>
         </div>
 
-        <div class="space-y-3.5 text-xs">
-            <!-- قلم اول (مثلاً کابین) -->
-            <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-white/10 space-y-2">
-                <label class="block font-bold text-amber-300">📦 قلم اول (مثلاً کابین روشویی):</label>
-                <select id="comboItem1Select" onchange="updateComboModalPreview()" class="w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-purple-500">
-                    <option value="">-- انتخاب قلم اول از انبار شعبه --</option>
-                    {% for item in inventory_items %}
-                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
-                        {{ item.name }} (موجودی: {{ item.stock_quantity }}) | مصوب: {{ "{:,}".format(item.sell_price) }} ت
-                    </option>
-                    {% endfor %}
-                </select>
-                <div class="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-                    <span>قیمت مصوب کاتالوگ:</span>
-                    <span id="comboItem1PriceDisplay" class="font-mono text-slate-200 font-bold">۰ تومان</span>
-                </div>
+        <!-- لیست اقلام ترکیبی (داینامیک با امکان افزودن ردیف‌های بیشتر) -->
+        <div class="space-y-3 text-xs">
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-300 flex items-center gap-1.5 text-xs">
+                    <span>📦</span> اقلام تشکیل‌دهنده پکیج:
+                </span>
+                <button type="button" onclick="addComboRow()" class="text-[11px] bg-purple-600 hover:bg-purple-500 text-white font-black px-3 py-1.5 rounded-xl shadow-md transition flex items-center gap-1 active:scale-95">
+                    <span>➕</span> افزودن قلم دیگر به پکیج
+                </button>
             </div>
 
-            <!-- قلم دوم (مثلاً سنگ روشویی) -->
-            <div class="bg-slate-900/90 p-3.5 rounded-2xl border border-white/10 space-y-2">
-                <label class="block font-bold text-cyan-300">🚰 قلم دوم (مثلاً سنگ یا آینه همراه):</label>
-                <select id="comboItem2Select" onchange="updateComboModalPreview()" class="w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white focus:ring-2 focus:ring-purple-500">
-                    <option value="">-- انتخاب قلم دوم از انبار شعبه --</option>
-                    {% for item in inventory_items %}
-                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
-                        {{ item.name }} (موجودی: {{ item.stock_quantity }}) | مصوب: {{ "{:,}".format(item.sell_price) }} ت
-                    </option>
-                    {% endfor %}
-                </select>
-                <div class="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-                    <span>قیمت مصوب کاتالوگ:</span>
-                    <span id="comboItem2PriceDisplay" class="font-mono text-slate-200 font-bold">۰ تومان</span>
-                </div>
+            <div id="comboRowsContainer" class="space-y-2.5 max-h-[45vh] overflow-y-auto custom-scrollbar pr-0.5">
+                <!-- ردیف‌های داینامیک اقلام پکیج اینجا درج می‌شوند -->
             </div>
 
-            <!-- تعداد ست، قیمت کل توافقی و تخفیف اختیاری پکیج -->
-            <div class="bg-purple-950/30 p-3.5 rounded-2xl border border-purple-500/30 space-y-3">
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                    <div class="sm:col-span-3">
-                        <label class="block text-[11px] font-bold text-slate-300 mb-1">تعداد ست:</label>
-                        <input type="number" id="comboQuantityInput" value="1" min="1" oninput="updateComboModalPreview()" class="w-full p-2 bg-slate-800 border border-white/15 rounded-xl text-center font-black text-amber-300 text-sm">
+            <!-- قیمت کل توافقی، درصد تخفیف و خلاصه محاسبات -->
+            <div class="bg-purple-950/40 p-4 rounded-2xl border border-purple-500/40 space-y-3.5 shadow-inner">
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <div class="sm:col-span-7">
+                        <label class="block text-xs font-bold text-emerald-400 mb-1">💰 قیمت توافقی کل پکیج (تومان):</label>
+                        <input type="text" id="comboTotalPriceInput" placeholder="مثال: 6,800,000" oninput="formatNumber(this); updateComboModalPreview()" class="w-full p-2.5 bg-slate-800 border-2 border-emerald-500/60 rounded-xl text-sm font-black text-emerald-300 text-left font-mono dir-ltr focus:ring-2 focus:ring-emerald-400" dir="ltr">
                     </div>
-                    <div class="sm:col-span-6">
-                        <label class="block text-[11px] font-bold text-emerald-400 mb-1">💰 قیمت توافقی ست (تومان):</label>
-                        <input type="text" id="comboTotalPriceInput" placeholder="مثال: 6,800,000" oninput="formatNumber(this); updateComboModalPreview()" class="w-full p-2 bg-slate-800 border-2 border-emerald-500/60 rounded-xl text-sm font-black text-emerald-300 text-left font-mono dir-ltr" dir="ltr">
-                    </div>
-                    <div class="sm:col-span-3">
-                        <label class="block text-[11px] font-bold text-amber-400 mb-1">٪ تخفیف روی کل:</label>
-                        <input type="number" id="comboDiscountPctInput" placeholder="۰٪" min="0" max="100" oninput="updateComboModalPreview()" class="w-full p-2 bg-slate-800 border border-amber-500/40 rounded-xl text-center font-black text-amber-300 text-sm font-mono">
+                    <div class="sm:col-span-5">
+                        <label class="block text-xs font-bold text-amber-400 mb-1">٪ تخفیف روی کل پکیج (اختیاری):</label>
+                        <div class="relative flex items-center">
+                            <input type="number" id="comboDiscountPctInput" placeholder="۰" min="0" max="100" oninput="updateComboModalPreview()" class="w-full p-2.5 bg-slate-800 border border-amber-500/50 rounded-xl text-center font-black text-amber-300 text-sm font-mono focus:ring-2 focus:ring-amber-400">
+                            <span class="absolute left-3 text-xs text-amber-400 font-bold pointer-events-none">٪</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- پیش‌نمایش نحوه درج در فاکتور -->
-                <div class="bg-black/50 p-2.5 rounded-xl border border-white/10 space-y-1.5 text-[11px]">
-                    <div class="flex items-center justify-between text-slate-400">
-                        <span>جمع مصوب تکی کاتالوگ:</span>
-                        <span id="comboCatalogSumDisplay" class="font-mono text-slate-300 font-bold">۰ ت</span>
+                <!-- پیش‌نمایش نحوه ثبت -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-white/10 space-y-2 text-xs">
+                    <div class="flex items-center justify-between text-slate-300">
+                        <span>جمع بهای مصوب تکی کالاها:</span>
+                        <span id="comboCatalogSumDisplay" class="font-mono text-slate-200 font-bold">۰ تومان</span>
                     </div>
-                    <div class="flex items-center justify-between text-emerald-400 font-bold">
-                        <span>قیمت نهایی پس از تخفیف کل ست:</span>
-                        <span id="comboFinalPriceDisplay" class="font-mono font-black text-emerald-300 text-sm">۰ ت</span>
+                    <div class="flex items-center justify-between text-emerald-400 font-black text-sm">
+                        <span>مبلغ نهایی فروش پکیج:</span>
+                        <span id="comboFinalPriceDisplay" class="font-mono text-base font-black text-emerald-300">۰ تومان</span>
                     </div>
-                    <div class="text-[10px] text-purple-300 pt-1 border-t border-white/5 flex items-center gap-1">
+                    <div class="text-[11px] text-purple-300 pt-1.5 border-t border-white/10 flex items-center gap-1.5">
                         <span>💡</span>
-                        <span>هر دو قلم به صورت خودکار در فاکتور درج می‌شوند و موجودی انبار هر دو قلم ۱۰۰٪ کسر خواهد شد.</span>
+                        <span>هر قلم با تعداد مجزا در فاکتور چیده می‌شود و در صورت انتخاب از انبار، موجودی انبار به طور کامل و اتوماتیک کسر می‌گردد.</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
             <button type="button" onclick="closeComboModal()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white rounded-xl">انصراف</button>
-            <button type="button" onclick="confirmInsertComboPackage()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black px-5 py-2.5 rounded-xl shadow-lg shadow-purple-600/30 transition flex items-center gap-1.5 cursor-pointer">
+            <button type="button" onclick="confirmInsertComboPackage()" class="bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white text-xs font-black px-6 py-2.5 rounded-xl shadow-lg shadow-purple-600/30 transition flex items-center gap-2 cursor-pointer active:scale-95">
                 <span>➕</span> درج پکیج در فاکتور و کسر انبار
             </button>
         </div>
@@ -1456,93 +1435,282 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         openComboModal();
     }
 
+    let comboRowCounter = 0;
+
+    function openComboModal() {
+        const modal = document.getElementById('comboPackageModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            const cont = document.getElementById('comboRowsContainer');
+            if (cont && cont.children.length === 0) {
+                // درج ۲ ردیف پیش‌فرض برای شروع
+                addComboRow();
+                addComboRow();
+            }
+            updateComboModalPreview();
+        }
+    }
+
+    function closeComboModal() {
+        const modal = document.getElementById('comboPackageModal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function addComboItemRow() {
+        openComboModal();
+    }
+
+    function addComboRow() {
+        comboRowCounter++;
+        const idx = comboRowCounter;
+        const cont = document.getElementById('comboRowsContainer');
+        if (!cont) return;
+
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'combo-sub-row bg-slate-900/90 p-3 rounded-2xl border border-white/10 space-y-2 relative transition hover:border-purple-500/40';
+        rowDiv.dataset.rowId = idx;
+
+        rowDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="font-bold text-amber-300 text-[11px] flex items-center gap-1">
+                    <span>🔹</span> قلم <span class="combo-row-index-num"></span>:
+                </span>
+                <button type="button" onclick="removeComboRow(this)" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-0.5 rounded-lg hover:bg-rose-500/20 transition" title="حذف این قلم">✕ حذف قلم</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <!-- انتخاب از موجودی انبار شعبه -->
+                <div class="sm:col-span-5">
+                    <select onchange="onComboSelectInventory(this)" class="combo-row-select w-full p-2 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white focus:ring-1 focus:ring-purple-400">
+                        <option value="">📦 انتخاب از انبار شعبه...</option>
+                        {% for item in inventory_items %}
+                        <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
+                            {{ item.name }} (موجودی: {{ item.stock_quantity }}) | {{ "{:,}".format(item.sell_price) }} ت
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- یا جستجو در کاتالوگ / نام دستی دلخواه -->
+                <div class="sm:col-span-4">
+                    <input type="text" list="catalogDatalist" oninput="onComboInputCatalog(this)" placeholder="✍️ یا نام کاتالوگ / دستی..." class="combo-row-name w-full p-2 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-1 focus:ring-purple-400">
+                    <input type="hidden" class="combo-row-category" value="">
+                    <input type="hidden" class="combo-row-buy-price" value="0">
+                </div>
+                <!-- تعداد این قلم -->
+                <div class="sm:col-span-3 flex items-center gap-1.5">
+                    <span class="text-[11px] text-slate-300 font-bold whitespace-nowrap">تعداد:</span>
+                    <input type="number" value="1" min="1" oninput="updateComboModalPreview()" class="combo-row-qty w-full p-1.5 bg-slate-800 border border-amber-500/50 rounded-xl text-center font-black text-amber-300 text-xs focus:ring-1 focus:ring-amber-400">
+                </div>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400 pt-0.5 px-1">
+                <span>قیمت مصوب واحد:</span>
+                <div class="flex items-center gap-1">
+                    <input type="text" placeholder="۰" oninput="formatNumber(this); updateComboModalPreview()" class="combo-row-orig-price w-28 bg-slate-800 border border-white/10 rounded-lg px-2 py-0.5 text-left font-mono font-bold text-slate-200 text-xs dir-ltr" dir="ltr">
+                    <span class="text-slate-400 text-[10px]">تومان</span>
+                </div>
+            </div>
+        `;
+
+        cont.appendChild(rowDiv);
+        reindexComboRows();
+        updateComboModalPreview();
+    }
+
+    function removeComboRow(btn) {
+        const cont = document.getElementById('comboRowsContainer');
+        if (cont && cont.children.length <= 1) {
+            alert('حداقل ۱ قلم باید در پکیج ترکیبی وجود داشته باشد.');
+            return;
+        }
+        const row = btn.closest('.combo-sub-row');
+        if (row) row.remove();
+        reindexComboRows();
+        updateComboModalPreview();
+    }
+
+    function reindexComboRows() {
+        const cont = document.getElementById('comboRowsContainer');
+        if (!cont) return;
+        const rows = cont.querySelectorAll('.combo-sub-row');
+        rows.forEach((r, idx) => {
+            const numSpan = r.querySelector('.combo-row-index-num');
+            if (numSpan) numSpan.innerText = (idx + 1);
+        });
+    }
+
+    function onComboSelectInventory(selectElem) {
+        const row = selectElem.closest('.combo-sub-row');
+        if (!row) return;
+        const opt = selectElem.selectedIndex > 0 ? selectElem.options[selectElem.selectedIndex] : null;
+        const nameInp = row.querySelector('.combo-row-name');
+        const catInp = row.querySelector('.combo-row-category');
+        const buyInp = row.querySelector('.combo-row-buy-price');
+        const origInp = row.querySelector('.combo-row-orig-price');
+
+        if (opt) {
+            const name = opt.getAttribute('data-name') || '';
+            const price = parseNumeric(opt.getAttribute('data-price')) || 0;
+            const buy = parseNumeric(opt.getAttribute('data-buy-price')) || 0;
+            const cat = opt.getAttribute('data-category') || '';
+
+            if (nameInp) nameInp.value = name;
+            if (catInp) catInp.value = cat;
+            if (buyInp) buyInp.value = buy;
+            if (origInp) origInp.value = price > 0 ? price.toLocaleString('en-US') : '';
+        } else {
+            if (nameInp) nameInp.value = '';
+            if (origInp) origInp.value = '';
+        }
+        updateComboModalPreview();
+    }
+
+    function onComboInputCatalog(inputElem) {
+        const row = inputElem.closest('.combo-sub-row');
+        if (!row) return;
+        const val = inputElem.value.trim().toLowerCase();
+        const selElem = row.querySelector('.combo-row-select');
+        const catInp = row.querySelector('.combo-row-category');
+        const buyInp = row.querySelector('.combo-row-buy-price');
+        const origInp = row.querySelector('.combo-row-orig-price');
+
+        // بررسی در دیتالیست کاتالوگ
+        const datalist = document.getElementById('catalogDatalist');
+        let matched = false;
+        if (datalist && val) {
+            for (let opt of datalist.options) {
+                if (opt.value.trim().toLowerCase() === val) {
+                    matched = true;
+                    if (selElem) selElem.value = '';
+                    const p = parseNumeric(opt.getAttribute('data-price')) || 0;
+                    const b = parseNumeric(opt.getAttribute('data-buy-price')) || 0;
+                    const c = opt.getAttribute('data-category') || '';
+                    if (catInp) catInp.value = c;
+                    if (buyInp) buyInp.value = b;
+                    if (origInp) origInp.value = p > 0 ? p.toLocaleString('en-US') : '';
+                    break;
+                }
+            }
+        }
+        if (!matched && selElem && selElem.value) {
+            selElem.value = '';
+        }
+        updateComboModalPreview();
+    }
+
     function updateComboModalPreview() {
-        const sel1 = document.getElementById('comboItem1Select');
-        const sel2 = document.getElementById('comboItem2Select');
-        const opt1 = sel1 && sel1.selectedIndex > 0 ? sel1.options[sel1.selectedIndex] : null;
-        const opt2 = sel2 && sel2.selectedIndex > 0 ? sel2.options[sel2.selectedIndex] : null;
+        const cont = document.getElementById('comboRowsContainer');
+        if (!cont) return;
+        const rows = cont.querySelectorAll('.combo-sub-row');
 
-        const p1 = opt1 ? (parseNumeric(opt1.getAttribute('data-price')) || 0) : 0;
-        const p2 = opt2 ? (parseNumeric(opt2.getAttribute('data-price')) || 0) : 0;
-        const qty = Math.max(1, parseInt(document.getElementById('comboQuantityInput')?.value) || 1);
-        const discountPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('comboDiscountPctInput')?.value) || 0));
+        let totalCatalogSum = 0;
+        rows.forEach(r => {
+            const origInp = r.querySelector('.combo-row-orig-price');
+            const qtyInp = r.querySelector('.combo-row-qty');
+            const p = parseNumeric(origInp?.value) || 0;
+            const q = Math.max(1, parseInt(qtyInp?.value) || 1);
+            totalCatalogSum += (p * q);
+        });
 
-        const d1 = document.getElementById('comboItem1PriceDisplay');
-        const d2 = document.getElementById('comboItem2PriceDisplay');
-        if (d1) d1.innerText = (p1 > 0 ? (p1.toLocaleString('en-US') + ' تومان') : '۰ تومان');
-        if (d2) d2.innerText = (p2 > 0 ? (p2.toLocaleString('en-US') + ' تومان') : '۰ تومان');
-
-        const catSum = (p1 + p2) * qty;
         const sumD = document.getElementById('comboCatalogSumDisplay');
-        if (sumD) sumD.innerText = catSum.toLocaleString('en-US') + ' ت';
+        if (sumD) sumD.innerText = totalCatalogSum > 0 ? (totalCatalogSum.toLocaleString('en-US') + ' تومان') : '۰ تومان';
 
         const customPriceInp = document.getElementById('comboTotalPriceInput');
-        if (customPriceInp && !customPriceInp.value && catSum > 0) {
-            customPriceInp.value = catSum.toLocaleString('en-US');
+        if (customPriceInp && !customPriceInp.value && totalCatalogSum > 0) {
+            customPriceInp.value = totalCatalogSum.toLocaleString('en-US');
         }
 
-        let userTotal = parseNumeric(customPriceInp?.value) || catSum;
+        const discountPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('comboDiscountPctInput')?.value) || 0));
+        let userTotal = parseNumeric(customPriceInp?.value) || totalCatalogSum;
         if (discountPct > 0) {
             userTotal = Math.round(userTotal * (1 - (discountPct / 100)));
         }
+
         const finalD = document.getElementById('comboFinalPriceDisplay');
-        if (finalD) finalD.innerText = userTotal.toLocaleString('en-US') + ' ت';
+        if (finalD) finalD.innerText = userTotal > 0 ? (userTotal.toLocaleString('en-US') + ' تومان') : '۰ تومان';
     }
 
     function confirmInsertComboPackage() {
-        const sel1 = document.getElementById('comboItem1Select');
-        const sel2 = document.getElementById('comboItem2Select');
-        if (!sel1 || !sel1.value || !sel2 || !sel2.value) {
-            alert('لطفاً هر دو قلم کالا (مثلاً کابین و سنگ) را از انبار انتخاب فرمایید.');
+        const cont = document.getElementById('comboRowsContainer');
+        if (!cont) return;
+        const subRows = cont.querySelectorAll('.combo-sub-row');
+        if (subRows.length === 0) {
+            alert('لطفاً حداقل ۱ قلم کالا به پکیج ترکیبی اضافه فرمایید.');
             return;
         }
 
-        const opt1 = sel1.options[sel1.selectedIndex];
-        const opt2 = sel2.options[sel2.selectedIndex];
+        const itemsData = [];
+        let totalCatalogSum = 0;
 
-        const id1 = opt1.value;
-        const id2 = opt2.value;
-        const name1 = opt1.getAttribute('data-name');
-        const name2 = opt2.getAttribute('data-name');
-        const cat1 = opt1.getAttribute('data-category') || 'کابین روشویی';
-        const cat2 = opt2.getAttribute('data-category') || 'سنگ روشویی';
-        const buy1 = parseNumeric(opt1.getAttribute('data-buy-price')) || 0;
-        const buy2 = parseNumeric(opt2.getAttribute('data-buy-price')) || 0;
+        for (let r of subRows) {
+            const selElem = r.querySelector('.combo-row-select');
+            const nameElem = r.querySelector('.combo-row-name');
+            const catElem = r.querySelector('.combo-row-category');
+            const buyElem = r.querySelector('.combo-row-buy-price');
+            const origElem = r.querySelector('.combo-row-orig-price');
+            const qtyElem = r.querySelector('.combo-row-qty');
 
-        const catPrice1 = parseNumeric(opt1.getAttribute('data-price')) || 0;
-        const catPrice2 = parseNumeric(opt2.getAttribute('data-price')) || 0;
-        const qty = Math.max(1, parseInt(document.getElementById('comboQuantityInput')?.value) || 1);
+            const invId = selElem ? selElem.value : '';
+            let name = nameElem ? nameElem.value.trim() : '';
+            if (!name && selElem && selElem.selectedIndex > 0) {
+                name = selElem.options[selElem.selectedIndex].getAttribute('data-name') || '';
+            }
+
+            if (!name) {
+                alert('لطفاً نام یا کالای انتخابی تمامی ردیف‌های پکیج را مشخص فرمایید.');
+                return;
+            }
+
+            const cat = catElem ? catElem.value : '';
+            const buy = parseNumeric(buyElem?.value) || 0;
+            const origPrice = parseNumeric(origElem?.value) || 0;
+            const qty = Math.max(1, parseInt(qtyElem?.value) || 1);
+
+            const rowSum = origPrice * qty;
+            totalCatalogSum += rowSum;
+
+            itemsData.push({
+                invId: invId,
+                name: name,
+                category: cat,
+                buyPrice: buy,
+                origPrice: origPrice,
+                qty: qty,
+                rowBaseSum: rowSum
+            });
+        }
+
+        const customPriceInp = document.getElementById('comboTotalPriceInput');
         const discountPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('comboDiscountPctInput')?.value) || 0));
 
-        let customTotal = parseNumeric(document.getElementById('comboTotalPriceInput')?.value) || ((catPrice1 + catPrice2) * qty);
-        if (customTotal <= 0) {
+        let agreedTotal = parseNumeric(customPriceInp?.value) || totalCatalogSum;
+        if (agreedTotal <= 0) {
             alert('لطفاً مبلغ توافقی پکیج را وارد فرمایید.');
             return;
         }
 
-        // اعمال تخفیف کلی پکیج در صورت ورود
         if (discountPct > 0) {
-            customTotal = Math.round(customTotal * (1 - (discountPct / 100)));
+            agreedTotal = Math.round(agreedTotal * (1 - (discountPct / 100)));
         }
 
-        // تسهیم دقیق مبلغ کل پکیج بین دو کالا بر اساس نسبت کاتالوگ یا 50-50
-        let ratio1 = 0.5;
-        const sumCatalog = catPrice1 + catPrice2;
-        if (sumCatalog > 0) {
-            ratio1 = catPrice1 / sumCatalog;
-        }
+        // تسهیم هوشمند مبلغ کل توافقی بین اقلام پکیج بر اساس وزن قیمت مصوب آنها
+        let allocatedSum = 0;
+        itemsData.forEach((item, i) => {
+            if (i === itemsData.length - 1) {
+                // برای ردیف آخر جهت پرهیز از خطای گرد کردن
+                item.allocatedTotal = agreedTotal - allocatedSum;
+            } else {
+                let ratio = (totalCatalogSum > 0) ? (item.rowBaseSum / totalCatalogSum) : (1 / itemsData.length);
+                let alloc = Math.round(agreedTotal * ratio);
+                item.allocatedTotal = alloc;
+                allocatedSum += alloc;
+            }
+            item.unitSalePrice = Math.round(item.allocatedTotal / item.qty);
+        });
 
-        const total1 = Math.round(customTotal * ratio1);
-        const total2 = customTotal - total1; // جلوگیری از هرگونه خطای گرد کردن
+        const invoiceContainer = document.getElementById('invoiceItemsContainer');
+        if (!invoiceContainer) return;
 
-        const unitSell1 = Math.round(total1 / qty);
-        const unitSell2 = Math.round(total2 / qty);
-
-        const container = document.getElementById('invoiceItemsContainer');
-        const rows = container.querySelectorAll('.item-row');
-
-        // تابع کمکی پر کردن ردیف فاکتور
-        function fillItemRow(targetRow, invId, itemName, itemCat, itemQty, unitSell, origPrice, buyPrice, isFirst) {
+        // تابع کمکی پر کردن ردیف در فرم اصلی فاکتور
+        function fillMainItemRow(targetRow, data, isFirst) {
             const selectElem = targetRow.querySelector('.item-select');
             const nameElem = targetRow.querySelector('.item-name');
             const catElem = targetRow.querySelector('.item-cat');
@@ -1552,42 +1720,39 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const buyElem = targetRow.querySelector('.item-buy-price');
             const pctElem = targetRow.querySelector('.item-discount-pct');
 
-            if (selectElem) selectElem.value = invId;
-            if (nameElem) nameElem.value = itemName + (isFirst ? ' (پکیج ترکیبی)' : ' (همراه پکیج)');
-            if (catElem) catElem.value = itemCat;
-            if (qtyElem) qtyElem.value = itemQty;
-            if (priceElem) priceElem.value = unitSell.toLocaleString('en-US');
-            if (origElem) origElem.value = origPrice > 0 ? origPrice.toLocaleString('en-US') : unitSell.toLocaleString('en-US');
-            if (buyElem && buyPrice > 0) buyElem.value = buyPrice.toLocaleString('en-US');
+            if (selectElem) selectElem.value = data.invId;
+            if (nameElem) nameElem.value = data.name + (isFirst ? ' (پکیج ترکیبی)' : ' (همراه پکیج)');
+            if (catElem && data.category) catElem.value = data.category;
+            if (qtyElem) qtyElem.value = data.qty;
+            if (priceElem) priceElem.value = data.unitSalePrice.toLocaleString('en-US');
+            if (origElem) origElem.value = data.origPrice > 0 ? data.origPrice.toLocaleString('en-US') : data.unitSalePrice.toLocaleString('en-US');
+            if (buyElem && data.buyPrice > 0) buyElem.value = data.buyPrice.toLocaleString('en-US');
             if (pctElem) pctElem.value = discountPct > 0 ? discountPct : '';
 
             onPriceOrDiscountChange(priceElem || origElem, 'price');
         }
 
-        // بررسی اینکه آیا اولین ردیف جدول خالی است یا خیر
-        let row1 = null;
-        let row2 = null;
+        // درج در فاکتور
+        itemsData.forEach((data, index) => {
+            const rows = invoiceContainer.querySelectorAll('.item-row');
+            let targetRow = null;
 
-        if (rows.length === 1 && !rows[0].querySelector('.item-select')?.value && !rows[0].querySelector('.item-name')?.value) {
-            row1 = rows[0];
-            addInvoiceItemRow();
-            const updatedRows = container.querySelectorAll('.item-row');
-            row2 = updatedRows[updatedRows.length - 1];
-        } else {
-            addInvoiceItemRow();
-            let updatedRows = container.querySelectorAll('.item-row');
-            row1 = updatedRows[updatedRows.length - 1];
-            addInvoiceItemRow();
-            updatedRows = container.querySelectorAll('.item-row');
-            row2 = updatedRows[updatedRows.length - 1];
-        }
+            if (index === 0 && rows.length === 1 && !rows[0].querySelector('.item-select')?.value && !rows[0].querySelector('.item-name')?.value) {
+                targetRow = rows[0];
+            } else {
+                addInvoiceItemRow();
+                const updatedRows = invoiceContainer.querySelectorAll('.item-row');
+                targetRow = updatedRows[updatedRows.length - 1];
+            }
 
-        fillItemRow(row1, id1, name1, cat1, qty, unitSell1, catPrice1, buy1, true);
-        fillItemRow(row2, id2, name2, cat2, qty, unitSell2, catPrice2, buy2, false);
+            fillMainItemRow(targetRow, data, index === 0);
+        });
 
         closeComboModal();
         calcTotal();
-        alert(`✨ پکیج ترکیبی «${name1}» + «${name2}» با قیمت کل ${customTotal.toLocaleString('en-US')} تومان با موفقیت در فاکتور چیده شد و موجودی هر دو قلم از انبار کسر خواهد شد.`);
+
+        const namesList = itemsData.map(d => `${d.qty} عدد «${d.name}»`).join(' + ');
+        alert(`✨ پکیج ترکیبی شامل: ${namesList}\nبا مبلغ کل توافقی ${agreedTotal.toLocaleString('en-US')} تومان با موفقیت در فاکتور چیده شد و از انبار کسر خواهد شد.`);
     }
 
     function handlePaperInvoiceSelected(input) {

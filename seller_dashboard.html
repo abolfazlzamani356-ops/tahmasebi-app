@@ -850,6 +850,7 @@
         </table>
     </div>
 </div>
+{% endif %}
 
 <!-- بخش تفکیک‌شده و اختصاصی فاکتورهای دارای اقلام سفارشی (خارج از کاتالوگ و انبار) -->
 {% if custom_invoices %}
@@ -1154,16 +1155,20 @@
                 </div>
             </div>
 
-            <!-- تعداد ست و قیمت کل توافقی فروخته شده -->
+            <!-- تعداد ست، قیمت کل توافقی و تخفیف اختیاری پکیج -->
             <div class="bg-purple-950/30 p-3.5 rounded-2xl border border-purple-500/30 space-y-3">
-                <div class="grid grid-cols-3 gap-2 items-center">
-                    <div class="col-span-1">
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                    <div class="sm:col-span-3">
                         <label class="block text-[11px] font-bold text-slate-300 mb-1">تعداد ست:</label>
                         <input type="number" id="comboQuantityInput" value="1" min="1" oninput="updateComboModalPreview()" class="w-full p-2 bg-slate-800 border border-white/15 rounded-xl text-center font-black text-amber-300 text-sm">
                     </div>
-                    <div class="col-span-2">
-                        <label class="block text-[11px] font-bold text-emerald-400 mb-1">💰 قیمت کل ست (تومان):</label>
+                    <div class="sm:col-span-6">
+                        <label class="block text-[11px] font-bold text-emerald-400 mb-1">💰 قیمت توافقی ست (تومان):</label>
                         <input type="text" id="comboTotalPriceInput" placeholder="مثال: 6,800,000" oninput="formatNumber(this); updateComboModalPreview()" class="w-full p-2 bg-slate-800 border-2 border-emerald-500/60 rounded-xl text-sm font-black text-emerald-300 text-left font-mono dir-ltr" dir="ltr">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-[11px] font-bold text-amber-400 mb-1">٪ تخفیف روی کل:</label>
+                        <input type="number" id="comboDiscountPctInput" placeholder="۰٪" min="0" max="100" oninput="updateComboModalPreview()" class="w-full p-2 bg-slate-800 border border-amber-500/40 rounded-xl text-center font-black text-amber-300 text-sm font-mono">
                     </div>
                 </div>
 
@@ -1174,12 +1179,12 @@
                         <span id="comboCatalogSumDisplay" class="font-mono text-slate-300 font-bold">۰ ت</span>
                     </div>
                     <div class="flex items-center justify-between text-emerald-400 font-bold">
-                        <span>قیمت توافقی فروش شما:</span>
-                        <span id="comboFinalPriceDisplay" class="font-mono font-black">۰ ت</span>
+                        <span>قیمت نهایی پس از تخفیف کل ست:</span>
+                        <span id="comboFinalPriceDisplay" class="font-mono font-black text-emerald-300 text-sm">۰ ت</span>
                     </div>
                     <div class="text-[10px] text-purple-300 pt-1 border-t border-white/5 flex items-center gap-1">
                         <span>💡</span>
-                        <span>هر دو کالا در ردیف‌های جداگانه با تسهیم خودکار قیمت درج می‌شوند تا موجودی انبار هر دو ۱۰۰٪ کسر شود.</span>
+                        <span>هر دو قلم به صورت خودکار در فاکتور درج می‌شوند و موجودی انبار هر دو قلم ۱۰۰٪ کسر خواهد شد.</span>
                     </div>
                 </div>
             </div>
@@ -1253,7 +1258,6 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
     document.getElementById('settleModal').classList.remove('hidden');
 }
 </script>
-{% endif %}
 
 <!-- سکوی قهرمانی و تابلوی زنده رقابت پرسنل طهماسبی -->
 <div id="leaderboard" class="glass-card text-white p-6 sm:p-8 mb-8 border border-indigo-500/30 shadow-2xl">
@@ -1461,6 +1465,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const p1 = opt1 ? (parseNumeric(opt1.getAttribute('data-price')) || 0) : 0;
         const p2 = opt2 ? (parseNumeric(opt2.getAttribute('data-price')) || 0) : 0;
         const qty = Math.max(1, parseInt(document.getElementById('comboQuantityInput')?.value) || 1);
+        const discountPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('comboDiscountPctInput')?.value) || 0));
 
         const d1 = document.getElementById('comboItem1PriceDisplay');
         const d2 = document.getElementById('comboItem2PriceDisplay');
@@ -1476,7 +1481,10 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             customPriceInp.value = catSum.toLocaleString('en-US');
         }
 
-        const userTotal = parseNumeric(customPriceInp?.value) || catSum;
+        let userTotal = parseNumeric(customPriceInp?.value) || catSum;
+        if (discountPct > 0) {
+            userTotal = Math.round(userTotal * (1 - (discountPct / 100)));
+        }
         const finalD = document.getElementById('comboFinalPriceDisplay');
         if (finalD) finalD.innerText = userTotal.toLocaleString('en-US') + ' ت';
     }
@@ -1504,15 +1512,20 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const catPrice1 = parseNumeric(opt1.getAttribute('data-price')) || 0;
         const catPrice2 = parseNumeric(opt2.getAttribute('data-price')) || 0;
         const qty = Math.max(1, parseInt(document.getElementById('comboQuantityInput')?.value) || 1);
+        const discountPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('comboDiscountPctInput')?.value) || 0));
 
-        const customTotal = parseNumeric(document.getElementById('comboTotalPriceInput')?.value) || ((catPrice1 + catPrice2) * qty);
+        let customTotal = parseNumeric(document.getElementById('comboTotalPriceInput')?.value) || ((catPrice1 + catPrice2) * qty);
         if (customTotal <= 0) {
-            alert('لطفاً مبلغ کل توافقی پکیج را وارد فرمایید.');
+            alert('لطفاً مبلغ توافقی پکیج را وارد فرمایید.');
             return;
         }
 
-        // تسهیم هوشمند و دقیق مبلغ کل پکیج بین دو کالا
-        // بر اساس نسبت قیمت کاتالوگ دو کالا، یا نسبت ۵۰-۵۰
+        // اعمال تخفیف کلی پکیج در صورت ورود
+        if (discountPct > 0) {
+            customTotal = Math.round(customTotal * (1 - (discountPct / 100)));
+        }
+
+        // تسهیم دقیق مبلغ کل پکیج بین دو کالا بر اساس نسبت کاتالوگ یا 50-50
         let ratio1 = 0.5;
         const sumCatalog = catPrice1 + catPrice2;
         if (sumCatalog > 0) {
@@ -1520,7 +1533,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         }
 
         const total1 = Math.round(customTotal * ratio1);
-        const total2 = customTotal - total1; // جلوگیری از هرگونه خطای گرد کردن اعشاری
+        const total2 = customTotal - total1; // جلوگیری از هرگونه خطای گرد کردن
 
         const unitSell1 = Math.round(total1 / qty);
         const unitSell2 = Math.round(total2 / qty);
@@ -1529,7 +1542,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const rows = container.querySelectorAll('.item-row');
 
         // تابع کمکی پر کردن ردیف فاکتور
-        function fillItemRow(targetRow, invId, itemName, itemCat, itemQty, unitSell, origPrice, buyPrice) {
+        function fillItemRow(targetRow, invId, itemName, itemCat, itemQty, unitSell, origPrice, buyPrice, isFirst) {
             const selectElem = targetRow.querySelector('.item-select');
             const nameElem = targetRow.querySelector('.item-name');
             const catElem = targetRow.querySelector('.item-cat');
@@ -1540,13 +1553,13 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const pctElem = targetRow.querySelector('.item-discount-pct');
 
             if (selectElem) selectElem.value = invId;
-            if (nameElem) nameElem.value = itemName;
+            if (nameElem) nameElem.value = itemName + (isFirst ? ' (پکیج ترکیبی)' : ' (همراه پکیج)');
             if (catElem) catElem.value = itemCat;
             if (qtyElem) qtyElem.value = itemQty;
             if (priceElem) priceElem.value = unitSell.toLocaleString('en-US');
             if (origElem) origElem.value = origPrice > 0 ? origPrice.toLocaleString('en-US') : unitSell.toLocaleString('en-US');
             if (buyElem && buyPrice > 0) buyElem.value = buyPrice.toLocaleString('en-US');
-            if (pctElem) pctElem.value = '';
+            if (pctElem) pctElem.value = discountPct > 0 ? discountPct : '';
 
             onPriceOrDiscountChange(priceElem || origElem, 'price');
         }
@@ -1569,12 +1582,12 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             row2 = updatedRows[updatedRows.length - 1];
         }
 
-        fillItemRow(row1, id1, name1, cat1, qty, unitSell1, catPrice1, buy1);
-        fillItemRow(row2, id2, name2, cat2, qty, unitSell2, catPrice2, buy2);
+        fillItemRow(row1, id1, name1, cat1, qty, unitSell1, catPrice1, buy1, true);
+        fillItemRow(row2, id2, name2, cat2, qty, unitSell2, catPrice2, buy2, false);
 
         closeComboModal();
         calcTotal();
-        alert(`✨ پکیج ترکیبی «${name1}» + «${name2}» با قیمت کل ${customTotal.toLocaleString('en-US')} تومان با موفقیت در فاکتور چیده شد و از انبار هر دو قلم کسر خواهد شد.`);
+        alert(`✨ پکیج ترکیبی «${name1}» + «${name2}» با قیمت کل ${customTotal.toLocaleString('en-US')} تومان با موفقیت در فاکتور چیده شد و موجودی هر دو قلم از انبار کسر خواهد شد.`);
     }
 
     function handlePaperInvoiceSelected(input) {

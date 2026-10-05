@@ -341,21 +341,20 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         if inv.invoice_type == 'sale':
             gross_sales += item_total_amount  # کل مبلغ فاکتور (اطلاعاتی)
 
-            # === محاسبه مبلغ واقعی تسویه‌شده ===
-            # چک‌های وصول‌شده
-            passed_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
-            # چک‌های در انتظار (معلق)
-            pending_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'pending')
-            # مانده تسویه‌نشده
+            # === محاسبه مبلغ واقعی تسویه‌شده و چک‌ها ===
+            # به درخواست مدیریت: کلیه چک‌های ثبت‌شده (وصول‌شده و در انتظار) در فروش قطعی و پورسانت ماه جاری لحاظ می‌شوند
+            # تنها چک‌هایی که وضعیت «برگشت خورده (bounced)» دارند کسر/لحاظ نمی‌شوند
+            valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+            # مانده تسویه‌نشده نسیه یا بیعانه (بدون چک)
             remaining = inv.remaining_balance or 0
             # پرداخت فوری: نقد + کارتخوان + کارت‌به‌کارت
             immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
 
-            # مبلغ تسویه‌شده = پرداخت فوری + چک‌های وصول‌شده
-            settled_amount = immediate_paid + passed_cheque
+            # مبلغ کل فروش نهایی منظور شده = پرداخت نقدی/کارتخوان + چک‌های معتبر
+            settled_amount = immediate_paid + valid_cheques
             item_settled = int(settled_amount * ratio)
 
-            # فقط مبلغ تسویه‌شده به فروش خالص اضافه می‌شود
+            # مبلغ منظور شده به فروش خالص و پورسانت فروشنده اضافه می‌شود
             net_sales += item_settled
             total_cost += item_cost
             real_profit_share += item_profit
@@ -363,15 +362,15 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             if inv.customer_rating:
                 ratings.append(inv.customer_rating)
 
-            # مبالغ معلق: مانده‌ی تسویه‌نشده + چک‌های در انتظار
-            pending_this = int((pending_cheque + remaining) * ratio)
+            # مبالغ معلق باقی‌مانده (صرفاً مانده‌های حساب دفتری/نسیه بدون چک)
+            pending_this = int(remaining * ratio)
             pending_commission_sales += pending_this
 
         elif inv.invoice_type == 'return':
-            # برای مرجوعی هم مبلغ واقعی برگشتی ملاک است، در صورت عدم ثبت پرداخت، کل مبلغ فاکتور ملاک کسر است
-            passed_cheque = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
+            # برای مرجوعی هم مبلغ واقعی برگشتی ملاک است
+            valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
             immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
-            settled_amount = immediate_paid + passed_cheque
+            settled_amount = immediate_paid + valid_cheques
             effective_return = abs(settled_amount if settled_amount > 0 else (inv.total_amount or 0))
             item_settled = int(effective_return * ratio)
 
@@ -530,9 +529,9 @@ def calculate_store_financial_summary(year, month, settings=None):
     returns_count = 0
 
     for inv in month_invoices:
-        passed_chk = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
+        valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
         immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
-        settled_amt = immediate_paid + passed_chk
+        settled_amt = immediate_paid + valid_cheques
         profit_amt = inv.real_profit or 0
         cost_amt = inv.actual_buy_cost or 0
 

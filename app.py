@@ -2378,8 +2378,8 @@ def admin_dashboard():
     estimated_gross_profit = 0
     
     for inv in month_invoices:
-        passed_chk = sum(chk.amount for chk in inv.cheques if chk.status == 'passed')
-        settled_amt = (inv.paid_amount or 0) + passed_chk
+        valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+        settled_amt = (inv.paid_amount or 0) + valid_cheques
         profit_amt = inv.real_profit or 0
         
         if inv.invoice_type == 'sale':

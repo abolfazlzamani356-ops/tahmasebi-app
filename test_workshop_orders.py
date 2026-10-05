@@ -69,6 +69,7 @@ def test_workshop_order_model_and_dict(test_setup):
             customer_phone="09121234567",
             product_type="کابین روشویی",
             model_name="آرشام",
+            quantity=3,
             width=60,
             depth=40,
             height=60,
@@ -97,6 +98,7 @@ def test_workshop_order_model_and_dict(test_setup):
             assert d['order_number'] == f"ORD-{now_j.year}-{uid}"
             assert d['customer_name'] == "آقای رضوی (تست)"
             assert d['model_name'] == "آرشام"
+            assert d['quantity'] == 3
             assert d['remaining_balance'] == 3000000
             assert "۶۰×۴۰" in d['dimensions_text']
         finally:
@@ -114,7 +116,8 @@ def test_api_create_workshop_order(client, test_setup):
         'customer_name': 'مهندس کاظمی',
         'customer_phone': '09351112233',
         'product_type': 'کابین روشویی',
-        'model_name': 'آندره',
+        'model_name': 'یوکا',
+        'quantity': '3',
         'width': '75',
         'depth': '43',
         'height': '60',
@@ -137,6 +140,7 @@ def test_api_create_workshop_order(client, test_setup):
     data = json.loads(resp.data.decode('utf-8'))
     assert data['success'] is True
     assert 'ORD-' in data['order_number']
+    assert data['order']['quantity'] == 3
     order_id = data['order_id']
 
     # بررسی ثبت در دیتابیس
@@ -145,6 +149,8 @@ def test_api_create_workshop_order(client, test_setup):
         try:
             assert ord_db is not None
             assert ord_db.customer_name == 'مهندس کاظمی'
+            assert ord_db.model_name == 'یوکا'
+            assert ord_db.quantity == 3
             assert ord_db.customer_price == 5800000
             assert ord_db.prepaid_amount == 2000000
             assert ord_db.status == 'pending'

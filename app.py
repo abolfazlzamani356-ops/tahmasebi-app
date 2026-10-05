@@ -211,7 +211,9 @@ def initialize_database():
             ("customers", "ai_risk_tier", "TEXT DEFAULT 'A'"),
             ("customers", "ai_risk_summary", "TEXT"),
             ("invoices", "ai_audit_flags", "TEXT"),
+            ("custom_workshop_orders", "quantity", "INTEGER DEFAULT 1"),
         ]
+
 
 
         for table, col, col_def in migrations:
@@ -5273,6 +5275,9 @@ def api_create_workshop_order():
         customer_phone = re.sub(r'[^\d]', '', customer_phone).strip() or None
     product_type = (data.get('product_type') or 'کابین روشویی').strip()
     model_name = (data.get('model_name') or '').strip()
+    quantity = safe_int(to_english_digits(data.get('quantity') or 1))
+    if quantity < 1:
+        quantity = 1
     
     # ابعاد
     width = safe_int(to_english_digits(data.get('width') or 0))
@@ -5367,6 +5372,7 @@ def api_create_workshop_order():
         customer_phone=customer_phone,
         product_type=product_type,
         model_name=model_name,
+        quantity=quantity,
         width=width,
         depth=depth,
         height=height,
@@ -5516,6 +5522,7 @@ def api_share_workshop_order_text(order_id):
 🏬 *شعبه و فروشنده:* {order.shop.name if order.shop else ''} - {order.seller.full_name if order.seller else ''}
 ━━━━━━━━━━━━━━━━━━━
 📦 *نوع کالا و مدل:* {order.product_type} {f'مدل {order.model_name}' if order.model_name else ''}
+🔢 *تعداد سفارش:* {order.quantity or 1} عدد
 📐 *ابعاد دقیق:* {order.dimensions_text or 'طبق الگو'}
 🎨 *رنگ بدنه:* {order.body_color or 'سفید'}
 🚪 *رنگ و طرح درب:* {order.door_color or 'سفید'}

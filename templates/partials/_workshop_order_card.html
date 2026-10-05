@@ -47,6 +47,9 @@
                     <span class="text-white text-[11px] font-bold">({{ ord.model_name }})</span>
                 {% endif %}
             </span>
+            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-1.5 py-0.5 rounded">
+                {{ ord.quantity or 1 }} عدد
+            </span>
         </div>
 
         {% if ord.dimensions_text %}

@@ -342,8 +342,14 @@
                 <tr>
                     <th>نوع محصول سفارشی:</th>
                     <td style="color: #4f46e5; font-size: 14px;">{{ order.product_type }}</td>
+                    <th>تعداد سفارش ساخت:</th>
+                    <td style="color: #b45309; font-size: 16px; font-weight: 900; background: #fef3c7;">
+                        🔢 {{ order.quantity or 1 }} عدد
+                    </td>
+                </tr>
+                <tr>
                     <th>مدل کارگاه / کاتالوگ:</th>
-                    <td>{{ order.model_name or 'طرح سفارشی الگو' }}</td>
+                    <td colspan="3" style="font-weight: 800; font-size: 13px;">{{ order.model_name or 'طرح سفارشی الگو' }}</td>
                 </tr>
                 <tr>
                     <th>ابعاد دقیق ساخت (سانتی‌متر):</th>

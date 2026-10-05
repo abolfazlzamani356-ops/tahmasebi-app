@@ -410,6 +410,7 @@ class CustomWorkshopOrder(db.Model):
     # اطلاعات فنی محصول سفارشی
     product_type = db.Column(db.String(60), nullable=False, default='کابین روشویی') # کابین روشویی، باکس، آینه، ست کامل، کابین توکار، کابین سرامیکی، متفرقه
     model_name = db.Column(db.String(100), nullable=True) # مثلا آرشام، آندره، هلیا، ماربل، دایمون، بلوا
+    quantity = db.Column(db.Integer, default=1, nullable=False) # تعداد سفارش ساخت (پیش‌فرض ۱)
     
     # ابعاد دقیق (سانتی‌متر)
     width = db.Column(db.Integer, nullable=True) # طول / عرض مثلا ۶۰
@@ -485,6 +486,7 @@ class CustomWorkshopOrder(db.Model):
             'customer_phone': self.customer_phone or '',
             'product_type': self.product_type,
             'model_name': self.model_name or '',
+            'quantity': self.quantity if self.quantity is not None else 1,
             'dimensions_text': dim_str or '',
             'body_color': self.body_color or '',
             'door_color': self.door_color or '',

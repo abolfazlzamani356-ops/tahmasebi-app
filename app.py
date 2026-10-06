@@ -5285,32 +5285,114 @@ def api_create_workshop_order():
     if customer_phone:
         import re
         customer_phone = re.sub(r'[^\d]', '', customer_phone).strip() or None
-    product_type = (data.get('product_type') or 'کابین روشویی').strip()
-    model_name = (data.get('model_name') or '').strip()
-    quantity = safe_int(to_english_digits(data.get('quantity') or 1))
-    if quantity < 1:
-        quantity = 1
+    # استخراج اقلام سفارش (پشتیبانی از تک محصولی یا چند قلمی با یک مشتری)
+    # اگر فرم به صورت چند قلمی ارسال شده باشد (آرایه‌های item_product_type[])
+    item_product_types = request.form.getlist('item_product_type[]') if hasattr(request.form, 'getlist') else []
     
-    # ابعاد
-    width = safe_int(to_english_digits(data.get('width') or 0))
-    depth = safe_int(to_english_digits(data.get('depth') or 0))
-    height = safe_int(to_english_digits(data.get('height') or 0))
-    dimensions_text = (data.get('dimensions_text') or '').strip()
-    if not dimensions_text and (width or depth or height):
-        dims = []
-        if width: dims.append(f"عرض {width}")
-        if depth: dims.append(f"عمق {depth}")
-        if height: dims.append(f"ارتفاع {height}")
-        dimensions_text = " × ".join(dims)
+    items_to_create = []
+    if item_product_types and len(item_product_types) > 0:
+        item_model_names = request.form.getlist('item_model_name[]')
+        item_quantities = request.form.getlist('item_quantity[]')
+        item_sink_types = request.form.getlist('item_sink_type[]')
+        item_widths = request.form.getlist('item_width[]')
+        item_depths = request.form.getlist('item_depth[]')
+        item_heights = request.form.getlist('item_height[]')
+        item_dim_texts = request.form.getlist('item_dimensions_text[]')
+        item_body_colors = request.form.getlist('item_body_color[]')
+        item_door_colors = request.form.getlist('item_door_color[]')
+        item_sheets = request.form.getlist('item_sheet_thickness[]')
+        item_hinges = request.form.getlist('item_hinge_type[]')
+        item_configs = request.form.getlist('item_door_drawer_config[]')
+        item_mirrors = request.form.getlist('item_mirror_details[]')
+        item_boxes = request.form.getlist('item_box_details[]')
         
-    body_color = (data.get('body_color') or '').strip()
-    door_color = (data.get('door_color') or '').strip()
-    sheet_thickness = (data.get('sheet_thickness') or 'ورق ۱۶ میل PVC ضدآب').strip()
-    hinge_type = (data.get('hinge_type') or 'لولای تمام استیل آرام‌بند').strip()
-    door_drawer_config = (data.get('door_drawer_config') or '').strip()
-    mirror_details = (data.get('mirror_details') or '').strip()
-    box_details = (data.get('box_details') or '').strip()
-    sink_type = (data.get('sink_type') or '').strip()
+        for i, p_type in enumerate(item_product_types):
+            p_type_val = (p_type or 'کابین روشویی').strip()
+            m_name_val = (item_model_names[i] if i < len(item_model_names) else '').strip()
+            qty_val = safe_int(to_english_digits(item_quantities[i] if i < len(item_quantities) else 1))
+            if qty_val < 1: qty_val = 1
+            s_type_val = (item_sink_types[i] if i < len(item_sink_types) else '').strip()
+            w_val = safe_int(to_english_digits(item_widths[i] if i < len(item_widths) else 0))
+            d_val = safe_int(to_english_digits(item_depths[i] if i < len(item_depths) else 0))
+            h_val = safe_int(to_english_digits(item_heights[i] if i < len(item_heights) else 0))
+            dim_text_val = (item_dim_texts[i] if i < len(item_dim_texts) else '').strip()
+            if not dim_text_val and (w_val or d_val or h_val):
+                dims = []
+                if w_val: dims.append(f"عرض {w_val}")
+                if d_val: dims.append(f"عمق {d_val}")
+                if h_val: dims.append(f"ارتفاع {h_val}")
+                dim_text_val = " × ".join(dims)
+            b_col_val = (item_body_colors[i] if i < len(item_body_colors) else '').strip()
+            d_col_val = (item_door_colors[i] if i < len(item_door_colors) else '').strip()
+            sheet_val = (item_sheets[i] if i < len(item_sheets) else 'ورق ۱۶ میل PVC ضدآب').strip()
+            hinge_val = (item_hinges[i] if i < len(item_hinges) else 'لولای تمام استیل آرام‌بند').strip()
+            conf_val = (item_configs[i] if i < len(item_configs) else '').strip()
+            mir_val = (item_mirrors[i] if i < len(item_mirrors) else '').strip()
+            box_val = (item_boxes[i] if i < len(item_boxes) else '').strip()
+            
+            items_to_create.append({
+                'product_type': p_type_val,
+                'model_name': m_name_val,
+                'quantity': qty_val,
+                'sink_type': s_type_val,
+                'width': w_val,
+                'depth': d_val,
+                'height': h_val,
+                'dimensions_text': dim_text_val,
+                'body_color': b_col_val,
+                'door_color': d_col_val,
+                'sheet_thickness': sheet_val,
+                'hinge_type': hinge_val,
+                'door_drawer_config': conf_val,
+                'mirror_details': mir_val,
+                'box_details': box_val
+            })
+    
+    if not items_to_create:
+        # تک محصولی کلاسیک
+        product_type = (data.get('product_type') or 'کابین روشویی').strip()
+        model_name = (data.get('model_name') or '').strip()
+        quantity = safe_int(to_english_digits(data.get('quantity') or 1))
+        if quantity < 1:
+            quantity = 1
+        
+        width = safe_int(to_english_digits(data.get('width') or 0))
+        depth = safe_int(to_english_digits(data.get('depth') or 0))
+        height = safe_int(to_english_digits(data.get('height') or 0))
+        dimensions_text = (data.get('dimensions_text') or '').strip()
+        if not dimensions_text and (width or depth or height):
+            dims = []
+            if width: dims.append(f"عرض {width}")
+            if depth: dims.append(f"عمق {depth}")
+            if height: dims.append(f"ارتفاع {height}")
+            dimensions_text = " × ".join(dims)
+            
+        body_color = (data.get('body_color') or '').strip()
+        door_color = (data.get('door_color') or '').strip()
+        sheet_thickness = (data.get('sheet_thickness') or 'ورق ۱۶ میل PVC ضدآب').strip()
+        hinge_type = (data.get('hinge_type') or 'لولای تمام استیل آرام‌بند').strip()
+        door_drawer_config = (data.get('door_drawer_config') or '').strip()
+        mirror_details = (data.get('mirror_details') or '').strip()
+        box_details = (data.get('box_details') or '').strip()
+        sink_type = (data.get('sink_type') or '').strip()
+        
+        items_to_create.append({
+            'product_type': product_type,
+            'model_name': model_name,
+            'quantity': quantity,
+            'sink_type': sink_type,
+            'width': width,
+            'depth': depth,
+            'height': height,
+            'dimensions_text': dimensions_text,
+            'body_color': body_color,
+            'door_color': door_color,
+            'sheet_thickness': sheet_thickness,
+            'hinge_type': hinge_type,
+            'door_drawer_config': door_drawer_config,
+            'mirror_details': mirror_details,
+            'box_details': box_details
+        })
     
     priority = (data.get('priority') or 'normal').strip()
     promised_delivery_date = to_english_digits(data.get('promised_delivery_date') or '').strip()
@@ -5333,12 +5415,6 @@ def api_create_workshop_order():
     shamsi_date = now_j.strftime('%Y/%m/%d %H:%M')
     shamsi_year = now_j.year
     shamsi_month = now_j.month
-    
-    today_count = CustomWorkshopOrder.query.filter_by(shamsi_year=shamsi_year).count() + 1
-    order_number = f"ORD-{shamsi_year}-{today_count:04d}"
-    while CustomWorkshopOrder.query.filter_by(order_number=order_number).first():
-        today_count += 1
-        order_number = f"ORD-{shamsi_year}-{today_count:04d}"
     
     images = [None, None, None]
     
@@ -5375,54 +5451,76 @@ def api_create_workshop_order():
     except Exception as e:
         app.logger.warning(f"Error get_or_create_customer in workshop order: {e}")
     
-    new_order = CustomWorkshopOrder(
-        order_number=order_number,
-        seller_id=seller_id,
-        shop_id=shop_id,
-        customer_id=customer_id,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        product_type=product_type,
-        model_name=model_name,
-        quantity=quantity,
-        width=width,
-        depth=depth,
-        height=height,
-        dimensions_text=dimensions_text,
-        body_color=body_color,
-        door_color=door_color,
-        sheet_thickness=sheet_thickness,
-        hinge_type=hinge_type,
-        door_drawer_config=door_drawer_config,
-        mirror_details=mirror_details,
-        box_details=box_details,
-        sink_type=sink_type,
-        status='pending',
-        priority=priority,
-        promised_delivery_date=promised_delivery_date,
-        shamsi_date=shamsi_date,
-        shamsi_year=shamsi_year,
-        shamsi_month=shamsi_month,
-        image_1=images[0],
-        image_2=images[1],
-        image_3=images[2],
-        special_notes=special_notes,
-        assigned_worker=assigned_worker,
-        estimated_cost=estimated_cost,
-        customer_price=customer_price,
-        prepaid_amount=prepaid_amount
-    )
+    today_count = CustomWorkshopOrder.query.filter_by(shamsi_year=shamsi_year).count() + 1
+    created_orders = []
     
     try:
-        db.session.add(new_order)
+        for idx, item in enumerate(items_to_create):
+            order_number = f"ORD-{shamsi_year}-{today_count:04d}"
+            while CustomWorkshopOrder.query.filter_by(order_number=order_number).first():
+                today_count += 1
+                order_number = f"ORD-{shamsi_year}-{today_count:04d}"
+            today_count += 1
+            
+            # تقسیم یا تخصیص بیعانه و مبالغ برای آیتم اول
+            item_prepaid = prepaid_amount if idx == 0 else 0
+            item_customer_price = customer_price if len(items_to_create) == 1 else 0
+            item_estimated_cost = estimated_cost if len(items_to_create) == 1 else 0
+            
+            new_order = CustomWorkshopOrder(
+                order_number=order_number,
+                seller_id=seller_id,
+                shop_id=shop_id,
+                customer_id=customer_id,
+                customer_name=customer_name,
+                customer_phone=customer_phone,
+                product_type=item['product_type'],
+                model_name=item['model_name'],
+                quantity=item['quantity'],
+                width=item['width'],
+                depth=item['depth'],
+                height=item['height'],
+                dimensions_text=item['dimensions_text'],
+                body_color=item['body_color'],
+                door_color=item['door_color'],
+                sheet_thickness=item['sheet_thickness'],
+                hinge_type=item['hinge_type'],
+                door_drawer_config=item['door_drawer_config'],
+                mirror_details=item['mirror_details'],
+                box_details=item['box_details'],
+                sink_type=item['sink_type'],
+                status='pending',
+                priority=priority,
+                promised_delivery_date=promised_delivery_date,
+                shamsi_date=shamsi_date,
+                shamsi_year=shamsi_year,
+                shamsi_month=shamsi_month,
+                image_1=images[0],
+                image_2=images[1],
+                image_3=images[2],
+                special_notes=special_notes,
+                assigned_worker=assigned_worker,
+                estimated_cost=item_estimated_cost,
+                customer_price=item_customer_price,
+                prepaid_amount=item_prepaid
+            )
+            db.session.add(new_order)
+            created_orders.append(new_order)
+            
         db.session.commit()
-        log_activity(f"ثبت سفارش کارگاهی جدید {order_number} ({product_type} {model_name}) برای {customer_name}", user.full_name, "کارگاه")
+        
+        ord_numbers = [o.order_number for o in created_orders]
+        log_activity(f"ثبت {len(created_orders)} سفارش کارگاهی جدید ({', '.join(ord_numbers)}) برای {customer_name}", user.full_name, "کارگاه")
+        
+        first_order = created_orders[0]
         return jsonify({
             'success': True,
-            'message': f'سفارش کارگاهی {order_number} با موفقیت ثبت شد! 🔨',
-            'order_id': new_order.id,
-            'order_number': order_number,
-            'order': new_order.to_dict()
+            'message': f'{len(created_orders)} قلم سفارش کارگاهی ({", ".join(ord_numbers)}) با موفقیت ثبت شد! 🔨',
+            'order_id': first_order.id,
+            'order_number': first_order.order_number,
+            'order_numbers': ord_numbers,
+            'created_count': len(created_orders),
+            'order': first_order.to_dict()
         }), 201
     except Exception as e:
         db.session.rollback()

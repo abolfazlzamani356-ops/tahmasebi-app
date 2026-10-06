@@ -366,3 +366,51 @@ def test_api_share_workshop_order_text(client, test_setup):
             if ord_db:
                 db.session.delete(ord_db)
                 db.session.commit()
+
+def test_api_create_workshop_order_multi_items(client, test_setup):
+    """تست ثبت چند قلم سفارش کارگاهی به طور همزمان برای یک مشتری (مانند سفارش ۳ قلمی آقای حاتمی)"""
+    with client.session_transaction() as sess:
+        sess['user_id'] = test_setup['seller_id']
+        sess['role'] = 'seller'
+        sess['full_name'] = 'فروشنده تست کارگاه'
+
+    payload = {
+        'customer_name': 'آقای حاتمی (تست ۳ قلمی)',
+        'customer_phone': '09129998877',
+        'item_product_type[]': ['کابین روشویی', 'کابین روشویی', 'باکس دیواری تک'],
+        'item_model_name[]': ['آرشین', 'آرشین', 'آرشین'],
+        'item_quantity[]': ['2', '1', '3'],
+        'item_width[]': ['60', '40', '30'],
+        'item_depth[]': ['40', '40', '15'],
+        'item_height[]': ['50', '50', '60'],
+        'item_dimensions_text[]': ['۴۰×۶۰', '۴۰×۴۰', '۳۰×۶۰'],
+        'item_body_color[]': ['تمام مشکی', 'تمام مشکی', 'تمام مشکی'],
+        'item_door_color[]': ['تمام مشکی', 'تمام مشکی', 'تمام مشکی'],
+        'item_sheet_thickness[]': ['ورق ۱۶ میل PVC ضدآب', 'ورق ۱۶ میل PVC ضدآب', 'ورق ۱۶ میل PVC ضدآب'],
+        'item_hinge_type[]': ['لولای تمام استیل ضدزنگ آرام‌بند', 'لولای تمام استیل ضدزنگ آرام‌بند', 'لولای تمام استیل ضدزنگ آرام‌بند'],
+        'item_sink_type[]': ['کاسه روکار', 'بدون سنگ (فقط کابین)', 'بدون سنگ (فقط کابین)'],
+        'priority': 'urgent',
+        'promised_delivery_date': '۱۴۰۵/۰۷/۱۰',
+        'special_notes': 'سفارش یکجا تحویل شود.'
+    }
+
+    resp = client.post('/api/workshop_orders/create', data=payload)
+    assert resp.status_code == 201
+    data = json.loads(resp.data.decode('utf-8'))
+    assert data['success'] is True
+    assert data['created_count'] == 3
+    assert len(data['order_numbers']) == 3
+
+    with app.app_context():
+        created_records = CustomWorkshopOrder.query.filter_by(customer_name='آقای حاتمی (تست ۳ قلمی)').all()
+        assert len(created_records) == 3
+        # بررسی مقادیر هر رکورد
+        quantities = sorted([r.quantity for r in created_records])
+        assert quantities == [1, 2, 3]
+
+        for r in created_records:
+            assert r.body_color == 'تمام مشکی'
+            assert r.model_name == 'آرشین'
+            db.session.delete(r)
+        db.session.commit()
+

@@ -2306,6 +2306,7 @@ def edit_invoice(invoice_id):
 
 # ==================== چاپ فاکتورها (A4 و فیش پرینتر) ====================
 @app.route('/invoice/print/a4/<int:invoice_id>')
+@app.route('/print_a4_invoice/<int:invoice_id>', endpoint='print_a4_invoice')
 def print_invoice_a4(invoice_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))

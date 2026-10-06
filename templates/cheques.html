@@ -142,7 +142,7 @@
                     </td>
                     <td class="py-3.5 px-2">
                         {% if chk.invoice %}
-                        <a href="{{ url_for('print_a4_invoice', invoice_id=chk.invoice_id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-mono font-bold text-[11px] flex items-center gap-1">
+                        <a href="{{ url_for('print_invoice_a4', invoice_id=chk.invoice_id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-mono font-bold text-[11px] flex items-center gap-1">
                             <span>📄</span> {{ chk.invoice.invoice_number }}
                         </a>
                         {% else %}

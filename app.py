@@ -2447,6 +2447,10 @@ def admin_dashboard():
     pending_cheques = [c for c in cheques if c.status == 'pending']
     pending_cheques_total = sum(c.amount for c in pending_cheques)
     
+    passed_cheques = [c for c in cheques if c.status == 'passed']
+    passed_cheques_total = sum(c.amount for c in passed_cheques)
+    passed_cheques_count = len(passed_cheques)
+    
     # محاسبه هوشمند چک‌های سررسید نزدیک (امروز، ۳ روز آینده یا معوقه شده)
     urgent_cheques = []
     today_j = now_j.date()
@@ -2630,6 +2634,8 @@ def admin_dashboard():
         cheques=cheques,
         pending_cheques_count=len(pending_cheques),
         pending_cheques_total=pending_cheques_total,
+        passed_cheques_total=passed_cheques_total,
+        passed_cheques_count=passed_cheques_count,
         all_inventory=all_inventory,
         low_stock_count=low_stock_count,
         months=PERSIAN_MONTHS,

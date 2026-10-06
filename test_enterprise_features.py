@@ -192,3 +192,35 @@ def test_higher_and_custom_unit_price_without_auto_discount(client):
         assert inv2.items[0].unit_sell_price == 4200000
         assert inv2.items[0].total_price == 4200000
         assert inv2.items[0].discount == 0
+
+def test_admin_dashboard_passed_cheques_metric(client):
+    """تست نمایش جمع چک‌های وصول‌شده در پنل مدیریت طهماسبی"""
+    with app.app_context():
+        login_as_admin(client)
+        
+        # ثبت یک چک وصول‌شده برای راستی‌آزمایی
+        chk = Cheque(
+            sayad_number="9988776655443322",
+            bank_name="ملی",
+            amount=15500000,
+            due_shamsi_date="1405/07/20",
+            customer_name="مشتری چک وصولی",
+            shop_id=1,
+            status="passed"
+        )
+        db.session.add(chk)
+        db.session.commit()
+        chk_id = chk.id
+
+        try:
+            res = client.get('/admin')
+            assert res.status_code == 200
+            html = res.data.decode('utf-8')
+            assert "چک‌های وصول‌شده" in html
+            assert "15,500,000" in html
+        finally:
+            chk_db = db.session.get(Cheque, chk_id)
+            if chk_db:
+                db.session.delete(chk_db)
+                db.session.commit()
+

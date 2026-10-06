@@ -1140,12 +1140,29 @@ def api_ai_audit_anomalies():
     if 'user_id' not in session or not (session.get('role') in ['admin', 'manager'] or is_admin()):
         return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت سیستم است.'}), 200
 
-    limit = safe_int(request.args.get('limit', 20), 20)
+    limit = safe_int(request.args.get('limit', 50), 50)
     try:
-        anomalies = ai_audit_store_anomalies(limit=limit)
-        return jsonify({'success': True, 'anomalies': anomalies, 'count': len(anomalies)}), 200
+        res = ai_audit_store_anomalies(limit=limit)
+        if isinstance(res, dict):
+            anomalies = res.get('anomalies', [])
+            summary = res.get('summary', {})
+        else:
+            anomalies = res
+            summary = {}
+        return jsonify({
+            'success': True,
+            'anomalies': anomalies,
+            'summary': summary,
+            'count': len(anomalies)
+        }), 200
     except Exception as e:
-        return jsonify({'success': False, 'message': f'خطا در واکشی ممیزی: {str(e)}', 'anomalies': [], 'count': 0}), 200
+        return jsonify({
+            'success': False,
+            'message': f'خطا در واکشی ممیزی: {str(e)}',
+            'anomalies': [],
+            'summary': {},
+            'count': 0
+        }), 200
 
 @app.route('/api/invoice/<int:invoice_id>/details')
 def api_invoice_details(invoice_id):

@@ -1490,9 +1490,14 @@ def ai_audit_store_anomalies(limit=15):
         InvoiceItem.unit_sell_price < InvoiceItem.unit_buy_price
     ).order_by(Invoice.id.desc()).limit(limit).all()
 
+    total_loss_amount = 0
+    loss_items_count = 0
+
     for it, inv in loss_items:
         loss_per_unit = (it.unit_buy_price - it.unit_sell_price)
         total_loss = loss_per_unit * it.quantity
+        total_loss_amount += total_loss
+        loss_items_count += 1
         anomalies.append({
             'severity': 'danger',
             'type': 'loss_sale',
@@ -1500,6 +1505,11 @@ def ai_audit_store_anomalies(limit=15):
             'invoice_id': inv.id,
             'invoice_number': inv.invoice_number,
             'customer_name': inv.customer_name,
+            'loss_amount': total_loss,
+            'loss_per_unit': loss_per_unit,
+            'quantity': it.quantity,
+            'unit_buy_price': it.unit_buy_price,
+            'unit_sell_price': it.unit_sell_price,
             'details': f"کالای «{it.item_name}» به قیمت خرید {it.unit_buy_price:,} با قیمت فروش {it.unit_sell_price:,} تومان فاکتور شده است (زیان کل: {total_loss:,} تومان).",
             'date': inv.shamsi_date_time
         })
@@ -1511,8 +1521,10 @@ def ai_audit_store_anomalies(limit=15):
         Invoice.discount_amount > (Invoice.subtotal_amount * 0.25)
     ).order_by(Invoice.id.desc()).limit(limit).all()
 
+    total_high_discount_amount = 0
     for inv in high_disc_invoices:
         disc_pct = round((inv.discount_amount / inv.subtotal_amount) * 100, 1) if inv.subtotal_amount else 0
+        total_high_discount_amount += (inv.discount_amount or 0)
         anomalies.append({
             'severity': 'warning',
             'type': 'high_discount',
@@ -1520,6 +1532,8 @@ def ai_audit_store_anomalies(limit=15):
             'invoice_id': inv.id,
             'invoice_number': inv.invoice_number,
             'customer_name': inv.customer_name,
+            'discount_amount': inv.discount_amount or 0,
+            'discount_percent': disc_pct,
             'details': f"مبلغ ناخالص: {inv.subtotal_amount:,} تومان | تخفیف اعمال‌شده: {inv.discount_amount:,} تومان.",
             'date': inv.shamsi_date_time
         })
@@ -1537,7 +1551,19 @@ def ai_audit_store_anomalies(limit=15):
             'date': 'هم‌اکنون'
         })
 
-    return anomalies
+    summary = {
+        'total_loss_amount': total_loss_amount,
+        'loss_items_count': loss_items_count,
+        'high_discount_count': len(high_disc_invoices),
+        'total_high_discount_amount': total_high_discount_amount,
+        'negative_stock_count': len(neg_stock_items),
+        'total_anomalies_count': len(anomalies)
+    }
+
+    return {
+        'anomalies': anomalies,
+        'summary': summary
+    }
 
 
 

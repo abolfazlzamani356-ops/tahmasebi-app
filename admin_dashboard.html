@@ -1986,33 +1986,55 @@
             </div>
         `;
 
-        fetch('/api/ai/audit_anomalies?limit=25')
+        fetch('/api/ai/audit_anomalies?limit=50')
         .then(res => res.json())
         .then(data => {
+            const summary = data.summary || {};
+            const totalLoss = summary.total_loss_amount || 0;
+            const lossCount = summary.loss_items_count || 0;
+            const highDiscCount = summary.high_discount_count || 0;
+            const totalCount = (data.anomalies && data.anomalies.length) || 0;
+
+            const totalLossElem = document.getElementById('aiAuditTotalLossVal');
+            const lossCountElem = document.getElementById('aiAuditLossCountVal');
+            const highDiscCountElem = document.getElementById('aiAuditHighDiscCountVal');
+            const totalAnomaliesElem = document.getElementById('aiAuditTotalAnomaliesVal');
+
+            if (totalLossElem) totalLossElem.innerText = (totalLoss > 0 ? totalLoss.toLocaleString('fa-IR') + ' تومان' : '۰ تومان');
+            if (lossCountElem) lossCountElem.innerText = (lossCount > 0 ? lossCount.toLocaleString('fa-IR') + ' قلم' : '۰ قلم');
+            if (highDiscCountElem) highDiscCountElem.innerText = (highDiscCount > 0 ? highDiscCount.toLocaleString('fa-IR') + ' مورد' : '۰ مورد');
+            if (totalAnomaliesElem) totalAnomaliesElem.innerText = (totalCount > 0 ? totalCount.toLocaleString('fa-IR') + ' مورد' : '۰ مورد');
+
             if (data.success && data.anomalies && data.anomalies.length > 0) {
-                if (countBadge) countBadge.innerText = `${data.anomalies.length} مورد`;
+                if (countBadge) countBadge.innerText = `${data.anomalies.length.toLocaleString('fa-IR')} مورد`;
                 let html = '<div class="space-y-2.5">';
                 data.anomalies.forEach(item => {
                     const isDanger = item.severity === 'danger';
                     const bgClass = isDanger ? 'bg-rose-950/30 border-rose-500/40 text-rose-200' : 'bg-amber-950/30 border-amber-500/40 text-amber-200';
                     const icon = isDanger ? '🚨' : '⚠️';
                     const inspectBtn = item.invoice_id ? `
-                        <button type="button" onclick="openAdminSideBySideCompare(${item.invoice_id})" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-3 py-1 rounded-xl transition flex items-center gap-1 shadow">
+                        <button type="button" onclick="openAdminSideBySideCompare(${item.invoice_id})" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow">
                             🔍 بررسی فاکتور
                         </button>
                     ` : '';
 
+                    let lossBadge = '';
+                    if (item.loss_amount && item.loss_amount > 0) {
+                        lossBadge = `<span class="bg-rose-600/40 text-rose-200 border border-rose-500/50 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono">زیان: ${Number(item.loss_amount).toLocaleString('fa-IR')} ت</span>`;
+                    }
+
                     html += `
-                        <div class="p-3.5 rounded-2xl border ${bgClass} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                        <div class="p-3.5 rounded-2xl border ${bgClass} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-rose-400/60 transition">
                             <div class="flex items-start gap-2.5">
                                 <span class="text-xl mt-0.5">${icon}</span>
                                 <div>
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <strong class="text-xs font-black text-white">${item.title}</strong>
                                         <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">${item.date || ''}</span>
-                                        ${item.customer_name ? `<span class="text-[10px] text-slate-400">مشتری: ${item.customer_name}</span>` : ''}
+                                        ${item.customer_name ? `<span class="text-[10px] text-slate-300 bg-white/5 px-2 py-0.5 rounded">مشتری: ${item.customer_name}</span>` : ''}
+                                        ${lossBadge}
                                     </div>
-                                    <p class="text-xs text-slate-300 mt-1">${item.details}</p>
+                                    <p class="text-xs text-slate-300 mt-1 leading-relaxed">${item.details}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 mr-auto sm:mr-0 flex-shrink-0">
@@ -2253,6 +2275,26 @@
                 <button type="button" onclick="closeAiAuditModal()" class="text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-xl text-xs font-bold transition">
                     ✕
                 </button>
+            </div>
+        </div>
+
+        <!-- نوار خلاصه شاخص‌های کلی ضرر و زیان و انحرافات مالی -->
+        <div id="aiAuditSummaryBanner" class="bg-slate-900/90 border-b border-white/10 p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-shrink-0">
+            <div class="bg-rose-950/40 border border-rose-500/40 rounded-2xl p-2.5 text-center flex flex-col justify-center">
+                <span class="text-[11px] font-bold text-rose-300">مجموع ضرر و زیان فروش:</span>
+                <span id="aiAuditTotalLossVal" class="text-base sm:text-lg font-black text-rose-400 font-mono mt-0.5">۰ تومان</span>
+            </div>
+            <div class="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-2.5 text-center flex flex-col justify-center">
+                <span class="text-[11px] font-bold text-amber-300">تعداد اقلام با زیان:</span>
+                <span id="aiAuditLossCountVal" class="text-base sm:text-lg font-black text-amber-300 font-mono mt-0.5">۰ قلم</span>
+            </div>
+            <div class="bg-purple-950/40 border border-purple-500/40 rounded-2xl p-2.5 text-center flex flex-col justify-center">
+                <span class="text-[11px] font-bold text-purple-300">فاکتورهای با تخفیف بالا:</span>
+                <span id="aiAuditHighDiscCountVal" class="text-base sm:text-lg font-black text-purple-300 font-mono mt-0.5">۰ مورد</span>
+            </div>
+            <div class="bg-blue-950/40 border border-blue-500/40 rounded-2xl p-2.5 text-center flex flex-col justify-center">
+                <span class="text-[11px] font-bold text-blue-300">کل موارد نیازمند بررسی:</span>
+                <span id="aiAuditTotalAnomaliesVal" class="text-base sm:text-lg font-black text-blue-300 font-mono mt-0.5">۰ مورد</span>
             </div>
         </div>
 

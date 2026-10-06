@@ -177,6 +177,12 @@
                     <span>📱</span> <span class="text-[10px]">ارسال</span>
                 </button>
 
+                <!-- ویرایش سفارش -->
+                <button onclick="openEditOrderModal({{ ord.id }})" 
+                        class="bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white px-2 py-1 rounded-lg text-xs transition cursor-pointer flex items-center gap-1" title="ویرایش کامل مشخصات سفارش">
+                    <span>✏️</span> <span class="text-[10px]">ویرایش</span>
+                </button>
+
                 <!-- تغییر وضعیت یا یادداشت -->
                 <button onclick='openStatusModal({{ ord.id }}, "{{ ord.order_number }}", "{{ ord.status }}", "{{ ord.assigned_worker|default("", true)|e }}", "{{ ord.admin_notes|default("", true)|e }}")'
                         class="bg-amber-600/30 hover:bg-amber-600 text-amber-200 hover:text-white px-2 py-1 rounded-lg text-xs transition cursor-pointer flex items-center gap-1" title="تغییر مرحله یا یادداشت">

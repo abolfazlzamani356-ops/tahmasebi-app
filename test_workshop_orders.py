@@ -414,3 +414,97 @@ def test_api_create_workshop_order_multi_items(client, test_setup):
             db.session.delete(r)
         db.session.commit()
 
+def test_api_edit_workshop_order(client, test_setup):
+    """تست دریافت جزئیات و ویرایش کامل سفارش کارگاهی"""
+    with client.session_transaction() as sess:
+        sess['user_id'] = test_setup['seller_id']
+        sess['role'] = 'seller'
+        sess['full_name'] = 'فروشنده تست کارگاه'
+
+    with app.app_context():
+        now_j = jdatetime.datetime.now()
+        uid = uuid.uuid4().hex[:6]
+        order = CustomWorkshopOrder(
+            order_number=f"ORD-{now_j.year}-{uid}",
+            seller_id=test_setup['seller_id'],
+            shop_id=test_setup['shop_id'],
+            customer_name="مشتری تست ویرایش",
+            customer_phone="09121112233",
+            product_type="کابین روشویی",
+            model_name="آرشام",
+            quantity=1,
+            width=50,
+            depth=40,
+            height=50,
+            dimensions_text="۴۰×۵۰",
+            body_color="سفید",
+            door_color="طوسی",
+            priority="normal",
+            status="pending",
+            shamsi_date=now_j.strftime('%Y/%m/%d %H:%M'),
+            shamsi_year=now_j.year,
+            shamsi_month=now_j.month
+        )
+        db.session.add(order)
+        db.session.commit()
+        oid = order.id
+
+    try:
+        # ۱. دریافت جزئیات سفارش
+        resp_get = client.get(f'/api/workshop_orders/{oid}')
+        assert resp_get.status_code == 200
+        get_data = json.loads(resp_get.data.decode('utf-8'))
+        assert get_data['success'] is True
+        assert get_data['order']['customer_name'] == "مشتری تست ویرایش"
+        assert get_data['order']['model_name'] == "آرشام"
+
+        # ۲. ارسال ویرایش سفارش
+        update_payload = {
+            'customer_name': 'مشتری تست ویرایش اصلاح‌شده',
+            'customer_phone': '09129990000',
+            'product_type': 'ست کامل کابین و آینه',
+            'model_name': 'آرشین مدرن',
+            'quantity': '2',
+            'width': '60',
+            'depth': '45',
+            'height': '60',
+            'dimensions_text': '۴۵×۶۰ ارتفاع ۶۰',
+            'body_color': 'مشکی ماربل',
+            'door_color': 'مشکی سوپر مات',
+            'sheet_thickness': 'ورق ۱۶ میل PVC ضدآب',
+            'hinge_type': 'لولای تمام استیل آرام‌بند',
+            'door_drawer_config': '۲ کشو ریلی',
+            'mirror_details': 'گرد ۶۰ تاچ بک‌لایت',
+            'box_details': 'باکس ۳۰×۶۰',
+            'sink_type': 'کاسه روکار',
+            'priority': 'urgent',
+            'promised_delivery_date': '۱۴۰۵/۰۷/۱۵',
+            'assigned_worker': 'استاد حسینی',
+            'special_notes': 'بسیار باکیفیت و تمیز کار شود'
+        }
+
+        resp_update = client.post(f'/api/workshop_orders/{oid}/update', data=update_payload)
+        assert resp_update.status_code == 200
+        up_data = json.loads(resp_update.data.decode('utf-8'))
+        assert up_data['success'] is True
+
+        # بررسی اعمال در دیتابیس
+        with app.app_context():
+            updated_order = db.session.get(CustomWorkshopOrder, oid)
+            assert updated_order.customer_name == 'مشتری تست ویرایش اصلاح‌شده'
+            assert updated_order.customer_phone == '09129990000'
+            assert updated_order.model_name == 'آرشین مدرن'
+            assert updated_order.quantity == 2
+            assert updated_order.body_color == 'مشکی ماربل'
+            assert updated_order.door_color == 'مشکی سوپر مات'
+            assert updated_order.door_drawer_config == '۲ کشو ریلی'
+            assert updated_order.priority == 'urgent'
+            assert updated_order.dimensions_text == '۴۵×۶۰ ارتفاع ۶۰'
+    finally:
+        with app.app_context():
+            ord_db = db.session.get(CustomWorkshopOrder, oid)
+            if ord_db:
+                db.session.delete(ord_db)
+                db.session.commit()
+
+

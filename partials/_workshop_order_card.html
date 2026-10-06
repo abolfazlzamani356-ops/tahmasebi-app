@@ -47,6 +47,9 @@
                     <span class="text-white text-[11px] font-bold">({{ ord.model_name }})</span>
                 {% endif %}
             </span>
+            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-1.5 py-0.5 rounded">
+                {{ ord.quantity or 1 }} عدد
+            </span>
         </div>
 
         {% if ord.dimensions_text %}
@@ -172,6 +175,12 @@
                 <button onclick="openShareModal({{ ord.id }})" 
                         class="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white px-2 py-1 rounded-lg text-xs transition cursor-pointer flex items-center gap-1" title="ارسال در روبیکا / ایتا / واتساپ">
                     <span>📱</span> <span class="text-[10px]">ارسال</span>
+                </button>
+
+                <!-- ویرایش سفارش -->
+                <button onclick="openEditOrderModal({{ ord.id }})" 
+                        class="bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white px-2 py-1 rounded-lg text-xs transition cursor-pointer flex items-center gap-1" title="ویرایش کامل مشخصات سفارش">
+                    <span>✏️</span> <span class="text-[10px]">ویرایش</span>
                 </button>
 
                 <!-- تغییر وضعیت یا یادداشت -->

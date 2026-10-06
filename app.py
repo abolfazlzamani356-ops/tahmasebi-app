@@ -5576,6 +5576,147 @@ def api_update_workshop_order_status(order_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/workshop_orders/<int:order_id>', methods=['GET'])
+def api_get_workshop_order(order_id):
+    """دریافت جزئیات کامل سفارش کارگاهی جهت پر کردن فرم ویرایش"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 401
+        
+    order = db.session.get(CustomWorkshopOrder, order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'سفارش یافت نشد'}), 404
+        
+    return jsonify({
+        'success': True,
+        'order': order.to_dict()
+    })
+
+@app.route('/api/workshop_orders/<int:order_id>/update', methods=['POST'])
+def api_update_workshop_order(order_id):
+    """ویرایش کامل مشخصات فنی، متریال، ابعاد، مشتری و تصاویر سفارش کارگاه"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً ابتدا وارد سیستم شوید.'}), 401
+        
+    user = db.session.get(User, session['user_id'])
+    order = db.session.get(CustomWorkshopOrder, order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'سفارش یافت نشد'}), 404
+        
+    data = request.form if request.form else (request.json or {})
+    
+    # به‌روزرسانی مشتری
+    customer_name = (data.get('customer_name') or '').strip()
+    if customer_name:
+        order.customer_name = customer_name
+        
+    customer_phone = to_english_digits(data.get('customer_phone') or '').strip() or None
+    if customer_phone:
+        import re
+        customer_phone = re.sub(r'[^\d]', '', customer_phone).strip() or None
+    order.customer_phone = customer_phone
+    
+    if is_admin() and data.get('shop_id'):
+        order.shop_id = safe_int(data.get('shop_id')) or order.shop_id
+        
+    # به‌روزرسانی مشخصات کالا
+    if data.get('product_type'):
+        order.product_type = data.get('product_type').strip()
+    if 'model_name' in data:
+        order.model_name = (data.get('model_name') or '').strip()
+    if data.get('quantity'):
+        qty = safe_int(to_english_digits(data.get('quantity')))
+        if qty >= 1:
+            order.quantity = qty
+            
+    # ابعاد
+    if 'width' in data:
+        order.width = safe_int(to_english_digits(data.get('width') or 0))
+    if 'depth' in data:
+        order.depth = safe_int(to_english_digits(data.get('depth') or 0))
+    if 'height' in data:
+        order.height = safe_int(to_english_digits(data.get('height') or 0))
+    if 'dimensions_text' in data:
+        dim_text = (data.get('dimensions_text') or '').strip()
+        if not dim_text and (order.width or order.depth or order.height):
+            dims = []
+            if order.width: dims.append(f"عرض {order.width}")
+            if order.depth: dims.append(f"عمق {order.depth}")
+            if order.height: dims.append(f"ارتفاع {order.height}")
+            dim_text = " × ".join(dims)
+        order.dimensions_text = dim_text
+        
+    # رنگ و یراق‌آلات
+    if 'body_color' in data:
+        order.body_color = (data.get('body_color') or '').strip()
+    if 'door_color' in data:
+        order.door_color = (data.get('door_color') or '').strip()
+    if 'sheet_thickness' in data:
+        order.sheet_thickness = (data.get('sheet_thickness') or '').strip()
+    if 'hinge_type' in data:
+        order.hinge_type = (data.get('hinge_type') or '').strip()
+    if 'door_drawer_config' in data:
+        order.door_drawer_config = (data.get('door_drawer_config') or '').strip()
+    if 'mirror_details' in data:
+        order.mirror_details = (data.get('mirror_details') or '').strip()
+    if 'box_details' in data:
+        order.box_details = (data.get('box_details') or '').strip()
+    if 'sink_type' in data:
+        order.sink_type = (data.get('sink_type') or '').strip()
+        
+    # اولویت، تحویل و استادکار
+    if data.get('priority'):
+        order.priority = data.get('priority').strip()
+    if 'promised_delivery_date' in data:
+        order.promised_delivery_date = to_english_digits(data.get('promised_delivery_date') or '').strip()
+    if 'assigned_worker' in data:
+        order.assigned_worker = (data.get('assigned_worker') or '').strip()
+    if 'special_notes' in data:
+        order.special_notes = (data.get('special_notes') or '').strip()
+        
+    # پردازش تصاویر جدید در صورت آپلود
+    for idx, key in enumerate(['image_1_file', 'image_2_file', 'image_3_file']):
+        file = request.files.get(key)
+        if file and file.filename:
+            try:
+                import io
+                from PIL import Image
+                img = Image.open(file.stream)
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+                max_dim = 1400
+                if max(img.width, img.height) > max_dim:
+                    img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=80, optimize=True)
+                b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                b64_str = f"data:image/jpeg;base64,{b64}"
+                if idx == 0: order.image_1 = b64_str
+                elif idx == 1: order.image_2 = b64_str
+                elif idx == 2: order.image_3 = b64_str
+            except Exception as e:
+                app.logger.warning(f"Error processing updated order image {key}: {e}")
+                
+    # تصاویر ارسالی به صورت مستقیم/base64
+    for idx, key in enumerate(['image_1', 'image_2', 'image_3']):
+        if data.get(key):
+            val = data.get(key).strip()
+            if val.startswith('data:image'):
+                if idx == 0: order.image_1 = val
+                elif idx == 1: order.image_2 = val
+                elif idx == 2: order.image_3 = val
+                
+    try:
+        db.session.commit()
+        log_activity(f"ویرایش سفارش کارگاهی {order.order_number} ({order.product_type} {order.model_name}) برای {order.customer_name}", user.full_name, "کارگاه")
+        return jsonify({
+            'success': True,
+            'message': f'سفارش کارگاهی {order.order_number} با موفقیت ویرایش و ذخیره شد! ✏️',
+            'order': order.to_dict()
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'خطا در ویرایش سفارش: {str(e)}'}), 500
+
 @app.route('/api/workshop_orders/<int:order_id>/delete', methods=['POST', 'DELETE'])
 def api_delete_workshop_order(order_id):
     """حذف سفارش کارگاه (فقط مدیریت یا فروشنده قبل از شروع ساخت)"""

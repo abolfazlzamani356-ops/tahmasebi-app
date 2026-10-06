@@ -507,5 +507,11 @@ class CustomWorkshopOrder(db.Model):
             'customer_price': self.customer_price or 0,
             'prepaid_amount': self.prepaid_amount or 0,
             'remaining_balance': (self.customer_price or 0) - (self.prepaid_amount or 0),
+            'width': self.width or 0,
+            'depth': self.depth or 0,
+            'height': self.height or 0,
+            'image_1': self.image_1 or '',
+            'image_2': self.image_2 or '',
+            'image_3': self.image_3 or '',
             'has_image': bool(self.image_1 or self.image_2 or self.image_3)
         }

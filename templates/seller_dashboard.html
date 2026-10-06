@@ -1491,7 +1491,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 </div>
                 <!-- یا جستجو در کاتالوگ / نام دستی دلخواه -->
                 <div class="sm:col-span-4">
-                    <input type="text" list="catalogDatalist" oninput="onComboInputCatalog(this)" placeholder="✍️ یا نام کاتالوگ / دستی..." class="combo-row-name w-full p-2 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-1 focus:ring-purple-400">
+                    <input type="text" list="catalogDatalist" oninput="searchCatalogAsync(this); onComboInputCatalog(this)" onchange="onComboInputCatalog(this)" placeholder="✍️ یا نام کاتالوگ / دستی..." class="combo-row-name w-full p-2 bg-slate-800 border border-slate-600 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-1 focus:ring-purple-400">
                     <input type="hidden" class="combo-row-category" value="">
                     <input type="hidden" class="combo-row-buy-price" value="0">
                 </div>
@@ -1585,10 +1585,29 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                     const c = opt.getAttribute('data-category') || '';
                     if (catInp) catInp.value = c;
                     if (buyInp) buyInp.value = b;
-                    if (origInp) origInp.value = p > 0 ? p.toLocaleString('en-US') : '';
+                    if (origInp && (!origInp.value || origInp.value === '0')) {
+                        origInp.value = p > 0 ? p.toLocaleString('en-US') : '';
+                    }
                     break;
                 }
             }
+        }
+        if (!matched && val.length >= 2) {
+            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=1')
+                .then(r => r.json())
+                .then(items => {
+                    if (items && items.length > 0 && items[0].name.trim().toLowerCase() === val) {
+                        const it = items[0];
+                        if (selElem) selElem.value = '';
+                        if (catInp) catInp.value = it.category || '';
+                        if (buyInp) buyInp.value = it.buy_price || 0;
+                        if (origInp && (!origInp.value || origInp.value === '0')) {
+                            origInp.value = Number(it.sell_price || 0) > 0 ? Number(it.sell_price).toLocaleString('en-US') : '';
+                        }
+                        updateComboModalPreview();
+                    }
+                })
+                .catch(() => {});
         }
         if (!matched && selElem && selElem.value) {
             selElem.value = '';
@@ -2143,7 +2162,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         if (val.length < 2) return;
         clearTimeout(catalogSearchDebounceTimer);
         catalogSearchDebounceTimer = setTimeout(() => {
-            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=30')
+            fetch('/api/catalog/search?q=' + encodeURIComponent(val) + '&limit=100')
                 .then(res => res.json())
                 .then(items => {
                     if (!items || !items.length) return;
@@ -2161,7 +2180,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                     });
                 })
                 .catch(() => {});
-        }, 150);
+        }, 120);
     }
 
     function onSelectCatalogItem(inputElem) {

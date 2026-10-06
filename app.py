@@ -3449,7 +3449,7 @@ def download_sample_excel():
 def api_catalog_search():
     """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن با نرمال‌سازی فارسی/عربی و چندکلمه‌ای"""
     q = request.args.get('q', '').strip()
-    limit = min(safe_int(request.args.get('limit'), 30), 60)
+    limit = min(safe_int(request.args.get('limit'), 100), 200)
     query = ProductCatalog.query
     if q:
         search_filter = build_catalog_search_filter(ProductCatalog, q)

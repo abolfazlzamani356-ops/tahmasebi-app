@@ -263,7 +263,16 @@
             <span class="text-lg">🛒</span>
         </div>
         <h3 class="text-lg font-black text-indigo-400 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-bold text-slate-300">تومان</span></h3>
-        <p class="text-[10px] text-slate-300 font-medium mt-1 truncate">ش۱: {{ "{:,}".format(shop1_total) }} | ش۲: {{ "{:,}".format(shop2_total) }}</p>
+        <div class="mt-2 pt-2 border-t border-white/5 space-y-1 text-[11px]">
+            <div class="flex items-center justify-between">
+                <span class="text-slate-400">شعبه ۱ (اصلی):</span>
+                <span class="font-mono font-bold text-slate-200">{{ "{:,}".format(shop1_total) }} ت</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-slate-400">شعبه ۲:</span>
+                <span class="font-mono font-bold text-slate-200">{{ "{:,}".format(shop2_total) }} ت</span>
+            </div>
+        </div>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-emerald-500">

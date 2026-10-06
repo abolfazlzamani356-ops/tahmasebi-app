@@ -83,6 +83,10 @@
             <span>💵</span> شارژ تنخواه
         </button>
 
+        <a href="{{ url_for('cheques_view') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-amber-500/40 text-amber-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <span>🗓️</span> مدیریت چک‌ها ({{ "{:,}".format(pending_cheques_total) }} ت)
+        </a>
+
         <a href="{{ url_for('catalog_view') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-purple-500/30 text-purple-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
             <span>📋</span> لیست قیمت و کاتالوگ ({{ total_catalog_products }})
         </a>
@@ -221,6 +225,10 @@
                     <span class="text-slate-200 font-bold">هزینه‌های تنخواه:</span>
                     <strong class="text-orange-400 font-mono font-black">- {{ "{:,}".format(total_expenses) }} ت</strong>
                 </div>
+                <a href="{{ url_for('cheques_view', status='pending') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-amber-500/40 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
+                    <span class="text-amber-300 font-bold">چک‌های در انتظار وصول:</span>
+                    <strong class="text-amber-300 font-mono font-black">⏳ {{ "{:,}".format(pending_cheques_total) }} ت</strong>
+                </a>
                 <a href="{{ url_for('cheques_view', status='passed') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-teal-500/40 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition">
                     <span class="text-teal-300 font-bold">چک‌های وصول‌شده:</span>
                     <strong class="text-teal-300 font-mono font-black">✓ {{ "{:,}".format(passed_cheques_total) }} ت</strong>
@@ -248,14 +256,14 @@
 </div>
 
 <!-- Key Metrics Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
     <div class="glass-card p-4 border-r-4 border-r-indigo-500">
         <div class="flex items-center justify-between">
             <span class="text-xs text-slate-200 font-black">فروش کل مجموعه</span>
             <span class="text-lg">🛒</span>
         </div>
-        <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
-        <p class="text-[11px] text-slate-300 font-medium mt-1">شعبه ۱: {{ "{:,}".format(shop1_total) }} | شعبه ۲: {{ "{:,}".format(shop2_total) }}</p>
+        <h3 class="text-lg font-black text-indigo-400 mt-2">{{ "{:,}".format(shop1_total + shop2_total) }} <span class="text-[10px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[10px] text-slate-300 font-medium mt-1 truncate">ش۱: {{ "{:,}".format(shop1_total) }} | ش۲: {{ "{:,}".format(shop2_total) }}</p>
     </div>
 
     <div class="glass-card p-4 border-r-4 border-r-emerald-500">
@@ -263,18 +271,30 @@
             <span class="text-xs text-slate-200 font-black">سود ناخالص کالاها</span>
             <span class="text-lg">💰</span>
         </div>
-        <h3 class="text-xl font-black text-emerald-400 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
-        <p class="text-[11px] text-slate-300 font-medium mt-1">اختلاف خرید و فروش فاکتورها</p>
+        <h3 class="text-lg font-black text-emerald-400 mt-2">{{ "{:,}".format(estimated_gross_profit) }} <span class="text-[10px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[10px] text-slate-300 font-medium mt-1 truncate">اختلاف خرید و فروش فاکتورها</p>
     </div>
 
-    <div class="glass-card p-4 border-r-4 border-r-teal-500">
+    <div class="glass-card p-4 border-r-4 border-r-amber-500 bg-amber-500/5">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-amber-300 font-black">چک‌های در انتظار وصول</span>
+            <span class="text-lg">⏳</span>
+        </div>
+        <h3 class="text-lg font-black text-amber-300 mt-2">{{ "{:,}".format(pending_cheques_total) }} <span class="text-[10px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[10px] text-amber-200/90 font-medium mt-1 flex items-center justify-between">
+            <span>تعداد: {{ pending_cheques_count }} فقره</span>
+            <a href="{{ url_for('cheques_view', status='pending') }}" class="underline hover:text-white text-[10px]">مشاهده ↗</a>
+        </p>
+    </div>
+
+    <div class="glass-card p-4 border-r-4 border-r-teal-500 bg-teal-500/5">
         <div class="flex items-center justify-between">
             <span class="text-xs text-teal-200 font-black">چک‌های وصول‌شده</span>
             <span class="text-lg">✅</span>
         </div>
-        <h3 class="text-xl font-black text-teal-300 mt-2">{{ "{:,}".format(passed_cheques_total) }} <span class="text-[11px] font-bold text-slate-300">تومان</span></h3>
-        <p class="text-[11px] text-teal-200/90 font-medium mt-1 flex items-center justify-between">
-            <span>تعداد: {{ passed_cheques_count }} فقره چک</span>
+        <h3 class="text-lg font-black text-teal-300 mt-2">{{ "{:,}".format(passed_cheques_total) }} <span class="text-[10px] font-bold text-slate-300">تومان</span></h3>
+        <p class="text-[10px] text-teal-200/90 font-medium mt-1 flex items-center justify-between">
+            <span>تعداد: {{ passed_cheques_count }} فقره</span>
             <a href="{{ url_for('cheques_view', status='passed') }}" class="underline hover:text-white text-[10px]">مشاهده ↗</a>
         </p>
     </div>
@@ -572,12 +592,23 @@
 <!-- Cheques Table -->
 <div class="glass-card p-6 mb-8 overflow-x-auto">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-        <h3 class="text-base font-black text-white flex items-center gap-2">
-            <span>🗓️</span> دفترچه چک‌های صیادی مشتریان (با آلارم سررسید)
-        </h3>
-        <span class="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
-            ⏰ هشدار چک‌های سررسید نزدیک
-        </span>
+        <div>
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+                <span>🗓️</span> دفترچه چک‌های صیادی مشتریان
+                <span class="text-xs font-bold text-amber-300 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                    {{ pending_cheques_count }} در انتظار وصول ({{ "{:,}".format(pending_cheques_total) }} ت)
+                </span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">مشاهده و کنترل وضعیت کلیه چک‌های دریافت شده از مشتریان، سررسیدها و مبالغ در انتظار وصول</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('cheques_view', status='pending') }}" class="text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1">
+                <span>⏳</span> فقط در انتظار وصول
+            </a>
+            <a href="{{ url_for('cheques_view') }}" class="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1">
+                <span>📋</span> میز جامع چک‌ها ↗
+            </a>
+        </div>
     </div>
     <table class="table-glass w-full text-right border-collapse text-xs">
         <thead>

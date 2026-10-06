@@ -4409,49 +4409,60 @@ def delete_shop(shop_id):
 
 @app.route('/admin/cheques')
 def cheques_view():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    status_filter = request.args.get('status', 'all')
-    search_q = request.args.get('q', '').strip()
+    # اجازه دسترسی به مدیر کل و پرسنل با دسترسی مدیریت انبار/حسابداری
+    user_role = session.get('role')
+    can_manage_inv = session.get('can_manage_inventory', False)
+    if user_role != 'admin' and not can_manage_inv:
+        flash('دسترسی به بخش مدیریت چک‌های صیادی فقط برای مدیریت کل و مدیران سیستم مجاز است.', 'warning')
+        return redirect(url_for('seller_dashboard'))
     
-    query = Cheque.query
-    if status_filter != 'all':
-        query = query.filter_by(status=status_filter)
+    try:
+        status_filter = request.args.get('status', 'all')
+        search_q = request.args.get('q', '').strip()
         
-    if search_q:
-        q_norm = normalize_persian_text(search_q)
-        query = query.filter(
-            (Cheque.sayad_number.contains(search_q)) |
-            (Cheque.customer_name.contains(search_q)) |
-            (Cheque.bank_name.contains(search_q)) |
-            (Cheque.customer_phone.contains(search_q))
-        )
+        query = Cheque.query
+        if status_filter != 'all':
+            query = query.filter_by(status=status_filter)
+            
+        if search_q:
+            query = query.filter(
+                (Cheque.sayad_number.contains(search_q)) |
+                (Cheque.customer_name.contains(search_q)) |
+                (Cheque.bank_name.contains(search_q)) |
+                (Cheque.customer_phone.contains(search_q))
+            )
+            
+        cheques = query.order_by(Cheque.due_shamsi_date.asc(), Cheque.id.desc()).all()
         
-    cheques = query.order_by(Cheque.due_shamsi_date.asc(), Cheque.id.desc()).all()
-    
-    all_cheques = Cheque.query.all()
-    pending_sum = sum(c.amount for c in all_cheques if c.status == 'pending')
-    passed_sum = sum(c.amount for c in all_cheques if c.status == 'passed')
-    bounced_sum = sum(c.amount for c in all_cheques if c.status == 'bounced')
-    assigned_sum = sum(c.amount for c in all_cheques if c.status == 'assigned')
-    
-    today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d")
-    
-    current_user = User.query.get(session['user_id'])
-    shops = Shop.query.all()
-    return render_template('cheques.html',
-                           cheques=cheques,
-                           status_filter=status_filter,
-                           search_q=search_q,
-                           pending_sum=pending_sum,
-                           passed_sum=passed_sum,
-                           bounced_sum=bounced_sum,
-                           assigned_sum=assigned_sum,
-                           total_count=len(all_cheques),
-                           today_shamsi=today_shamsi,
-                           shops=shops,
-                           current_user=current_user)
+        all_cheques = Cheque.query.all()
+        pending_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'pending')
+        passed_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'passed')
+        bounced_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'bounced')
+        assigned_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'assigned')
+        
+        today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d")
+        
+        current_user = User.query.get(session['user_id'])
+        shops = Shop.query.all()
+        return render_template('cheques.html',
+                               cheques=cheques,
+                               status_filter=status_filter,
+                               search_q=search_q,
+                               pending_sum=pending_sum,
+                               passed_sum=passed_sum,
+                               bounced_sum=bounced_sum,
+                               assigned_sum=assigned_sum,
+                               total_count=len(all_cheques),
+                               today_shamsi=today_shamsi,
+                               shops=shops,
+                               current_user=current_user)
+    except Exception as e:
+        app.logger.error(f"Error in cheques_view: {e}", exc_info=True)
+        flash(f'خطا در بارگذاری سامانه چک‌ها: {str(e)}', 'danger')
+        return redirect(url_for('admin_dashboard' if session.get('role') == 'admin' else 'seller_dashboard'))
 
 @app.route('/admin/cheque/add', methods=['POST'])
 def add_manual_cheque():

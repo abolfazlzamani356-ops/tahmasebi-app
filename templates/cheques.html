@@ -126,11 +126,11 @@
                         {{ chk.bank_name }}
                     </td>
                     <td class="py-3.5 px-2 font-black font-mono text-amber-300 text-xs">
-                        {{ "{:,}".format(chk.amount) }} ت
+                        {{ "{:,}".format(chk.amount or 0) }} ت
                     </td>
                     <td class="py-3.5 px-2 font-mono font-bold text-slate-200" dir="ltr">
-                        {{ chk.due_shamsi_date }}
-                        {% if chk.status == 'pending' and chk.due_shamsi_date <= today_shamsi %}
+                        {{ chk.due_shamsi_date or '-' }}
+                        {% if chk.status == 'pending' and chk.due_shamsi_date and today_shamsi and chk.due_shamsi_date <= today_shamsi %}
                         <span class="text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 py-0.5 rounded font-sans block mt-0.5">⚠️ موعد گذشته یا امروز</span>
                         {% endif %}
                     </td>

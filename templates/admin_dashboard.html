@@ -165,7 +165,10 @@
         <span class="text-lg">🔔</span>
         <span class="font-black text-amber-300">هشدارهای جاری سیستم طهماسبی:</span>
         {% if pending_cheques_count > 0 %}
-        <span class="bg-amber-500/20 text-amber-200 border border-amber-500/40 px-3 py-1 rounded-xl font-bold">{{ pending_cheques_count }} فقره چک در انتظار سررسید</span>
+        <a href="{{ url_for('cheques_view', status='pending') }}" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 px-3 py-1 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer">
+            <span>🗓️</span>
+            <span>{{ pending_cheques_count }} فقره چک در انتظار سررسید</span>
+        </a>
         {% endif %}
         {% if low_stock_count > 0 %}
         <span class="bg-rose-500 text-white px-3 py-1 rounded-xl font-bold blink">{{ low_stock_count }} قلم کالا دارای کسری انبار</span>

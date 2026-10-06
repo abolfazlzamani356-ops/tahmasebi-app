@@ -4716,40 +4716,153 @@ def add_expense():
     flash('هزینه در تنخواه ثبت شد.', 'success')
     return redirect(url_for('index'))
 
-@app.route('/admin/backup')
-def download_backup():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('login'))
-    now_str = jdatetime.datetime.now().strftime("%Y%m%d_%H%M")
-    
-    # تهیه نسخه پشتیبان اتمیک و زنده با SQLite Backup API (بدون توقف یا قفل شدن سیستم و با تضمین یکپارچگی WAL)
-    snapshot_path = os.path.join(DATA_DIR, f"temp_backup_{now_str}.db")
+BACKUPS_DIR = os.path.join(DATA_DIR, 'backups')
+os.makedirs(BACKUPS_DIR, exist_ok=True)
+
+def perform_system_backup(label="auto"):
+    """
+    تهیه نسخه پشتیبان اتمیک، زنده و بدون قفل‌شدگی با SQLite Online Backup API
+    ذخیره در پوشه امن backups و پاکسازی خودکار نسخه‌های بسیار قدیمی برای بهینه‌سازی حافظه
+    """
     try:
+        now_j = jdatetime.datetime.now()
+        timestamp = now_j.strftime("%Y%m%d_%H%M%S")
+        shamsi_label = now_j.strftime("%Y-%m-%d %H:%M:%S")
+        filename = f"Backup_Tahmasebi_{label}_{timestamp}.db"
+        dest_file = os.path.join(BACKUPS_DIR, filename)
+
         source_conn = sqlite3.connect(db_path, timeout=30)
-        dest_conn = sqlite3.connect(snapshot_path)
+        dest_conn = sqlite3.connect(dest_file)
         with dest_conn:
             source_conn.backup(dest_conn)
         dest_conn.close()
         source_conn.close()
-        
-        with open(snapshot_path, 'rb') as f:
-            backup_bytes = io.BytesIO(f.read())
-        try:
-            os.remove(snapshot_path)
-        except OSError:
-            pass
 
-        log_activity("تهیه و دانلود فایل پشتیبان دیتابیس (پشتیبان‌گیری آنلاین و امن)", session.get('full_name'), "امنیت")
-        return send_file(backup_bytes, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db", mimetype='application/x-sqlite3')
+        file_size = os.path.getsize(dest_file)
+        app.logger.info(f"System backup created: {filename} ({file_size} bytes)")
+
+        # چرخش و پاکسازی فایل‌های قدیمی‌تر از ۶۰ نسخه
+        try:
+            all_backups = sorted(
+                [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR) if f.endswith('.db')],
+                key=os.path.getmtime
+            )
+            while len(all_backups) > 60:
+                old_file = all_backups.pop(0)
+                try:
+                    os.remove(old_file)
+                except OSError:
+                    pass
+        except Exception as rot_err:
+            app.logger.warning(f"Backup rotation warning: {rot_err}")
+
+        return {
+            'success': True,
+            'filename': filename,
+            'size': file_size,
+            'shamsi_time': shamsi_label,
+            'path': dest_file
+        }
     except Exception as e:
-        app.logger.error(f"Online backup error: {e}")
-        if os.path.exists(snapshot_path):
+        app.logger.error(f"Backup creation error: {e}", exc_info=True)
+        return {'success': False, 'error': str(e)}
+
+# ترد زمان‌بند پشتیبان‌گیری خودکار هر ۱ ساعت
+_backup_thread_started = False
+def _start_auto_backup_worker():
+    global _backup_thread_started
+    if _backup_thread_started:
+        return
+    _backup_thread_started = True
+
+    def _worker():
+        import threading
+        # ۵ دقیقه بعد از شروع سرور یک بکاپ اولیه می‌گیرد، سپس هر ۱ ساعت یکبار
+        time.sleep(300)
+        while True:
             try:
-                os.remove(snapshot_path)
-            except OSError:
-                pass
-        log_activity("دانلود فایل بکاپ دیتابیس", session.get('full_name'), "امنیت")
+                perform_system_backup(label="hourly")
+            except Exception as worker_err:
+                app.logger.error(f"Auto backup worker error: {worker_err}")
+            # خواب به مدت ۳۶۰۰ ثانیه (۱ ساعت)
+            time.sleep(3600)
+
+    import threading
+    t = threading.Thread(target=_worker, daemon=True, name="TahmasebiAutoBackupThread")
+    t.start()
+
+try:
+    _start_auto_backup_worker()
+except Exception as th_err:
+    app.logger.warning(f"Could not start backup worker: {th_err}")
+
+
+@app.route('/admin/backup')
+def download_backup():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    res = perform_system_backup(label="manual")
+    if res.get('success') and os.path.exists(res.get('path')):
+        log_activity("تهیه و دانلود نسخه پشتیبان دیتابیس (پشتیبان‌گیری اتمیک و زنده)", session.get('full_name'), "امنیت")
+        return send_file(res['path'], as_attachment=True, download_name=res['filename'], mimetype='application/x-sqlite3')
+    else:
+        log_activity("دانلود فایل بکاپ مستقیم دیتابیس", session.get('full_name'), "امنیت")
+        now_str = jdatetime.datetime.now().strftime("%Y%m%d_%H%M")
         return send_file(db_path, as_attachment=True, download_name=f"Backup_Tahmasebi_{now_str}.db")
+
+
+@app.route('/api/admin/backups/list')
+def api_backups_list():
+    """لیست نسخه‌های پشتیبان موجود در سیستم برای نمایش در پنل تنظیمات"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'عدم دسترسی'}), 403
+    try:
+        files = []
+        if os.path.exists(BACKUPS_DIR):
+            for fname in os.listdir(BACKUPS_DIR):
+                if fname.endswith('.db'):
+                    fpath = os.path.join(BACKUPS_DIR, fname)
+                    mtime = os.path.getmtime(fpath)
+                    dt = jdatetime.datetime.fromtimestamp(mtime)
+                    files.append({
+                        'filename': fname,
+                        'size': os.path.getsize(fpath),
+                        'size_mb': round(os.path.getsize(fpath) / (1024 * 1024), 2),
+                        'shamsi_date': dt.strftime("%Y/%m/%d %H:%M:%S"),
+                        'timestamp': mtime
+                    })
+        files.sort(key=lambda x: x['timestamp'], reverse=True)
+        return jsonify({'success': True, 'backups': files, 'count': len(files)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'backups': []})
+
+
+@app.route('/api/admin/backups/create', methods=['POST'])
+def api_backups_create():
+    """تهیه فوری نسخه پشتیبان با کلیک ادمین"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'عدم دسترسی'}), 403
+    res = perform_system_backup(label="instant")
+    if res.get('success'):
+        log_activity(f"تهیه فوری پشتیبان دیتابیس: {res['filename']}", session.get('full_name'), "امنیت")
+        return jsonify({'success': True, 'message': 'نسخه پشتیبان با موفقیت و سلامت کامل ذخیره شد.', 'backup': res})
+    else:
+        return jsonify({'success': False, 'message': f"خطا در ایجاد پشتیبان: {res.get('error')}"})
+
+
+@app.route('/admin/backups/download/<filename>')
+def download_specific_backup(filename):
+    """دانلود یک نسخه پشتیبان خاص از لیست بکاپ‌ها"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    safe_name = os.path.basename(filename)
+    target_path = os.path.join(BACKUPS_DIR, safe_name)
+    if os.path.exists(target_path) and safe_name.endswith('.db'):
+        log_activity(f"دانلود نسخه پشتیبان {safe_name}", session.get('full_name'), "امنیت")
+        return send_file(target_path, as_attachment=True, download_name=safe_name, mimetype='application/x-sqlite3')
+    flash('فایل پشتیبان مورد نظر یافت نشد.', 'danger')
+    return redirect(url_for('store_settings_view'))
 
 @app.route('/admin/export/excel')
 def export_excel():

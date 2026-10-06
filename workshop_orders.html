@@ -343,7 +343,7 @@
                     </td>
 
                     <td class="py-3 px-3 font-semibold text-slate-300">
-                        {{ ord.assigned_worker or 'کارگاه مرکزی' }}
+                        {{ ord.assigned_worker or 'رضا ویسی' }}
                     </td>
 
                     <td class="py-3 px-3">
@@ -706,7 +706,7 @@
 
                     <div>
                         <label class="block text-[11px] font-bold text-slate-300 mb-1">استادکار / مسئول کارگاه</label>
-                        <input type="text" name="assigned_worker" value="آقای حسینی (کارگاه مرکزی)"
+                        <input type="text" name="assigned_worker" value="رضا ویسی"
                                class="w-full bg-[#1a2234] border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold">
                     </div>
                 </div>
@@ -1204,7 +1204,7 @@ function openStatusModal(orderId, orderNum, currentStatus, worker, notes) {
     document.getElementById('statusOrderId').value = orderId;
     document.getElementById('statusModalOrderNum').textContent = orderNum;
     document.getElementById('statusSelect').value = currentStatus || 'pending';
-    document.getElementById('statusWorker').value = worker || '';
+    document.getElementById('statusWorker').value = worker || 'رضا ویسی';
     document.getElementById('statusNotes').value = notes || '';
     document.getElementById('statusModal').classList.remove('hidden');
 }
@@ -1513,7 +1513,7 @@ async function openEditOrderModal(orderId) {
         if (prioSelect && o.priority) prioSelect.value = o.priority;
 
         document.getElementById('edit_promised_delivery_date').value = o.promised_delivery_date || '';
-        document.getElementById('edit_assigned_worker').value = o.assigned_worker || '';
+        document.getElementById('edit_assigned_worker').value = o.assigned_worker || 'رضا ویسی';
         document.getElementById('edit_special_notes').value = o.special_notes || '';
 
         // ریست یا نمایش تصاویر قبلی

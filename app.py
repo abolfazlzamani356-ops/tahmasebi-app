@@ -5397,7 +5397,7 @@ def api_create_workshop_order():
     priority = (data.get('priority') or 'normal').strip()
     promised_delivery_date = to_english_digits(data.get('promised_delivery_date') or '').strip()
     special_notes = (data.get('special_notes') or '').strip()
-    assigned_worker = (data.get('assigned_worker') or 'آقای حسینی (کارگاه مرکزی)').strip()
+    assigned_worker = (data.get('assigned_worker') or 'رضا ویسی').strip()
     
     estimated_cost = safe_int(to_english_digits(data.get('estimated_cost') or 0))
     customer_price = safe_int(to_english_digits(data.get('customer_price') or 0))
@@ -5785,7 +5785,7 @@ def api_share_workshop_order_text(order_id):
 ━━━━━━━━━━━━━━━━━━━
 🚨 *فوریت:* {prio_fa}
 ⏰ *مهلت تحویل:* {order.promised_delivery_date or 'تعیین نشده'}
-👷 *استادکار کارگاه:* {order.assigned_worker or 'کارگاه مرکزی'}
+👷 *استادکار کارگاه:* {order.assigned_worker or 'رضا ویسی'}
 ⚠️ *نکات حساس ساخت:* {order.special_notes or 'ندارد'}
 """
     return jsonify({

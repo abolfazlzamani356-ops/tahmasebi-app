@@ -431,7 +431,7 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         'avg_rating': avg_rating
     }
 
-def get_or_create_customer(name, phone=None, address=None, customer_type='regular', shop_id=None):
+def get_or_create_customer(name, phone=None, address=None, customer_type='regular', shop_id=None, tenant_id=None):
     if not name:
         return None
     name = normalize_persian_text(name).strip()
@@ -447,13 +447,25 @@ def get_or_create_customer(name, phone=None, address=None, customer_type='regula
     else:
         phone = None
 
+    if not tenant_id:
+        try:
+            from flask import session
+            tenant_id = session.get('tenant_id') or 1
+        except Exception:
+            tenant_id = 1
+
     customer = None
     if phone:
-        customer = Customer.query.filter_by(phone=phone).first()
+        customer = Customer.query.filter_by(tenant_id=tenant_id, phone=phone).first()
+        if not customer:
+            customer = Customer.query.filter_by(phone=phone).first()
     if not customer:
-        customer = Customer.query.filter_by(name=name).first()
+        customer = Customer.query.filter_by(tenant_id=tenant_id, name=name).first()
+        if not customer:
+            customer = Customer.query.filter_by(name=name).first()
     if not customer:
         customer = Customer(
+            tenant_id=tenant_id,
             name=name,
             phone=phone,
             address=str(address) if (address and not str(address).isdigit()) else None,
@@ -467,14 +479,17 @@ def get_or_create_customer(name, phone=None, address=None, customer_type='regula
         except Exception:
             db.session.rollback()
             if phone:
-                customer = Customer.query.filter_by(phone=phone).first()
+                customer = Customer.query.filter_by(tenant_id=tenant_id, phone=phone).first() or Customer.query.filter_by(phone=phone).first()
             if not customer:
-                customer = Customer.query.filter_by(name=name).first()
+                customer = Customer.query.filter_by(tenant_id=tenant_id, name=name).first() or Customer.query.filter_by(name=name).first()
     else:
         changed = False
+        if not getattr(customer, 'tenant_id', None):
+            customer.tenant_id = tenant_id
+            changed = True
         if phone and not customer.phone:
-            # بررسی عدم تکرار شماره در دیتابیس
-            existing = Customer.query.filter_by(phone=phone).first()
+            # بررسی عدم تکرار شماره در دیتابیس همین تننت
+            existing = Customer.query.filter_by(tenant_id=tenant_id, phone=phone).first()
             if not existing:
                 customer.phone = phone
                 changed = True

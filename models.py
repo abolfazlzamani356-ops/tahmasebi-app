@@ -160,11 +160,13 @@ class Settings(db.Model):
     gemini_api_key = db.Column(db.String(255), nullable=True) # کلید API گوگل هوش مصنوعی (Google AI Studio)
     gemini_model = db.Column(db.String(50), default='gemini-3.8-flash') # مدل پیش‌فرض هوش مصنوعی (Gemini 3.8 Flash)
     gemini_base_url = db.Column(db.String(255), default='https://tahmasebi-app.onrender.com/api/ai/proxy') # آدرس پایه API یا ریورس پروکسی گذر از تحریم لیارا
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True, default=1)
 
 
 class BankAccount(db.Model):
     __tablename__ = 'bank_accounts'
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True, default=1)
     title = db.Column(db.String(100), nullable=False) # مثلا: کارت اصلی طهماسبی
     bank_name = db.Column(db.String(100), nullable=False) # مثلا: بانک ملی
     account_owner = db.Column(db.String(120), nullable=False) # بنام: حاج ابوالفضل طهماسبی
@@ -188,8 +190,9 @@ class BankAccount(db.Model):
 class Customer(db.Model):
     __tablename__ = 'customers'
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True, default=1)
     name = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(30), unique=True, nullable=True)
+    phone = db.Column(db.String(30), nullable=True) # بدون یونیک سراسری، یونیک به تفکیک تننت
     address = db.Column(db.String(255), nullable=True)
     customer_type = db.Column(db.String(30), default='regular') # regular, vip, builder, partner
     credit_limit = db.Column(db.BigInteger, default=50_000_000) # سقف اعتبار نسیه

@@ -214,11 +214,22 @@ def initialize_database():
             ("custom_workshop_orders", "quantity", "INTEGER DEFAULT 1"),
             ("users", "tenant_id", "INTEGER DEFAULT 1"),
             ("shops", "tenant_id", "INTEGER DEFAULT 1"),
+            ("settings", "tenant_id", "INTEGER DEFAULT 1"),
+            ("bank_accounts", "tenant_id", "INTEGER DEFAULT 1"),
+            ("customers", "tenant_id", "INTEGER DEFAULT 1"),
         ]
 
         for table, col, col_def in migrations:
             try:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # بروزرسانی رکوردهای موجود با tenant_id پیش‌فرض ۱
+        for tbl in ['shops', 'users', 'settings', 'bank_accounts', 'customers']:
+            try:
+                cursor.execute(f"UPDATE {tbl} SET tenant_id = 1 WHERE tenant_id IS NULL")
                 conn.commit()
             except Exception:
                 pass
@@ -669,9 +680,13 @@ def save_user_avatar(user, base64_data=None, file_obj=None):
         app.logger.error(f"Error in save_user_avatar: {e}", exc_info=True)
         return False, None, None, str(e)
 
-# ==================== احراز هویت و دسترسی ====================
+# ==================== احراز هویت، دسترسی و تفکیک تننت (Multi-Tenancy) ====================
 def is_admin():
     return session.get('role') == 'admin'
+
+def get_current_tenant_id():
+    """شناسه تننت کاربر فعلی با fallback مطمئن به تننت پیش‌فرض طهماسبی (۱)"""
+    return session.get('tenant_id') or 1
 
 def can_manage_stock():
     if 'user_id' not in session:
@@ -685,18 +700,26 @@ def can_manage_stock():
 def inject_permissions():
     current_u = None
     pending_workshop_orders_count = 0
+    current_tenant = None
+    t_id = get_current_tenant_id()
     if 'user_id' in session:
         try:
             current_u = db.session.get(User, session['user_id'])
+            # فیلتر سفارشات کارگاه اختصاصی همین فروشگاه
+            tenant_shops = [s.id for s in Shop.query.filter_by(tenant_id=t_id).all()] or [1, 2]
             pending_workshop_orders_count = CustomWorkshopOrder.query.filter(
+                CustomWorkshopOrder.shop_id.in_(tenant_shops),
                 CustomWorkshopOrder.status.in_(['pending', 'approved', 'in_production'])
             ).count()
+            current_tenant = db.session.get(Tenant, t_id)
         except Exception:
             current_u = None
     return {
         'is_admin': is_admin(),
         'can_manage_stock': can_manage_stock(),
         'current_user': current_u,
+        'current_tenant': current_tenant,
+        'tenant_id': t_id,
         'pending_workshop_orders_count': pending_workshop_orders_count
     }
 
@@ -1465,7 +1488,8 @@ def seller_dashboard():
     now_j = jdatetime.datetime.now()
     selected_month = request.args.get('month', default=now_j.month, type=int)
     user = User.query.get(session['user_id'])
-    settings = Settings.query.first()
+    tenant_id = getattr(user, 'tenant_id', None) or get_current_tenant_id()
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
     
     stats = calculate_seller_exact_stats(user.id, now_j.year, selected_month, user.commission_rate, settings)
     
@@ -1480,14 +1504,14 @@ def seller_dashboard():
     ).order_by(Invoice.created_at.desc()).all()
     
     active_shop_id = user.shop_id or session.get('shop_id') or 1
-    colleagues = User.query.filter(User.id != user.id, User.is_active == True).all()
-    all_shops = Shop.query.all()
+    colleagues = User.query.filter(User.tenant_id == tenant_id, User.id != user.id, User.is_active == True).all()
+    all_shops = Shop.query.filter_by(tenant_id=tenant_id).all()
     other_shops = [sh for sh in all_shops if sh.id != active_shop_id]
     inventory_items = InventoryItem.query.filter_by(shop_id=active_shop_id).all()
     all_categories = Category.query.all()
     
-    all_sellers = User.query.filter_by(role='seller', is_active=True).all()
-    bank_accounts = BankAccount.query.filter_by(is_active=True).all()
+    all_sellers = User.query.filter_by(tenant_id=tenant_id, role='seller', is_active=True).all()
+    bank_accounts = BankAccount.query.filter_by(tenant_id=tenant_id, is_active=True).all()
     leaderboard = []
     for s in all_sellers:
         s_stats = calculate_seller_exact_stats(s.id, now_j.year, selected_month, s.commission_rate, settings)
@@ -2551,12 +2575,18 @@ def admin_dashboard():
     search_query = request.args.get('search', '').strip()
     seller_filter = request.args.get('seller_filter', '').strip()
     
-    settings = Settings.query.first()
+    tenant_id = get_current_tenant_id()
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
+    
+    # شعب متعلق به این فروشگاه
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] if shops else [1]
     
     # ۱. محاسبه جامع فروش کل مجموعه، فروش شعب و سود ناخالص بر اساس کلیه فاکتورهای قطعی ماه (شامل فروشندگان و مدیریت)
     month_invoices = Invoice.query.options(
         selectinload(Invoice.cheques)
     ).filter(
+        Invoice.shop_id.in_(tenant_shop_ids),
         Invoice.shamsi_year == now_j.year,
         Invoice.shamsi_month == selected_month,
         Invoice.status == 'final'
@@ -2587,8 +2617,8 @@ def admin_dashboard():
             else:
                 shop1_total -= settled_amt
 
-    # ۲. محاسبه آمار عملکرد و پورسانت پرسنل فروشنده
-    sellers = User.query.filter(User.role.in_(['seller', 'cashier']), User.is_active == True).all()
+    # ۲. محاسبه آمار عملکرد و پورسانت پرسنل فروشنده متعلق به این فروشگاه
+    sellers = User.query.filter(User.tenant_id == tenant_id, User.role.in_(['seller', 'cashier']), User.is_active == True).all()
     sellers_data = []
     total_commissions = 0
     chart_sellers_labels = []
@@ -2601,11 +2631,11 @@ def admin_dashboard():
         chart_sellers_labels.append(s.full_name)
         chart_sellers_data.append(s_stats['net_sales'])
 
-    # ۳. پرسنل خدمات، تحویل بار و نظافت (فقط حقوق ثابت، بدون درصد پورسانت)
-    logistics_staff = User.query.filter(User.role.in_(['logistics', 'services', 'staff']), User.is_active == True).all()
+    # ۳. پرسنل خدمات، تحویل بار و نظافت
+    logistics_staff = User.query.filter(User.tenant_id == tenant_id, User.role.in_(['logistics', 'services', 'staff']), User.is_active == True).all()
 
     # ۴. بررسی و نمایش فروش مدیریت کل در جدول پرسنل و نمودار در صورت ثبت فاکتور توسط مدیریت
-    admin_users = User.query.filter_by(role='admin', is_active=True).all()
+    admin_users = User.query.filter_by(tenant_id=tenant_id, role='admin', is_active=True).all()
     for adm in admin_users:
         adm_stats = calculate_seller_exact_stats(adm.id, now_j.year, selected_month, 0, settings)
         if adm_stats['sales_count'] > 0 or adm_stats['gross_sales'] > 0:
@@ -2616,14 +2646,19 @@ def admin_dashboard():
             chart_sellers_labels.insert(0, f"{adm.full_name} (مدیریت)")
             chart_sellers_data.insert(0, adm_stats['net_sales'])
         
-    expenses = Expense.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month).all()
+    expenses = Expense.query.filter(Expense.shop_id.in_(tenant_shop_ids), Expense.shamsi_year == now_j.year, Expense.shamsi_month == selected_month).all()
     total_expenses = sum(e.amount for e in expenses)
     
-    petty_deposits = PettyCashDeposit.query.filter_by(shamsi_year=now_j.year, shamsi_month=selected_month).all()
+    petty_deposits = PettyCashDeposit.query.filter(PettyCashDeposit.shop_id.in_(tenant_shop_ids), PettyCashDeposit.shamsi_year == now_j.year, PettyCashDeposit.shamsi_month == selected_month).all()
     total_petty_deposits = sum(d.amount for d in petty_deposits)
     
     all_categories = Category.query.all()
-    all_month_items = InvoiceItem.query.join(Invoice).filter(Invoice.shamsi_year == now_j.year, Invoice.shamsi_month == selected_month, Invoice.status == 'final').all()
+    all_month_items = InvoiceItem.query.join(Invoice).filter(
+        Invoice.shop_id.in_(tenant_shop_ids),
+        Invoice.shamsi_year == now_j.year,
+        Invoice.shamsi_month == selected_month,
+        Invoice.status == 'final'
+    ).all()
     cat_counts = {cat.name: 0 for cat in all_categories}
     for item in all_month_items:
         if item.category in cat_counts:
@@ -2632,7 +2667,7 @@ def admin_dashboard():
     chart_category_labels = list(cat_counts.keys())
     chart_category_data = list(cat_counts.values())
 
-    cheques = Cheque.query.order_by(Cheque.id.desc()).all()
+    cheques = Cheque.query.filter(Cheque.shop_id.in_(tenant_shop_ids)).order_by(Cheque.id.desc()).all()
     pending_cheques = [c for c in cheques if c.status == 'pending']
     pending_cheques_total = sum(c.amount for c in pending_cheques)
     
@@ -2664,7 +2699,7 @@ def admin_dashboard():
         except Exception:
             pass
     
-    all_inventory = InventoryItem.query.all()
+    all_inventory = InventoryItem.query.filter(InventoryItem.shop_id.in_(tenant_shop_ids)).all()
     low_stock_count = len([i for i in all_inventory if i.stock_quantity <= i.min_alert_stock])
     total_catalog_products = ProductCatalog.query.count()
     
@@ -2674,7 +2709,7 @@ def admin_dashboard():
         selectinload(Invoice.cheques),
         joinedload(Invoice.seller),
         joinedload(Invoice.shop)
-    ).filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
+    ).filter(Invoice.shop_id.in_(tenant_shop_ids)).filter_by(shamsi_year=now_j.year, shamsi_month=selected_month)
     if seller_filter:
         query = query.filter_by(seller_id=int(seller_filter))
     if status_filter == 'pending':
@@ -2704,6 +2739,7 @@ def admin_dashboard():
         joinedload(Invoice.seller),
         joinedload(Invoice.shop)
     ).filter(
+        Invoice.shop_id.in_(tenant_shop_ids),
         db.or_(Invoice.is_settled == False, Invoice.remaining_balance > 0),
         Invoice.status == 'final',
         Invoice.invoice_type != 'return'
@@ -2763,7 +2799,7 @@ def admin_dashboard():
             } for it in inv.items]
         })
     
-    # استخراج اقلام پرفروش فروشگاه طهماسبی
+    # استخراج اقلام پرفروش
     top_selling_items = (
         db.session.query(
             InvoiceItem.item_name,
@@ -2772,28 +2808,26 @@ def admin_dashboard():
             func.sum(InvoiceItem.total_price).label('total_revenue')
         )
         .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
-        .filter(Invoice.status == 'final', Invoice.invoice_type != 'return')
+        .filter(Invoice.shop_id.in_(tenant_shop_ids), Invoice.status == 'final', Invoice.invoice_type != 'return')
         .group_by(InvoiceItem.item_name, InvoiceItem.category)
         .order_by(func.sum(InvoiceItem.quantity).desc())
         .limit(10)
         .all()
     )
     
-    shops = Shop.query.all()
-    all_categories = Category.query.all()
-    bank_accounts = BankAccount.query.filter_by(is_active=True).all()
+    bank_accounts = BankAccount.query.filter_by(tenant_id=tenant_id, is_active=True).all()
     logs = AuditLog.query.order_by(AuditLog.id.desc()).limit(60).all()
-    all_staff = User.query.filter_by(is_active=True).order_by(User.role, User.full_name).all()
+    all_staff = User.query.filter_by(tenant_id=tenant_id, is_active=True).order_by(User.role, User.full_name).all()
 
-    # محاسبه سود جامع و سود خالص واقعی ماه طهماسبی
+    # محاسبه سود جامع و سود خالص واقعی ماه
     # ۱. حقوق پایه ثابت پرسنل ماه (به غیر از حساب مدیرکل)
     total_base_salaries = sum(u.base_salary or 0 for u in all_staff if u.role != 'admin')
     # ۲. جمع کل هزینه حقوق و دستمزد پرسنل (حقوق پایه + پورسانت)
     total_payroll = total_base_salaries + total_commissions
-    # ۳. هزینه اجاره ماهانه شعب (شعبه ۱ و ۲)
+    # ۳. هزینه اجاره ماهانه شعب
     total_rent = sum(s.rent_amount or 0 for s in shops)
     
-    # ۴. سود خالص نهایی مدیریت طهماسبی = سود ناخالص - (حقوق و پورسانت + اجاره شعب + سایر هزینه‌ها)
+    # ۴. سود خالص نهایی = سود ناخالص - (حقوق و پورسانت + اجاره شعب + سایر هزینه‌ها)
     store_net_profit = estimated_gross_profit - (total_payroll + total_rent + total_expenses)
     profit_margin_percent = round((store_net_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
     gross_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
@@ -2869,7 +2903,9 @@ def add_bank_account():
     if sheba_number and not sheba_number.upper().startswith('IR'):
         sheba_number = 'IR' + sheba_number
 
+    tenant_id = get_current_tenant_id()
     acc = BankAccount(
+        tenant_id=tenant_id,
         title=title,
         bank_name=bank_name,
         account_owner=account_owner,
@@ -2921,10 +2957,12 @@ def inventory_view():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    all_inventory = InventoryItem.query.all()
-    shops = Shop.query.all()
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+    all_inventory = InventoryItem.query.filter(InventoryItem.shop_id.in_(tenant_shop_ids)).all()
     all_categories = Category.query.all()
-    transfers = StockTransfer.query.order_by(StockTransfer.id.desc()).limit(15).all()
+    transfers = StockTransfer.query.filter(StockTransfer.from_shop_id.in_(tenant_shop_ids)).order_by(StockTransfer.id.desc()).limit(15).all()
     search_q = request.args.get('search', '').strip()
     cat_query = ProductCatalog.query
     if search_q:
@@ -3207,7 +3245,13 @@ def api_inventory_catalog_stock():
         return jsonify([])
     
     is_admin_user = session.get('role') == 'admin'
-    all_inventory = InventoryItem.query.all()
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+    shop_1_id = tenant_shop_ids[0] if len(tenant_shop_ids) > 0 else 1
+    shop_2_id = tenant_shop_ids[1] if len(tenant_shop_ids) > 1 else (tenant_shop_ids[0] if len(tenant_shop_ids) > 0 else 2)
+
+    all_inventory = InventoryItem.query.filter(InventoryItem.shop_id.in_(tenant_shop_ids)).all()
     inventory_map = {}
     for inv in all_inventory:
         inventory_map[(inv.name, inv.shop_id)] = {
@@ -3220,8 +3264,8 @@ def api_inventory_catalog_stock():
     
     result = []
     for c in catalog_items:
-        s1 = inventory_map.get((c.name, 1), {'stock': 0, 'min_alert': 2, 'id': 0})
-        s2 = inventory_map.get((c.name, 2), {'stock': 0, 'min_alert': 2, 'id': 0})
+        s1 = inventory_map.get((c.name, shop_1_id), {'stock': 0, 'min_alert': 2, 'id': 0})
+        s2 = inventory_map.get((c.name, shop_2_id), {'stock': 0, 'min_alert': 2, 'id': 0})
         result.append({
             'id': c.id,
             'name': c.name,
@@ -3305,11 +3349,13 @@ def catalog_view():
 
     all_categories = Category.query.all()
     all_brands = [b[0] for b in db.session.query(ProductCatalog.brand).distinct().order_by(ProductCatalog.brand).all() if b[0]]
-    shops = Shop.query.all()
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
     
     # نگاشت سریع موجودی اقلام صفحه جاری برای هر شعبه جهت نمایش و تنظیم آنی
     item_names = [it.name for it in catalog_items]
-    inv_records = InventoryItem.query.filter(InventoryItem.name.in_(item_names)).all() if item_names else []
+    inv_records = InventoryItem.query.filter(InventoryItem.name.in_(item_names), InventoryItem.shop_id.in_(tenant_shop_ids)).all() if item_names else []
     inventory_map = {}
     for inv in inv_records:
         inventory_map[(inv.name, inv.shop_id)] = {
@@ -3654,15 +3700,21 @@ def api_customer_lookup():
         return jsonify({'error': 'Unauthorized'}), 401
     phone = to_english_digits(request.args.get('phone', '')).strip()
     name = request.args.get('name', '').strip()
-    customer = None
+    tenant_id = get_current_tenant_id()
     if phone:
         clean_phone = phone.replace(' ', '').replace('-', '')
-        customer = Customer.query.filter(Customer.phone.contains(clean_phone)).first()
+        customer = Customer.query.filter_by(tenant_id=tenant_id).filter(Customer.phone.contains(clean_phone)).first()
+        if not customer:
+            customer = Customer.query.filter(Customer.phone.contains(clean_phone)).first()
     if not customer and name and len(name) >= 3:
         clean_name = normalize_persian_text(name)
-        customer = Customer.query.filter(
+        customer = Customer.query.filter_by(tenant_id=tenant_id).filter(
             (Customer.name.contains(name)) | (Customer.name.contains(clean_name))
         ).first()
+        if not customer:
+            customer = Customer.query.filter(
+                (Customer.name.contains(name)) | (Customer.name.contains(clean_name))
+            ).first()
     
     if customer:
         risk_info = ai_customer_credit_risk(customer.id) if (not customer.ai_risk_summary) else {
@@ -3944,9 +3996,9 @@ def payroll_view():
         return redirect(url_for('login'))
     
     now_j = jdatetime.datetime.now()
-    selected_month = request.args.get('month', default=now_j.month, type=int)
-    settings = Settings.query.first()
-    sellers = User.query.filter(User.is_active == True, User.role != 'admin').order_by(User.role, User.full_name).all()
+    tenant_id = get_current_tenant_id()
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
+    sellers = User.query.filter(User.tenant_id == tenant_id, User.is_active == True, User.role != 'admin').order_by(User.role, User.full_name).all()
     
     payroll_items = []
     total_payroll_payable = 0
@@ -4040,7 +4092,8 @@ def customers_view():
     search_q = request.args.get('search', '').strip()
     filter_type = request.args.get('type', 'all').strip()
     
-    query = Customer.query
+    tenant_id = get_current_tenant_id()
+    query = Customer.query.filter_by(tenant_id=tenant_id)
     if search_q:
         clean_q = normalize_persian_text(search_q)
         query = query.filter(
@@ -4056,10 +4109,10 @@ def customers_view():
         
     customers = query.order_by(Customer.total_purchases.desc()).all()
     
-    total_customers = Customer.query.count()
-    total_debtors = Customer.query.filter(Customer.outstanding_balance > 0).count()
-    total_debt_amount = db.session.query(func.sum(Customer.outstanding_balance)).scalar() or 0
-    total_purchases_all = db.session.query(func.sum(Customer.total_purchases)).scalar() or 0
+    total_customers = Customer.query.filter_by(tenant_id=tenant_id).count()
+    total_debtors = Customer.query.filter(Customer.tenant_id == tenant_id, Customer.outstanding_balance > 0).count()
+    total_debt_amount = db.session.query(func.sum(Customer.outstanding_balance)).filter(Customer.tenant_id == tenant_id).scalar() or 0
+    total_purchases_all = db.session.query(func.sum(Customer.total_purchases)).filter(Customer.tenant_id == tenant_id).scalar() or 0
     
     return render_template(
         'customers.html',
@@ -4087,17 +4140,19 @@ def add_customer():
         flash('نام مشتری الزامی است.', 'error')
         return redirect(url_for('customers_view'))
         
+    tenant_id = get_current_tenant_id()
     existing = None
     if phone:
-        existing = Customer.query.filter_by(phone=phone).first()
+        existing = Customer.query.filter_by(tenant_id=tenant_id, phone=phone).first()
     if not existing:
-        existing = Customer.query.filter_by(name=name).first()
+        existing = Customer.query.filter_by(tenant_id=tenant_id, name=name).first()
         
     if existing:
         flash(f'مشتری با این نام یا شماره تماس قبلاً ثبت شده است (نام: {existing.name}).', 'warning')
         return redirect(url_for('customers_view'))
         
     cust = Customer(
+        tenant_id=tenant_id,
         name=name,
         phone=phone or None,
         address=address or None,
@@ -4175,7 +4230,9 @@ def api_customer_search():
     if not q or len(q) < 2:
         return jsonify([])
     clean_q = normalize_persian_text(q)
+    tenant_id = get_current_tenant_id()
     customers = Customer.query.filter(
+        Customer.tenant_id == tenant_id,
         db.or_(
             Customer.name.contains(clean_q),
             Customer.phone.contains(clean_q),
@@ -4461,10 +4518,11 @@ def delete_invoice(invoice_id):
 def store_settings_view():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
-    
-    settings = Settings.query.first()
+
+    tenant_id = get_current_tenant_id()
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first()
     if not settings:
-        settings = Settings()
+        settings = Settings(tenant_id=tenant_id)
         db.session.add(settings)
         db.session.commit()
         
@@ -4521,15 +4579,16 @@ def store_settings_view():
         flash('تنظیمات و مشخصات فروشگاه با موفقیت ذخیره و به‌روزرسانی شد.', 'success')
         return redirect(url_for('store_settings_view'))
         
-    shops = Shop.query.all()
-    bank_accounts = BankAccount.query.all()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+    bank_accounts = BankAccount.query.filter_by(tenant_id=tenant_id).all()
     
     db_stats = {
-        'total_invoices': Invoice.query.count(),
-        'total_customers': Customer.query.count(),
-        'total_inventory': InventoryItem.query.count(),
+        'total_invoices': Invoice.query.filter(Invoice.shop_id.in_(tenant_shop_ids)).count(),
+        'total_customers': Customer.query.filter_by(tenant_id=tenant_id).count(),
+        'total_inventory': InventoryItem.query.filter(InventoryItem.shop_id.in_(tenant_shop_ids)).count(),
         'total_catalog': ProductCatalog.query.count(),
-        'total_users': User.query.count(),
+        'total_users': User.query.filter_by(tenant_id=tenant_id).count(),
     }
     
     current_user = User.query.get(session['user_id'])
@@ -4567,7 +4626,8 @@ def add_shop():
     if not name:
         flash('نام شعبه الزامی است.', 'danger')
         return redirect(url_for('store_settings_view'))
-    new_shop = Shop(name=name, phone=phone, address=address, rent_amount=rent)
+    tenant_id = get_current_tenant_id()
+    new_shop = Shop(tenant_id=tenant_id, name=name, phone=phone, address=address, rent_amount=rent)
     db.session.add(new_shop)
     db.session.commit()
     log_activity(f"افزودن شعبه جدید «{name}»", session.get('full_name'), "تنظیمات")
@@ -4618,8 +4678,11 @@ def cheques_view():
     try:
         status_filter = request.args.get('status', 'all')
         search_q = request.args.get('q', '').strip()
+        tenant_id = get_current_tenant_id()
+        shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+        tenant_shop_ids = [s.id for s in shops] or [1, 2]
         
-        query = Cheque.query
+        query = Cheque.query.filter(Cheque.shop_id.in_(tenant_shop_ids))
         if status_filter != 'all':
             query = query.filter_by(status=status_filter)
             
@@ -4633,7 +4696,7 @@ def cheques_view():
             
         cheques = query.order_by(Cheque.due_shamsi_date.asc(), Cheque.id.desc()).all()
         
-        all_cheques = Cheque.query.all()
+        all_cheques = Cheque.query.filter(Cheque.shop_id.in_(tenant_shop_ids)).all()
         pending_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'pending')
         passed_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'passed')
         bounced_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'bounced')
@@ -4642,7 +4705,6 @@ def cheques_view():
         today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d")
         
         current_user = User.query.get(session['user_id'])
-        shops = Shop.query.all()
         return render_template('cheques.html',
                                cheques=cheques,
                                status_filter=status_filter,
@@ -4672,7 +4734,10 @@ def add_manual_cheque():
     cust_name = request.form.get('customer_name', '').strip()
     cust_phone = request.form.get('customer_phone', '').strip()
     notes = request.form.get('notes', '').strip()
-    shop_id = safe_int(request.form.get('shop_id', '1')) or 1
+    tenant_id = get_current_tenant_id()
+    tenant_shops = [s.id for s in Shop.query.filter_by(tenant_id=tenant_id).all()] or [1, 2]
+    req_shop = safe_int(request.form.get('shop_id', '0'))
+    shop_id = req_shop if req_shop in tenant_shops else tenant_shops[0]
     
     if not sayad or not amount or not due_date:
         flash('شناسه صیاد، مبلغ و تاریخ سررسید الزامی هستند.', 'danger')
@@ -4720,7 +4785,8 @@ def customer_statement(customer_id):
             (Invoice.customer_phone == customer.phone) | (Invoice.customer_name == customer.name)
         ).order_by(Invoice.id.desc()).all()
         
-    settings = Settings.query.first()
+    tenant_id = getattr(customer, 'tenant_id', None) or get_current_tenant_id()
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
     today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d %H:%M")
     
     total_sales = sum(inv.total_amount for inv in invoices if inv.invoice_type == 'sale' and inv.status == 'final')
@@ -4729,7 +4795,9 @@ def customer_statement(customer_id):
     total_paid = sum(inv.paid_amount for inv in invoices if inv.status == 'final')
     total_remaining = sum(inv.remaining_balance for inv in invoices if inv.status == 'final')
     
+    tenant_shops = [s.id for s in Shop.query.filter_by(tenant_id=tenant_id).all()] or [1, 2]
     customer_cheques = Cheque.query.filter(
+        Cheque.shop_id.in_(tenant_shops),
         (Cheque.customer_name == customer.name) | (Cheque.customer_phone == customer.phone)
     ).order_by(Cheque.due_shamsi_date.asc()).all()
     
@@ -4749,7 +4817,8 @@ def customer_statement(customer_id):
 def update_settings():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
-    settings = Settings.query.first()
+    tenant_id = get_current_tenant_id()
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
     settings.tier1_min = safe_int(request.form.get('tier1_min', '0'))
     settings.tier1_bonus = safe_float(request.form.get('tier1_bonus', 0.25))
     settings.tier2_min = safe_int(request.form.get('tier2_min', '0'))
@@ -4782,7 +4851,9 @@ def add_user():
     base_salary = int(base_sal_raw) if base_sal_raw else 0
     can_manage_inv = bool(request.form.get('can_manage_inventory'))
 
+    tenant_id = get_current_tenant_id()
     new_user = User(
+        tenant_id=tenant_id,
         username=username,
         full_name=request.form.get('full_name', '').strip(),
         role=role,

@@ -136,9 +136,10 @@ def test_ai_audit_store_anomalies_detection():
         db.session.add(item)
         db.session.commit()
 
-        anomalies = ai_audit_store_anomalies(limit=10)
-        assert len(anomalies) > 0
-        loss_found = any(a['invoice_number'] == "INV-LOSS-TEST-001" and a['type'] == 'loss_sale' for a in anomalies)
+        audit_res = ai_audit_store_anomalies(limit=10)
+        anomalies_list = audit_res.get('anomalies', []) if isinstance(audit_res, dict) else audit_res
+        assert len(anomalies_list) > 0
+        loss_found = any(a['invoice_number'] == "INV-LOSS-TEST-001" and a['type'] == 'loss_sale' for a in anomalies_list)
         assert loss_found is True
 
 def test_api_ai_copilot_endpoint(client):

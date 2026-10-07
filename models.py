@@ -5,9 +5,52 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
+class Tenant(db.Model):
+    """مدل چندفروشگاهی / مشترکین پلتفرم (SaaS Multi-Tenancy)"""
+    __tablename__ = 'tenants'
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(80), unique=True, nullable=False, index=True) # مثلا tahmasebi یا alborz-store
+    name = db.Column(db.String(150), nullable=False) # نام رسمی فروشگاه
+    owner_name = db.Column(db.String(120), nullable=False) # نام مدیر / مالک
+    owner_phone = db.Column(db.String(30), nullable=False, index=True) # شماره همراه مدیر
+    owner_email = db.Column(db.String(120), nullable=True)
+    
+    # پلن و وضعیت اشتراک
+    plan_tier = db.Column(db.String(30), default='trial') # trial, silver, gold, enterprise
+    status = db.Column(db.String(30), default='active') # active, expired, suspended, pending
+    is_master = db.Column(db.Boolean, default=False) # آیا فروشگاه اصلی پلتفرم (طهماسبی) است؟
+    
+    # محدودیت‌ها
+    max_shops = db.Column(db.Integer, default=2) # حداکثر شعب مجاز
+    max_users = db.Column(db.Integer, default=5) # حداکثر پرسنل مجاز
+    
+    # تاریخ‌ها
+    trial_ends_at = db.Column(db.DateTime, nullable=True) # پایان دوره آزمایشی رایگان
+    subscription_ends_at = db.Column(db.DateTime, nullable=True) # پایان دوره اشتراک
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # ارتباطات
+    shops = db.relationship('Shop', backref='tenant', lazy=True)
+    users = db.relationship('User', backref='tenant', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'slug': self.slug,
+            'name': self.name,
+            'owner_name': self.owner_name,
+            'owner_phone': self.owner_phone,
+            'plan_tier': self.plan_tier,
+            'status': self.status,
+            'is_master': self.is_master,
+            'max_shops': self.max_shops,
+            'max_users': self.max_users
+        }
+
 class Shop(db.Model):
     __tablename__ = 'shops'
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True, default=1)
     name = db.Column(db.String(150), nullable=False)
     phone = db.Column(db.String(50), nullable=True)
     address = db.Column(db.String(255), nullable=True)
@@ -68,6 +111,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(250), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(30), default='seller') # 'admin', 'seller', 'cashier', 'accountant'
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True, default=1)
     shop_id = db.Column(db.Integer, db.ForeignKey('shops.id'), nullable=True)
     commission_rate = db.Column(db.Float, default=1.0) # درصد پورسانت پایه
     base_salary = db.Column(db.BigInteger, default=0) # حقوق پایه ثابت ماهانه

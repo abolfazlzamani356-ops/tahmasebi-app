@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}پنل نظارت عالیه پلتفرم (Super Admin Cockpit){% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="glass-card p-6 border-r-4 border-r-amber-500">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg">
+                    👑
+                </div>
+                <div>
+                    <h2 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                        <span>مرکز نظارت عالیه و مشترکین پلتفرم</span>
+                        <span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-mono font-bold">SUPER ADMIN</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">مدیریت فروشگاه‌های مشترک، وضعیت اشتراک‌ها و کنترل دسترسی‌های کلان</p>
+                </div>
+            </div>
+            <a href="{{ url_for('admin_dashboard') }}" class="text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3.5 py-2 rounded-xl transition border border-white/10">
+                ← بازگشت به داشبورد فروشگاه طهماسبی
+            </a>
+        </div>
+
+        <!-- 3 Key Metric Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+            <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-slate-400 font-bold block">کل فروشگاه‌های عضو:</span>
+                    <span class="text-lg font-black text-white mt-1 block">{{ total_tenants }} فروشگاه</span>
+                </div>
+                <span class="text-2xl">🏬</span>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-slate-400 font-bold block">فروشگاه‌های فعال:</span>
+                    <span class="text-lg font-black text-emerald-400 mt-1 block">{{ active_tenants }} فعال</span>
+                </div>
+                <span class="text-2xl">✅</span>
+            </div>
+            <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-slate-400 font-bold block">در دوره آزمایشی (Trial):</span>
+                    <span class="text-lg font-black text-amber-300 mt-1 block">{{ trial_tenants }} مورد</span>
+                </div>
+                <span class="text-2xl">⏳</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tenants Table -->
+    <div class="glass-card p-6">
+        <h3 class="text-sm font-black text-white mb-4 flex items-center gap-2">
+            <span>📋 فهرست فروشگاه‌های ثبت‌نامی و وضعیت پلن‌ها</span>
+        </h3>
+
+        <div class="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60">
+            <table class="w-full text-right text-xs">
+                <thead class="bg-slate-900/80 text-slate-400 text-[11px] font-bold border-b border-white/10">
+                    <tr>
+                        <th class="p-3">کد</th>
+                        <th class="p-3">نام فروشگاه</th>
+                        <th class="p-3">مدیر مسئول</th>
+                        <th class="p-3">تلفن تماس</th>
+                        <th class="p-3 text-center">پلن فعلی</th>
+                        <th class="p-3 text-center">وضعیت</th>
+                        <th class="p-3 text-center">عملیات نظارتی</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for t in tenants %}
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-3 font-mono font-bold text-slate-400">#{{ t.id }}</td>
+                        <td class="p-3 font-bold text-white flex items-center gap-2">
+                            <span>{{ t.name }}</span>
+                            {% if t.is_master or t.id == 1 %}
+                            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] px-2 py-0.5 rounded-full font-bold">مالک پلتفرم</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3 text-slate-300">{{ t.owner_name }}</td>
+                        <td class="p-3 font-mono text-slate-300 dir-ltr text-right">{{ t.owner_phone }}</td>
+                        <td class="p-3 text-center">
+                            <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono
+                                  {% if t.plan_tier == 'enterprise' %}bg-purple-500/20 text-purple-300 border border-purple-500/40
+                                  {% elif t.plan_tier == 'gold' %}bg-amber-500/20 text-amber-300 border border-amber-500/40
+                                  {% else %}bg-blue-500/20 text-blue-300 border border-blue-500/40{% endif %}">
+                                {{ t.plan_tier|upper }}
+                            </span>
+                        </td>
+                        <td class="p-3 text-center">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold
+                                  {% if t.status == 'active' %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/40
+                                  {% else %}bg-rose-500/20 text-rose-300 border border-rose-500/40{% endif %}">
+                                {{ 'فعال' if t.status == 'active' else 'معلق' }}
+                            </span>
+                        </td>
+                        <td class="p-3 text-center">
+                            {% if not t.is_master and t.id != 1 %}
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button type="button" onclick="extendTenantPlan({{ t.id }}, 30)" class="bg-emerald-600/40 hover:bg-emerald-600 text-emerald-200 text-[10px] font-bold px-2 py-1 rounded-lg transition border border-emerald-500/40">
+                                    +۳۰ روز
+                                </button>
+                                <button type="button" onclick="toggleTenantStatus({{ t.id }})" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-1 rounded-lg transition border border-white/10">
+                                    {{ 'تعلیق' if t.status == 'active' else 'فعال‌سازی' }}
+                                </button>
+                            </div>
+                            {% else %}
+                            <span class="text-[10px] text-slate-500 font-bold">دسترسی دائمی</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function toggleTenantStatus(id) {
+    if (!confirm('آیا از تغییر وضعیت این فروشگاه اطمینان دارید؟')) return;
+    try {
+        const resp = await fetch(`/super-admin/tenant/${id}/toggle-status`, { method: 'POST' });
+        const data = await resp.json();
+        alert(data.message);
+        location.reload();
+    } catch (e) {
+        alert('خطای ارتباط با سرور');
+    }
+}
+
+async function extendTenantPlan(id, days) {
+    if (!confirm(`آیا اشتراک این فروشگاه به مدت ${days} روز تمدید شود؟`)) return;
+    const form = new FormData();
+    form.append('days', days);
+    try {
+        const resp = await fetch(`/super-admin/tenant/${id}/extend-plan`, { method: 'POST', body: form });
+        const data = await resp.json();
+        alert(data.message);
+        location.reload();
+    } catch (e) {
+        alert('خطای ارتباط با سرور');
+    }
+}
+</script>
+{% endblock %}

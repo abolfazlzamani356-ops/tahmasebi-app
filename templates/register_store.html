@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}ثبت‌نام فروشگاه جدید • نسخه ابری طهماسبی ERP{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[85vh] py-8">
+    <div class="w-full max-w-lg">
+        <!-- Card -->
+        <div class="glass-card p-7 sm:p-9 relative overflow-hidden shadow-2xl border border-white/10">
+            <!-- Accent Bar -->
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600"></div>
+
+            <!-- Header -->
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-indigo-600 text-3xl shadow-lg shadow-emerald-500/25 mb-3">
+                    🚀
+                </div>
+                <h2 class="text-xl sm:text-2xl font-black text-white">ثبت‌نام و افتتاح حساب فروشگاه</h2>
+                <p class="text-slate-300 text-xs mt-1.5 font-medium">راه‌اندازی فوری سامانه فروشگاهی، کاتالوگ آماده و تست ۱۴ روزه رایگان</p>
+                <div class="mt-3 inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full text-[11px] text-emerald-300 font-bold">
+                    <span>✨</span> ۱۴ روز اشتراک کامل رایگان بدون نیاز به کارت بانکی
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <form method="POST" action="{{ url_for('register_store') }}" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-200 mb-1.5">نام رسمی فروشگاه یا بازرگانی *</label>
+                    <input type="text" name="store_name" required placeholder="مثال: کلینیک ساختمانی البرز"
+                           class="w-full p-3 bg-slate-900 border border-white/10 rounded-xl text-xs font-bold text-white focus:border-emerald-500 outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-200 mb-1.5">نام و نام خانوادگی مدیر *</label>
+                        <input type="text" name="owner_name" required placeholder="مثال: علیرضا مرادی"
+                               class="w-full p-3 bg-slate-900 border border-white/10 rounded-xl text-xs font-bold text-white focus:border-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-200 mb-1.5">شماره همراه مدیر *</label>
+                        <input type="text" name="owner_phone" required placeholder="۰۹۱۲..." dir="ltr"
+                               class="w-full p-3 bg-slate-900 border border-white/10 rounded-xl text-xs font-mono font-bold text-white focus:border-emerald-500 outline-none text-left">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-white/5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-200 mb-1.5">نام کاربری اختصاصی مدیر *</label>
+                        <input type="text" name="username" required placeholder="alborz_admin" dir="ltr"
+                               class="w-full p-3 bg-slate-900 border border-white/10 rounded-xl text-xs font-mono font-bold text-indigo-300 focus:border-indigo-500 outline-none text-left">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-200 mb-1.5">رمز عبور ورود *</label>
+                        <input type="password" name="password" required placeholder="••••••••" dir="ltr"
+                               class="w-full p-3 bg-slate-900 border border-white/10 rounded-xl text-xs font-mono font-bold text-white focus:border-emerald-500 outline-none text-left">
+                    </div>
+                </div>
+
+                <!-- Feature Badges -->
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-white/5 space-y-1.5 text-[11px] text-slate-400">
+                    <div class="flex items-center gap-1.5 text-slate-300">
+                        <span class="text-emerald-400 font-black">✓</span> دسترسی به کاتالوگ آماده بیش از ۴۰۰۰ قلم شیرآلات و لوازم بهداشتی
+                    </div>
+                    <div class="flex items-center gap-1.5 text-slate-300">
+                        <span class="text-emerald-400 font-black">✓</span> ماژول فاکتور سریع، چاپ اختصاصی با لوگوی شما و محاسبه خودکار پورسانت
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3.5 mt-2 rounded-xl text-white font-black text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 transition shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2">
+                    <span>ثبت‌نام و ورود به پنل اختصاصی</span>
+                    <span class="text-base">🚀</span>
+                </button>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-white/5 text-center flex items-center justify-between text-xs">
+                <span class="text-slate-400">قبلاً ثبت‌نام کرده‌اید؟</span>
+                <a href="{{ url_for('login') }}" class="text-indigo-400 hover:text-indigo-300 font-bold underline">ورود به حساب کاربری ←</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

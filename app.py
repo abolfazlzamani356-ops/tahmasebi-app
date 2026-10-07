@@ -17,7 +17,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import selectinload, joinedload
 
 from models import (
-    db, Shop, Category, User, Settings, Customer, BankAccount,
+    db, Tenant, Shop, Category, User, Settings, Customer, BankAccount,
     InventoryItem, StockLog, StockTransfer,
     Invoice, InvoiceItem, Cheque, SalarySlip,
     PettyCashDeposit, Expense, AuditLog, ProductCatalog,
@@ -212,9 +212,9 @@ def initialize_database():
             ("customers", "ai_risk_summary", "TEXT"),
             ("invoices", "ai_audit_flags", "TEXT"),
             ("custom_workshop_orders", "quantity", "INTEGER DEFAULT 1"),
+            ("users", "tenant_id", "INTEGER DEFAULT 1"),
+            ("shops", "tenant_id", "INTEGER DEFAULT 1"),
         ]
-
-
 
         for table, col, col_def in migrations:
             try:
@@ -222,6 +222,18 @@ def initialize_database():
                 conn.commit()
             except Exception:
                 pass
+
+        # اطمینان از وجود تننت پیش‌فرض شماره ۱ (مجموعه طهماسبی - مستر پلتفرم)
+        try:
+            cursor.execute("SELECT id FROM tenants WHERE id = 1")
+            if not cursor.fetchone():
+                cursor.execute("""
+                    INSERT INTO tenants (id, slug, name, owner_name, owner_phone, plan_tier, status, is_master, max_shops, max_users)
+                    VALUES (1, 'tahmasebi', 'مجموعه فروشگاه‌های تخصصی طهماسبی', 'محمد طهماسبی', '09121234567', 'enterprise', 'active', 1, 99, 999)
+                """)
+                conn.commit()
+        except Exception:
+            pass
 
         # پاکسازی رکوردهای تلفن خالی مشتریان برای جلوگیری از خطای UNIQUE در SQLite
         try:
@@ -1269,8 +1281,12 @@ def login():
             session['full_name'] = user.full_name
             session['role'] = user.role
             session['shop_id'] = user.shop_id or 1
+            session['tenant_id'] = getattr(user, 'tenant_id', 1) or 1
+            tenant = Tenant.query.get(session['tenant_id']) if session['tenant_id'] else None
+            session['tenant_name'] = tenant.name if tenant else 'مجموعه فروشگاه‌های تخصصی طهماسبی'
+            session['is_super_admin'] = bool(user.role == 'admin' and (tenant is None or tenant.is_master or tenant.id == 1))
             session['can_manage_inventory'] = bool(user.role == 'admin' or getattr(user, 'can_manage_inventory', False))
-            log_activity("ورود به سامانه" + (" (مدیریت)" if is_admin_master else ""), user.full_name, "امنیت")
+            log_activity("ورود به سامانه" + (" (مدیریت کل)" if session.get('is_super_admin') else ""), user.full_name, "امنیت")
             return redirect(url_for('index'))
         else:
             flash('نام کاربری یا رمز عبور اشتباه است.', 'error')
@@ -1282,6 +1298,162 @@ def logout():
     log_activity("خروج از سامانه", name, "امنیت")
     session.clear()
     return redirect(url_for('login'))
+
+# ==================== ثبت‌نام فروشگاه جدید (Multi-Tenant Onboarding) ====================
+@app.route('/register-store', methods=['GET', 'POST'])
+def register_store():
+    """ثبت‌نام مستقل فروشگاه‌های جدید با تست رایگان ۱۴ روزه و راه‌اندازی فوری"""
+    if request.method == 'POST':
+        store_name = request.form.get('store_name', '').strip()
+        owner_name = request.form.get('owner_name', '').strip()
+        owner_phone = to_english_digits(request.form.get('owner_phone', '')).strip()
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+
+        if not store_name or not owner_name or not owner_phone or not username or not password:
+            flash('لطفاً کلیه فیلدهای الزامی را تکمیل نمایید.', 'danger')
+            return render_template('register_store.html')
+
+        if len(password) < 5:
+            flash('رمز عبور باید حداقل ۵ کاراکتر باشد.', 'danger')
+            return render_template('register_store.html')
+
+        # بررسی تکراری نبودن نام کاربری
+        if User.query.filter(func.lower(User.username) == username).first():
+            flash('این نام کاربری قبلاً رزرو شده است. لطفاً نام دیگری انتخاب فرمایید.', 'danger')
+            return render_template('register_store.html')
+
+        try:
+            # ایجاد اسلاگ یکتا
+            base_slug = re.sub(r'[^a-zA-Z0-9]', '', username) or f"store{random.randint(1000, 9999)}"
+            slug = base_slug
+            counter = 1
+            while Tenant.query.filter_by(slug=slug).first():
+                slug = f"{base_slug}{counter}"
+                counter += 1
+
+            # ثبت مستاجر جدید با دوره آزمایشی ۱۴ روزه رایگان
+            trial_until = datetime.utcnow() + timedelta(days=14)
+            tenant = Tenant(
+                slug=slug,
+                name=store_name,
+                owner_name=owner_name,
+                owner_phone=owner_phone,
+                plan_tier='trial',
+                status='active',
+                is_master=False,
+                max_shops=2,
+                max_users=5,
+                trial_ends_at=trial_until,
+                subscription_ends_at=trial_until
+            )
+            db.session.add(tenant)
+            db.session.flush()
+
+            # ایجاد شعبه پیش‌فرض اول
+            first_shop = Shop(
+                tenant_id=tenant.id,
+                name=f"شعبه مرکزی {store_name}",
+                phone=owner_phone,
+                rent_amount=0
+            )
+            db.session.add(first_shop)
+            db.session.flush()
+
+            # ایجاد مدیر فروشگاه جدید
+            admin_user = User(
+                username=username,
+                full_name=owner_name,
+                role='admin',
+                tenant_id=tenant.id,
+                shop_id=first_shop.id,
+                is_active=True,
+                can_manage_inventory=True
+            )
+            admin_user.set_password(password)
+            db.session.add(admin_user)
+            db.session.commit()
+
+            log_activity(f"ثبت‌نام فروشگاه جدید: {store_name} ({owner_name})", owner_name, "امنیت")
+            flash('فروشگاه شما با موفقیت ثبت شد! دسترسی آزمایشی ۱۴ روزه رایگان فعال گردید. اکنون می‌توانید وارد شوید.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error in register_store: {e}", exc_info=True)
+            flash(f'خطا در ثبت فروشگاه: {str(e)}', 'danger')
+            return render_template('register_store.html')
+
+    return render_template('register_store.html')
+
+
+# ==================== پنل نظارت عالیه پلتفرم (Super Admin Cockpit) ====================
+@app.route('/super-admin')
+def super_admin_dashboard():
+    """پنل مدیریت کل جهت نظارت بر تمام فروشگاه‌های مشترک و مدیریت پلن‌ها"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    # فقط مدیران مستر پلتفرم به این پنل دسترسی دارند
+    user = User.query.get(session['user_id'])
+    is_master_admin = bool(user and (user.tenant_id == 1 or getattr(user.tenant, 'is_master', False) or user.username == 'admin'))
+    if not is_master_admin:
+        flash('دسترسی به این بخش ویژه مدیریت کل پلتفرم است.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    tenants = Tenant.query.order_by(Tenant.id.desc()).all()
+    total_tenants = len(tenants)
+    active_tenants = len([t for t in tenants if t.status == 'active'])
+    trial_tenants = len([t for t in tenants if t.plan_tier == 'trial'])
+
+    return render_template('super_admin.html',
+                           tenants=tenants,
+                           total_tenants=total_tenants,
+                           active_tenants=active_tenants,
+                           trial_tenants=trial_tenants)
+
+
+@app.route('/super-admin/tenant/<int:tenant_id>/toggle-status', methods=['POST'])
+def super_admin_toggle_tenant(tenant_id):
+    """فعال/غیرفعال کردن اشتراک یک فروشگاه توسط سوپرادمین"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
+    user = User.query.get(session['user_id'])
+    if not (user and (user.tenant_id == 1 or getattr(user.tenant, 'is_master', False) or user.username == 'admin')):
+        return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    if tenant.id == 1 or tenant.is_master:
+        return jsonify({'success': False, 'message': 'فروشگاه اصلی طهماسبی قابل تعلیق نیست.'})
+
+    new_status = 'suspended' if tenant.status == 'active' else 'active'
+    tenant.status = new_status
+    db.session.commit()
+    log_activity(f"تغییر وضعیت فروشگاه {tenant.name} به {new_status}", session.get('full_name'), "مدیریت پلتفرم")
+    return jsonify({'success': True, 'new_status': new_status, 'message': f'وضعیت به {new_status} تغییر یافت.'})
+
+
+@app.route('/super-admin/tenant/<int:tenant_id>/extend-plan', methods=['POST'])
+def super_admin_extend_plan(tenant_id):
+    """تمدید ۳۰ روزه یا ۱ ساله اشتراک فروشگاه توسط سوپرادمین"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
+    user = User.query.get(session['user_id'])
+    if not (user and (user.tenant_id == 1 or getattr(user.tenant, 'is_master', False) or user.username == 'admin')):
+        return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
+
+    days = safe_int(request.form.get('days', 30), 30)
+    tenant = Tenant.query.get_or_404(tenant_id)
+    
+    current_end = tenant.subscription_ends_at or datetime.utcnow()
+    if current_end < datetime.utcnow():
+        current_end = datetime.utcnow()
+    
+    tenant.subscription_ends_at = current_end + timedelta(days=days)
+    tenant.status = 'active'
+    tenant.plan_tier = 'gold' if days >= 360 else 'silver'
+    db.session.commit()
+    log_activity(f"تمدید {days} روزه اشتراک فروشگاه {tenant.name}", session.get('full_name'), "مدیریت پلتفرم")
+    return jsonify({'success': True, 'message': f'اشتراک با موفقیت {days} روز تمدید شد.'})
 
 # ==================== پنل فروشنده ====================
 @app.route('/seller')

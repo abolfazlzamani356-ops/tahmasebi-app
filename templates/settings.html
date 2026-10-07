@@ -344,22 +344,74 @@
                         <div class="bg-slate-900/90 p-3.5 rounded-xl border border-white/5 flex items-center gap-3">
                             <span class="text-2xl">⏰</span>
                             <div>
-                                <span class="text-[11px] text-slate-400 block font-bold">بکاپ‌گیری ساعتی خودکار:</span>
-                                <span class="text-xs font-black text-emerald-400">فعال (هر ۶۰ دقیقه یکبار)</span>
+                                <span class="text-[11px] text-slate-400 block font-bold">بکاپ‌گیری خودکار دیتابیس:</span>
+                                <span class="text-xs font-black text-emerald-400">فعال (هر {{ settings.backup_interval_minutes or 30 }} دقیقه)</span>
                             </div>
                         </div>
                         <div class="bg-slate-900/90 p-3.5 rounded-xl border border-white/5 flex items-center gap-3">
-                            <span class="text-2xl">🔒</span>
+                            <span class="text-2xl">📁</span>
                             <div>
-                                <span class="text-[11px] text-slate-400 block font-bold">حالت دیتابیس:</span>
-                                <span class="text-xs font-black text-cyan-300 font-mono">WAL Mode (ضد قفل و اتمیک)</span>
+                                <span class="text-[11px] text-slate-400 block font-bold">ذخیره‌سازی روی درایو:</span>
+                                <span class="text-xs font-black text-cyan-300 font-mono">{{ settings.backup_drive_path or 'درایو پیش‌فرض سامانه' }}</span>
                             </div>
                         </div>
                         <div class="bg-slate-900/90 p-3.5 rounded-xl border border-white/5 flex items-center gap-3">
-                            <span class="text-2xl">📦</span>
+                            <span class="text-2xl">📧</span>
                             <div>
-                                <span class="text-[11px] text-slate-400 block font-bold">سیاست چرخش و حفظ:</span>
-                                <span class="text-xs font-black text-amber-300">نگهداری ۶۰ نسخه پشتیبان اخیر</span>
+                                <span class="text-[11px] text-slate-400 block font-bold">ارسال به جیمیل در پایان روز:</span>
+                                <span class="text-xs font-black {% if settings.email_backup_enabled %}text-emerald-400{% else %}text-amber-400{% endif %}">
+                                    {% if settings.email_backup_enabled %}فعال (ساعت ۲۳:۰۰){% else %}غیرفعال (تنظیم فرم زیر){% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- فرم تنظیمات ذخیره روی درایو و ارسال به ایمیل -->
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-white/10 space-y-3">
+                        <h5 class="text-xs font-black text-amber-300 flex items-center gap-1.5 pb-2 border-b border-white/10">
+                            <span>⚙️</span> تنظیمات ذخیره‌سازی روی درایو و ارسال خودکار به جیمیل
+                        </h5>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-300 mb-1">دوره زمانی بکاپ‌گیری خودکار (دقیقه)</label>
+                                <input type="number" name="backup_interval_minutes" value="{{ settings.backup_interval_minutes or 30 }}" min="5" max="1440" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2 text-xs font-mono text-emerald-400 outline-none focus:border-indigo-500" dir="ltr">
+                                <span class="text-[10px] text-slate-400 block mt-0.5">تنظیم پیش‌فرض: هر ۳۰ دقیقه بکاپ جدید گرفته می‌شود.</span>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-300 mb-1">مسیر دلخواه درایو برای ذخیره‌سازی دائمی (اختیاری)</label>
+                                <input type="text" name="backup_drive_path" value="{{ settings.backup_drive_path or '' }}" placeholder="مثال: D:\Tahmasebi_Backups یا G:\My Drive" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2 text-xs font-mono text-cyan-300 outline-none focus:border-indigo-500" dir="ltr">
+                                <span class="text-[10px] text-slate-400 block mt-0.5">در صورت وارد کردن مسیر، بکاپ‌ها بلافاصله در این پوشه یا هارد/فلش/گوگل درایو هم کپی می‌شوند.</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-white/10">
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="checkbox" id="email_backup_enabled" name="email_backup_enabled" {% if settings.email_backup_enabled %}checked{% endif %} class="w-4 h-4 rounded text-indigo-600 focus:ring-0">
+                                <label for="email_backup_enabled" class="text-xs font-bold text-white cursor-pointer">
+                                    📩 ارسال خودکار نسخه پشتیبان کامل به جیمیل در پایان هر روز کاری (ساعت ۲۳:۰۰)
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-300 mb-1">آدرس جیمیل مقصد (دریافت‌کننده) *</label>
+                                    <input type="email" id="email_recipient_input" name="email_recipient" value="{{ settings.email_recipient or '' }}" placeholder="example@gmail.com" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2 text-xs font-mono text-amber-300 outline-none focus:border-indigo-500" dir="ltr">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-300 mb-1">ایمیل فرستنده (Sender Gmail)</label>
+                                    <input type="email" name="smtp_user" value="{{ settings.smtp_user or '' }}" placeholder="همان جیمیل شما" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2 text-xs font-mono text-slate-300 outline-none focus:border-indigo-500" dir="ltr">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-300 mb-1">کلمه عبور اختصاصی جیمیل (App Password) 🔑</label>
+                                    <input type="password" name="smtp_password" value="{{ settings.smtp_password or '' }}" placeholder="۱۶ حرف اختصاصی جیمیل" class="w-full bg-slate-950 border border-white/10 rounded-xl p-2 text-xs font-mono text-purple-300 outline-none focus:border-indigo-500" dir="ltr">
+                                    <span class="text-[10px] text-slate-400 block mt-0.5">تولید شده از Google Account -> Security -> 2-Step -> App Passwords</span>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 flex items-center justify-between flex-wrap gap-2">
+                                <button type="button" onclick="testBackupEmail()" id="btnTestEmail" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow">
+                                    <span>📨</span> ارسال ایمیل تست بکاپ همین الان
+                                </button>
+                                <span id="emailTestStatus" class="text-xs font-bold hidden"></span>
                             </div>
                         </div>
                     </div>
@@ -650,6 +702,47 @@
                 feedback.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl';
                 feedback.innerHTML = `❌ خطای شبکه: ${err.message}`;
             }
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function testBackupEmail() {
+        const btn = document.getElementById('btnTestEmail');
+        const status = document.getElementById('emailTestStatus');
+        const emailInput = document.getElementById('email_recipient_input');
+        const targetEmail = emailInput ? emailInput.value.trim() : '';
+
+        if (!targetEmail) {
+            alert('لطفاً ابتدا آدرس جیمیل مقصد را وارد نمایید.');
+            return;
+        }
+
+        if (btn) btn.disabled = true;
+        if (status) {
+            status.classList.remove('hidden');
+            status.className = 'text-xs font-bold text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20';
+            status.innerHTML = '<span class="inline-block animate-spin">⏳</span> در حال اتصال به جیمیل و ارسال نسخه پشتیبان...';
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('email', targetEmail);
+            const resp = await fetch('/api/admin/backups/test_email', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            if (data.success) {
+                status.className = 'text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20';
+                status.innerHTML = '✅ ' + data.message;
+            } else {
+                status.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20';
+                status.innerHTML = '❌ ' + (data.message || 'خطا در ارسال ایمیل');
+            }
+        } catch (err) {
+            status.className = 'text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20';
+            status.innerHTML = '❌ خطای شبکه: ' + err.message;
         } finally {
             if (btn) btn.disabled = false;
         }

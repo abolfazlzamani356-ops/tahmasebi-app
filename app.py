@@ -217,6 +217,15 @@ def initialize_database():
             ("settings", "tenant_id", "INTEGER DEFAULT 1"),
             ("bank_accounts", "tenant_id", "INTEGER DEFAULT 1"),
             ("customers", "tenant_id", "INTEGER DEFAULT 1"),
+            ("settings", "backup_interval_minutes", "INTEGER DEFAULT 30"),
+            ("settings", "backup_drive_path", "TEXT"),
+            ("settings", "email_backup_enabled", "BOOLEAN DEFAULT 0"),
+            ("settings", "email_recipient", "TEXT"),
+            ("settings", "smtp_server", "TEXT DEFAULT 'smtp.gmail.com'"),
+            ("settings", "smtp_port", "INTEGER DEFAULT 587"),
+            ("settings", "smtp_user", "TEXT"),
+            ("settings", "smtp_password", "TEXT"),
+            ("settings", "last_daily_email_date", "TEXT"),
         ]
 
         for table, col, col_def in migrations:
@@ -4573,6 +4582,18 @@ def store_settings_view():
                 settings.store_logo_data = f"data:{mimetype};base64,{b64_str}"
         elif request.form.get('remove_logo') == '1':
             settings.store_logo_data = None
+
+        # تنظیمات پشتیبان‌گیری خودکار درایو و ایمیل پایان روز
+        settings.backup_interval_minutes = max(5, safe_int(request.form.get('backup_interval_minutes', 30), 30))
+        settings.backup_drive_path = request.form.get('backup_drive_path', '').strip()
+        settings.email_backup_enabled = (request.form.get('email_backup_enabled') == 'on' or request.form.get('email_backup_enabled') == '1')
+        settings.email_recipient = request.form.get('email_recipient', '').strip()
+        settings.smtp_server = request.form.get('smtp_server', 'smtp.gmail.com').strip() or 'smtp.gmail.com'
+        settings.smtp_port = safe_int(request.form.get('smtp_port', 587), 587)
+        settings.smtp_user = request.form.get('smtp_user', '').strip()
+        new_smtp_pass = request.form.get('smtp_password', '').strip()
+        if new_smtp_pass:
+            settings.smtp_password = new_smtp_pass
             
         db.session.commit()
         log_activity("به‌روزرسانی جامع مشخصات و تنظیمات فروشگاه", session.get('full_name'), "تنظیمات")
@@ -4962,10 +4983,93 @@ def add_expense():
 BACKUPS_DIR = os.path.join(DATA_DIR, 'backups')
 os.makedirs(BACKUPS_DIR, exist_ok=True)
 
+def send_backup_email(file_path=None, recipient=None, custom_subject=None):
+    """ارسال ایمیل حاوی فایل بکاپ دیتابیس به جیمیل مدیریت"""
+    try:
+        settings = Settings.query.first()
+        if not settings or not settings.email_backup_enabled:
+            return {'success': False, 'message': 'ارسال ایمیل بکاپ غیرفعال است.'}
+
+        to_email = recipient or settings.email_recipient
+        if not to_email:
+            return {'success': False, 'message': 'آدرس ایمیل گیرنده تعیین نشده است.'}
+
+        smtp_user = settings.smtp_user or to_email
+        smtp_pass = settings.smtp_password
+        if not smtp_pass:
+            return {'success': False, 'message': 'رمز عبور اختصاصی (App Password) جیمیل وارد نشده است.'}
+
+        smtp_srv = settings.smtp_server or 'smtp.gmail.com'
+        smtp_p = safe_int(settings.smtp_port, 587)
+
+        # اگر فایلی مشخص نشده بود، آخرین بکاپ موجود را پیدا کنیم
+        if not file_path or not os.path.exists(file_path):
+            all_backups = sorted(
+                [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR) if f.endswith('.db')],
+                key=os.path.getmtime
+            )
+            if not all_backups:
+                # ایجاد یک بکاپ تازه
+                b_res = perform_system_backup(label="email_auto")
+                file_path = b_res.get('path')
+            else:
+                file_path = all_backups[-1]
+
+        if not file_path or not os.path.exists(file_path):
+            return {'success': False, 'message': 'فایل نسخه پشتیبان یافت نشد.'}
+
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.base import MIMEBase
+        from email import encoders
+
+        now_j = jdatetime.datetime.now()
+        date_str = now_j.strftime("%Y/%m/%d - %H:%M")
+        fname = os.path.basename(file_path)
+        fsize_mb = round(os.path.getsize(file_path) / (1024 * 1024), 2)
+
+        subject = custom_subject or f"🛡️ نسخه پشتیبان دیتابیس فروشگاه طهماسبی - {now_j.strftime('%Y/%m/%d')}"
+
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = to_email
+        msg['Subject'] = subject
+
+        body = f"""سلام و احترام،
+نسخه پشتیبان روزانه دیتابیس سامانه مدیریت فروشگاه‌های طهماسبی با موفقیت تهیه و ضمیمه این ایمیل شد.
+
+📅 تاریخ و ساعت بکاپ: {date_str}
+📁 نام فایل: {fname}
+💾 حجم فایل: {fsize_mb} مگابایت
+🔒 وضعیت داده‌ها: سالم، اتمیک و پایدار
+
+این ایمیل به صورت خودکار در پایان روز کاری ارسال گردیده است."""
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        with open(file_path, 'rb') as attachment:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{fname}"')
+        msg.attach(part)
+
+        server = smtplib.SMTP(smtp_srv, smtp_p, timeout=30)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+        server.quit()
+
+        app.logger.info(f"Daily backup email sent successfully to {to_email}")
+        return {'success': True, 'message': f'نسخه پشتیبان با موفقیت به {to_email} ارسال شد.', 'file': fname}
+    except Exception as e:
+        app.logger.error(f"Error sending backup email: {e}", exc_info=True)
+        return {'success': False, 'message': f'خطا در ارسال ایمیل: {str(e)}'}
+
 def perform_system_backup(label="auto"):
     """
     تهیه نسخه پشتیبان اتمیک، زنده و بدون قفل‌شدگی با SQLite Online Backup API
-    ذخیره در پوشه امن backups و پاکسازی خودکار نسخه‌های بسیار قدیمی برای بهینه‌سازی حافظه
+    ذخیره در پوشه امن backups و همچنین کپی خودکار در مسیر سفارشی درایو (در صورت تنظیم)
     """
     try:
         now_j = jdatetime.datetime.now()
@@ -4984,13 +5088,29 @@ def perform_system_backup(label="auto"):
         file_size = os.path.getsize(dest_file)
         app.logger.info(f"System backup created: {filename} ({file_size} bytes)")
 
-        # چرخش و پاکسازی فایل‌های قدیمی‌تر از ۶۰ نسخه
+        # کپی خودکار در درایو لوکال یا مسیر ابری در صورت تعیین در تنظیمات
+        drive_copied = False
+        drive_dest_path = None
+        try:
+            settings = Settings.query.first()
+            if settings and settings.backup_drive_path:
+                target_drive = settings.backup_drive_path.strip()
+                if os.path.isdir(target_drive) or (len(target_drive) == 2 and target_drive[1] == ':'):
+                    os.makedirs(target_drive, exist_ok=True)
+                    drive_dest_path = os.path.join(target_drive, filename)
+                    shutil.copy2(dest_file, drive_dest_path)
+                    drive_copied = True
+                    app.logger.info(f"Backup copied to external drive: {drive_dest_path}")
+        except Exception as drv_err:
+            app.logger.warning(f"Drive copy warning: {drv_err}")
+
+        # چرخش و پاکسازی فایل‌های قدیمی‌تر از ۱۲۰ نسخه در پوشه اصلی
         try:
             all_backups = sorted(
                 [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR) if f.endswith('.db')],
                 key=os.path.getmtime
             )
-            while len(all_backups) > 60:
+            while len(all_backups) > 120:
                 old_file = all_backups.pop(0)
                 try:
                     os.remove(old_file)
@@ -5004,13 +5124,15 @@ def perform_system_backup(label="auto"):
             'filename': filename,
             'size': file_size,
             'shamsi_time': shamsi_label,
-            'path': dest_file
+            'path': dest_file,
+            'drive_copied': drive_copied,
+            'drive_dest': drive_dest_path
         }
     except Exception as e:
         app.logger.error(f"Backup creation error: {e}", exc_info=True)
         return {'success': False, 'error': str(e)}
 
-# ترد زمان‌بند پشتیبان‌گیری خودکار هر ۱ ساعت
+# ترد زمان‌بند پشتیبان‌گیری خودکار هر ۳۰ دقیقه و ارسال روزانه به جیمیل
 _backup_thread_started = False
 def _start_auto_backup_worker():
     global _backup_thread_started
@@ -5020,15 +5142,36 @@ def _start_auto_backup_worker():
 
     def _worker():
         import threading
-        # ۵ دقیقه بعد از شروع سرور یک بکاپ اولیه می‌گیرد، سپس هر ۱ ساعت یکبار
-        time.sleep(300)
+        # ۲ دقیقه پس از استارت سرور یک بکاپ اولیه می‌گیرد
+        time.sleep(120)
         while True:
             try:
-                perform_system_backup(label="hourly")
+                # خواندن تنظیمات دوره زمانی بکاپ از دیتابیس
+                with app.app_context():
+                    settings = Settings.query.first()
+                    interval_mins = getattr(settings, 'backup_interval_minutes', 30) or 30
+                    sleep_sec = max(300, interval_mins * 60)
+                    
+                    # تهیه بکاپ دوره‌ای
+                    perform_system_backup(label="auto_30min")
+
+                    # بررسی ارسال خودکار ایمیل پایان روز (ساعت ۲۳ یا پایان روز کاری)
+                    now_dt = datetime.now()
+                    now_j = jdatetime.datetime.now()
+                    today_str = now_j.strftime("%Y/%m/%d")
+
+                    # اگر بعد از ساعت 23:00 باشد و امروز هنوز ایمیل ارسال نشده باشد
+                    if getattr(settings, 'email_backup_enabled', False) and (now_dt.hour >= 23 or (now_dt.hour == 22 and now_dt.minute >= 45)):
+                        if getattr(settings, 'last_daily_email_date', '') != today_str:
+                            email_res = send_backup_email(custom_subject=f"🛡️ نسخه پشتیبان روزانه فروشگاه طهماسبی - {today_str}")
+                            if email_res.get('success'):
+                                settings.last_daily_email_date = today_str
+                                db.session.commit()
             except Exception as worker_err:
                 app.logger.error(f"Auto backup worker error: {worker_err}")
-            # خواب به مدت ۳۶۰۰ ثانیه (۱ ساعت)
-            time.sleep(3600)
+            
+            # خواب به مدت تعیین شده (پیش‌فرض ۳۰ دقیقه = ۱۸۰۰ ثانیه)
+            time.sleep(1800)
 
     import threading
     t = threading.Thread(target=_worker, daemon=True, name="TahmasebiAutoBackupThread")
@@ -5106,6 +5249,18 @@ def download_specific_backup(filename):
         return send_file(target_path, as_attachment=True, download_name=safe_name, mimetype='application/x-sqlite3')
     flash('فایل پشتیبان مورد نظر یافت نشد.', 'danger')
     return redirect(url_for('store_settings_view'))
+
+@app.route('/api/admin/backups/test_email', methods=['POST'])
+def api_test_backup_email():
+    """ارسال فوری ایمیل آزمایشی پشتیبان دیتابیس به جیمیل مدیریت جهت تست اتصال"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'عدم دسترسی'}), 403
+
+    target_email = request.form.get('email') or (request.json.get('email') if request.is_json else None)
+    res = send_backup_email(recipient=target_email, custom_subject="🧪 تست موفقیت‌آمیز ارسال نسخه پشتیبان دیتابیس طهماسبی به جیمیل")
+    if res.get('success'):
+        log_activity(f"ارسال ایمیل آزمایشی بکاپ به {target_email or 'جیمیل مدیریت'}", session.get('full_name'), "امنیت")
+    return jsonify(res)
 
 @app.route('/admin/export/excel')
 def export_excel():

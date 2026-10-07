@@ -161,6 +161,17 @@ class Settings(db.Model):
     gemini_model = db.Column(db.String(50), default='gemini-3.8-flash') # مدل پیش‌فرض هوش مصنوعی (Gemini 3.8 Flash)
     gemini_base_url = db.Column(db.String(255), default='https://tahmasebi-app.onrender.com/api/ai/proxy') # آدرس پایه API یا ریورس پروکسی گذر از تحریم لیارا
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True, default=1)
+    
+    # تنظیمات بکاپ خودکار درایو و ارسال ایمیل پایان روز
+    backup_interval_minutes = db.Column(db.Integer, default=30) # هر ۳۰ دقیقه بکاپ در درایو
+    backup_drive_path = db.Column(db.String(255), nullable=True) # مسیر ذخیره در درایو (مثلا D:\Backups یا G:\My Drive)
+    email_backup_enabled = db.Column(db.Boolean, default=False) # ارسال به ایمیل
+    email_recipient = db.Column(db.String(150), nullable=True) # جیمیل مقصد
+    smtp_server = db.Column(db.String(100), default='smtp.gmail.com') # سرور ایمیل
+    smtp_port = db.Column(db.Integer, default=587) # پورت smtp
+    smtp_user = db.Column(db.String(150), nullable=True) # ایمیل فرستنده
+    smtp_password = db.Column(db.String(150), nullable=True) # رمز عبور اختصاصی App Password جیمیل
+    last_daily_email_date = db.Column(db.String(30), nullable=True) # تاریخ آخرین ارسال موفق ایمیل پایان روز
 
 
 class BankAccount(db.Model):

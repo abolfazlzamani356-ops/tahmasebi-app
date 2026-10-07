@@ -116,6 +116,14 @@
             </div>
         </div>
 
+        <a href="{{ url_for('warehouse_purchases_view') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-emerald-500/40 text-emerald-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <span>🛒</span> خرید انبار / کسر از دخل ({{ "{:,}".format(total_purchases_amount) }} ت)
+        </a>
+
+        <a href="{{ url_for('admin_shift_reports_view') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-cyan-500/40 text-cyan-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <span>📑</span> گزارش‌های دخل فروشندگان ({{ today_shift_reports|length }})
+        </a>
+
         <a href="{{ url_for('download_backup') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-blue-500/30 text-blue-300 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
             <span>🛡️</span> بکاپ دیتابیس
         </a>
@@ -128,6 +136,141 @@
             <span>👤</span> پروفایل من
         </a>
     </div>
+</div>
+
+<!-- ==================== کارت مقتدرانه و اختصاصی: فروش و تراز امروز به تفکیک شعب ==================== -->
+<div class="glass-card p-6 mb-6 border-r-4 border-r-cyan-500 bg-gradient-to-br from-[#0c1322] via-[#0f172a] to-[#111c33] shadow-2xl">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-5 border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-2xl flex-shrink-0 shadow-lg shadow-cyan-500/20">
+                📊
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-black text-white">تراز فروش و دخل امروز شعب طهماسبی</h3>
+                    <span class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-black px-2.5 py-0.5 rounded-full">امروز: {{ today_shamsi_date }}</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">آمار زنده فاکتورهای امروز، تفکیک دخل پوز و نقد، و کسر خریدهای انبار</p>
+            </div>
+        </div>
+
+        <!-- جمع کل مجموعه امروز -->
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="bg-black/40 border border-white/10 px-4 py-2 rounded-xl text-left">
+                <span class="text-[10px] text-slate-400 block font-bold">کل فروش امروز مجموعه:</span>
+                <span class="text-base font-black text-cyan-400 font-mono">{{ "{:,}".format(today_grand_total) }} <span class="text-[10px] font-normal text-slate-400">تومان</span></span>
+            </div>
+            <div class="bg-black/40 border border-white/10 px-4 py-2 rounded-xl text-left">
+                <span class="text-[10px] text-slate-400 block font-bold">تعداد کل فاکتورها:</span>
+                <span class="text-base font-black text-white font-mono">{{ today_grand_invoices_count }} <span class="text-[10px] font-normal text-slate-400">عدد</span></span>
+            </div>
+            <a href="{{ url_for('warehouse_purchases_view') }}" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black px-3.5 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+                <span>➕</span> ثبت خرید جدید انبار
+            </a>
+        </div>
+    </div>
+
+    <!-- شبکه‌بندی کارت‌های شعب به تفکیک -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
+        {% for b in daily_branch_stats %}
+        <div class="bg-[#131b2e] border border-white/10 rounded-2xl p-4 shadow-lg hover:border-cyan-500/40 transition">
+            <div class="flex items-center justify-between pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🏢</span>
+                    <h4 class="font-black text-white text-sm">{{ b.shop_name }}</h4>
+                    <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{{ b.invoices_count }} فاکتور ({{ b.sales_count }} فروش / {{ b.returns_count }} مرجوعی)</span>
+                </div>
+                <div class="text-left font-mono">
+                    <span class="text-[11px] text-slate-400 block">گردش امروز:</span>
+                    <span class="text-sm font-black text-emerald-400">{{ "{:,}".format(b.total_sales) }} ت</span>
+                </div>
+            </div>
+
+            <!-- اقلام دریافتی به تفکیک روش پرداخت -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3 text-xs">
+                <!-- کارتخوان -->
+                <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+                    <span class="text-[10px] text-slate-400 block font-bold">💳 کارتخوان (POS):</span>
+                    <span class="font-black text-indigo-300 font-mono text-xs block mt-1">{{ "{:,}".format(b.paid_pos) }} ت</span>
+                </div>
+
+                <!-- نقد ناخالص دخل -->
+                <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+                    <span class="text-[10px] text-slate-400 block font-bold">💵 نقد فاکتورها:</span>
+                    <span class="font-black text-amber-300 font-mono text-xs block mt-1">{{ "{:,}".format(b.paid_cash) }} ت</span>
+                </div>
+
+                <!-- خریدهای کسر شده از دخل -->
+                <div class="bg-rose-950/20 p-2.5 rounded-xl border border-rose-500/20">
+                    <span class="text-[10px] text-rose-400 block font-bold">🛒 کسر خرید انبار:</span>
+                    <span class="font-black text-rose-300 font-mono text-xs block mt-1">
+                        {% if b.purchases_from_cash > 0 %}-{{ "{:,}".format(b.purchases_from_cash) }} ت{% else %}۰ ت{% endif %}
+                    </span>
+                </div>
+
+                <!-- مانده نقد واقعی دخل -->
+                <div class="bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-500/30">
+                    <span class="text-[10px] text-emerald-400 block font-bold">💰 خالص نقد دخل:</span>
+                    <span class="font-black text-emerald-300 font-mono text-xs block mt-1">{{ "{:,}".format(b.net_cash_in_register) }} ت</span>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-white/5 text-[11px] text-slate-400">
+                <div>
+                    <span>چک صیادی: <strong class="text-white font-mono">{{ "{:,}".format(b.paid_cheque) }} ت</strong> ({{ b.cheques_count }} فقره)</span>
+                    <span class="mx-1.5">•</span>
+                    <span>کارت‌به‌کارت: <strong class="text-white font-mono">{{ "{:,}".format(b.paid_card) }} ت</strong></span>
+                </div>
+                {% if b.remaining_balance > 0 %}
+                <div class="text-amber-300">
+                    <span>مانده نسیه امروز: <strong class="font-mono">{{ "{:,}".format(b.remaining_balance) }} ت</strong></span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- بخش گزارش کار شیفت‌های ارسالی امروز -->
+    {% if today_shift_reports %}
+    <div class="mt-5 pt-4 border-t border-white/10">
+        <h5 class="text-xs font-black text-slate-300 flex items-center gap-2 mb-3">
+            <span>📑</span>
+            <span>گزارش‌های بستن دخل امروز ثبت‌شده توسط فروشندگان:</span>
+        </h5>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for rep in today_shift_reports %}
+            <div class="bg-[#101726] border {% if rep.status == 'balanced' %}border-emerald-500/40{% else %}border-rose-500/50{% endif %} rounded-xl p-3 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="font-black text-white">{{ rep.user.full_name if rep.user else 'فروشنده' }}</span>
+                    <span class="text-[10px] text-slate-400">{{ rep.shop.name if rep.shop else '' }}</span>
+                    {% if rep.status == 'balanced' %}
+                    <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">تراز کامل ✅</span>
+                    {% else %}
+                    <span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">مغایرت ⚠️</span>
+                    {% endif %}
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2 font-mono text-[11px]">
+                    <div>پوز اعلامی: <strong class="text-indigo-300">{{ "{:,}".format(rep.reported_pos_amount) }}</strong></div>
+                    <div>نقد اعلامی: <strong class="text-amber-300">{{ "{:,}".format(rep.reported_cash_amount) }}</strong></div>
+                    {% if rep.pos_difference != 0 %}
+                    <div class="text-rose-400">مغایرت پوز: {{ "{:+,}".format(rep.pos_difference) }}</div>
+                    {% endif %}
+                    {% if rep.cash_difference != 0 %}
+                    <div class="text-rose-400">مغایرت نقد: {{ "{:+,}".format(rep.cash_difference) }}</div>
+                    {% endif %}
+                </div>
+                <div class="flex items-center justify-between mt-2 pt-2 border-t border-white/5 text-[10px]">
+                    <span class="text-slate-400">{{ rep.shamsi_date_time }}</span>
+                    {% if rep.pos_slip_image %}
+                    <a href="{{ rep.pos_slip_image }}" target="_blank" class="text-cyan-400 hover:underline font-bold">🔍 مشاهده رول پوز</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Urgent Cheques Alert Banner -->

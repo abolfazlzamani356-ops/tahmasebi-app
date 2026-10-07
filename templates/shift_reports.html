@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}گزارش‌های پایان روز و بستن دخل فروشندگان • مدیریت طهماسبی{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- هدر گزارش‌های دخل -->
+    <div class="glass-card p-6 border-r-4 border-r-cyan-500">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-5 border-b border-white/10">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-cyan-500/30 flex-shrink-0">
+                    📑
+                </div>
+                <div>
+                    <h2 class="font-black text-white text-lg flex items-center gap-2">
+                        <span>میز نظارت بر بستن دخل و شیفت روزانه فروشندگان</span>
+                        <span class="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2.5 py-0.5 rounded-full font-bold">دیده‌بان صندوق و کارتخوان</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 font-medium mt-0.5">مشاهده عکس رول پرینت کارتخوان، بررسی اعلامی نقد و چک و مغایرت‌گیری بلادرنگ با فاکتورهای سیستمی</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('admin_dashboard') }}" class="bg-[#1a2234] hover:bg-[#243048] border border-white/10 text-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                    <span>🔙</span> بازگشت به داشبورد
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول لیست گزارش‌های شیفت -->
+    <div class="glass-card overflow-hidden">
+        <div class="p-5 border-b border-white/10 flex justify-between items-center">
+            <h3 class="font-black text-white text-sm flex items-center gap-2">
+                <span>📋</span>
+                <span>سوابق گزارش‌های ارسالی پایان شیفت فروشندگان</span>
+            </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+                <thead>
+                    <tr class="bg-slate-900/60 text-slate-400 border-b border-white/5 font-bold">
+                        <th class="p-3.5">ردیف</th>
+                        <th class="p-3.5">فروشنده</th>
+                        <th class="p-3.5">شعبه</th>
+                        <th class="p-3.5">تاریخ و زمان</th>
+                        <th class="p-3.5">کارتخوان اعلامی</th>
+                        <th class="p-3.5">کارتخوان سیستم</th>
+                        <th class="p-3.5">مغایرت پوز</th>
+                        <th class="p-3.5">نقد اعلامی صندوق</th>
+                        <th class="p-3.5">نقد مورد انتظار</th>
+                        <th class="p-3.5">مغایرت نقد</th>
+                        <th class="p-3.5">چک‌ها</th>
+                        <th class="p-3.5 text-center">عکس فیش پوز</th>
+                        <th class="p-3.5 text-center">وضعیت تراز</th>
+                        <th class="p-3.5 text-center">تایید مدیریت</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for r in reports %}
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-3.5 font-mono text-slate-500">{{ loop.index }}</td>
+                        <td class="p-3.5 font-bold text-white">{{ r.user.full_name if r.user else '' }}</td>
+                        <td class="p-3.5 text-slate-300 font-medium">{{ r.shop.name if r.shop else '' }}</td>
+                        <td class="p-3.5 font-mono text-slate-400 text-[11px]">{{ r.shamsi_date_time }}</td>
+                        <td class="p-3.5 font-mono font-bold text-indigo-300">{{ "{:,}".format(r.reported_pos_amount) }} ت</td>
+                        <td class="p-3.5 font-mono text-slate-300">{{ "{:,}".format(r.system_pos_amount) }} ت</td>
+                        <td class="p-3.5 font-mono font-bold">
+                            {% if r.pos_difference == 0 %}
+                            <span class="text-emerald-400">۰ ت ✅</span>
+                            {% elif r.pos_difference > 0 %}
+                            <span class="text-amber-400">+{{ "{:,}".format(r.pos_difference) }} ت (اضافه)</span>
+                            {% else %}
+                            <span class="text-rose-400">{{ "{:,}".format(r.pos_difference) }} ت (کسری)</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 font-mono font-bold text-amber-300">{{ "{:,}".format(r.reported_cash_amount) }} ت</td>
+                        <td class="p-3.5 font-mono text-slate-300">{{ "{:,}".format(r.system_cash_amount - r.cash_expenses_deducted) }} ت</td>
+                        <td class="p-3.5 font-mono font-bold">
+                            {% if r.cash_difference == 0 %}
+                            <span class="text-emerald-400">۰ ت ✅</span>
+                            {% elif r.cash_difference > 0 %}
+                            <span class="text-amber-400">+{{ "{:,}".format(r.cash_difference) }} ت</span>
+                            {% else %}
+                            <span class="text-rose-400">{{ "{:,}".format(r.cash_difference) }} ت</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 font-mono text-[11px] text-slate-300">
+                            {{ "{:,}".format(r.reported_cheques_amount) }} ت ({{ r.reported_cheques_count }} برگ)
+                        </td>
+                        <td class="p-3.5 text-center">
+                            {% if r.pos_slip_image %}
+                            <a href="{{ r.pos_slip_image }}" target="_blank" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded-xl font-bold transition inline-flex items-center gap-1 text-[11px]">
+                                <span>🔍</span> رول پوز
+                            </a>
+                            {% else %}
+                            <span class="text-slate-500 text-[11px]">ندارد</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            {% if r.status == 'balanced' %}
+                            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                تراز کامل ✅
+                            </span>
+                            {% else %}
+                            <span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                مغایرت ⚠️
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-center">
+                            {% if r.is_verified_by_admin %}
+                            <span class="text-emerald-400 font-bold text-xs">تایید شده ✔</span>
+                            {% else %}
+                            <form action="{{ url_for('verify_shift_report', report_id=r.id) }}" method="POST" class="inline">
+                                <button type="submit" class="bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-xl font-bold transition text-[11px]">
+                                    تایید تراز
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="14" class="p-8 text-center text-slate-500 font-bold">
+                            هنوز هیچ گزارش بستن دخلی ثبت نشده است. فروشندگان در پایان روز از طریق داشبورد خود می‌توانند دخل روزانه را ثبت و ارسال نمایند.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+
+{% block title %}خریدهای انبار و کسر از دخل • فروشگاه‌های طهماسبی{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- هدر اصلی و کارت اکشن -->
+    <div class="glass-card p-6 border-r-4 border-r-emerald-500">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-5 border-b border-white/10">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-600 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/30 flex-shrink-0">
+                    🛒
+                </div>
+                <div>
+                    <h2 class="font-black text-white text-lg flex items-center gap-2">
+                        <span>مدیریت خریدهای انبار و هزینه‌های تامین کالا</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">ویژه مسئول خرید و انباردار</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 font-medium mt-0.5">ثبت خریدهای روزانه مجموعه (سنگ، چسب، اتصالات، شیرآلات و...) با قابلیت کسر هوشمند و آنی از دخل مغازه</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button type="button" onclick="document.getElementById('addPurchaseModal').classList.remove('hidden')" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5">
+                    <span>➕</span> ثبت فاکتور خرید جدید
+                </button>
+            </div>
+        </div>
+
+        <!-- کارت‌های مالی و خلاصه وضعیت امروز -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5">
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-emerald-500/20 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-slate-400 font-bold block">مجموع خریدهای ثبت‌شده امروز ({{ today_shamsi }}):</span>
+                    <span class="text-lg font-black text-emerald-300 mt-1 block font-mono">{{ "{:,}".format(today_total) }} تومان</span>
+                </div>
+                <span class="text-2xl p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400">📦</span>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-rose-500/30 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-rose-300 font-bold block">کسر شده از دخل نقدی مغازه (امروز):</span>
+                    <span class="text-lg font-black text-rose-400 mt-1 block font-mono">{{ "{:,}".format(today_from_cash) }} تومان</span>
+                </div>
+                <span class="text-2xl p-2.5 bg-rose-500/10 rounded-xl text-rose-400">💵</span>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-cyan-500/20 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] text-slate-400 font-bold block">کل فاکتورهای خرید ثبت‌شده اخیر:</span>
+                    <span class="text-lg font-black text-cyan-300 mt-1 block font-mono">{{ purchases|length }} فقره</span>
+                </div>
+                <span class="text-2xl p-2.5 bg-cyan-500/10 rounded-xl text-cyan-400">🧾</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- جدول تاریخچه خریدهای انبار -->
+    <div class="glass-card overflow-hidden">
+        <div class="p-5 border-b border-white/10 flex justify-between items-center">
+            <h3 class="font-black text-white text-sm flex items-center gap-2">
+                <span>📋</span>
+                <span>لیست فاکتورهای خرید ثبت‌شده برای انبار و دخل شعب</span>
+            </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+                <thead>
+                    <tr class="bg-slate-900/60 text-slate-400 border-b border-white/5 font-bold">
+                        <th class="p-3.5">شماره فاکتور</th>
+                        <th class="p-3.5">عنوان خرید و کالاها</th>
+                        <th class="p-3.5">تامین‌کننده / فروشنده</th>
+                        <th class="p-3.5">شعبه مبدأ</th>
+                        <th class="p-3.5">مبلغ کل</th>
+                        <th class="p-3.5">منبع پرداخت</th>
+                        <th class="p-3.5">ثبت‌کننده</th>
+                        <th class="p-3.5">تاریخ و ساعت</th>
+                        <th class="p-3.5 text-center">عکس فاکتور</th>
+                        {% if session.get('role') == 'admin' %}
+                        <th class="p-3.5 text-center">عملیات</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for p in purchases %}
+                    <tr class="hover:bg-white/5 transition">
+                        <td class="p-3.5 font-mono font-bold text-cyan-400">{{ p.purchase_number }}</td>
+                        <td class="p-3.5">
+                            <span class="font-bold text-white block">{{ p.title }}</span>
+                            {% if p.items_desc %}
+                            <span class="text-[11px] text-slate-400 block mt-0.5 max-w-xs truncate">{{ p.items_desc }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-slate-200">
+                            {{ p.supplier_name }}
+                            {% if p.supplier_phone %}
+                            <span class="block text-[10px] text-slate-400 font-mono">{{ p.supplier_phone }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-slate-300 font-medium">{{ p.shop.name if p.shop else '' }}</td>
+                        <td class="p-3.5 font-mono font-black text-emerald-400 text-sm">{{ "{:,}".format(p.total_amount) }} ت</td>
+                        <td class="p-3.5">
+                            {% if p.payment_source == 'shop_cash' %}
+                            <span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                💵 کسر از دخل مغازه
+                            </span>
+                            {% elif p.payment_source == 'bank_account' %}
+                            <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                💳 حساب بانکی
+                            </span>
+                            {% else %}
+                            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                ⏳ نسیه/اعتباری
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-slate-300">{{ p.user.full_name if p.user else '' }}</td>
+                        <td class="p-3.5 font-mono text-[11px] text-slate-400">{{ p.shamsi_date_time }}</td>
+                        <td class="p-3.5 text-center">
+                            {% if p.factor_image %}
+                            <a href="{{ p.factor_image }}" target="_blank" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded-xl font-bold transition inline-flex items-center gap-1 text-[11px]">
+                                <span>🔍</span> مشاهده
+                            </a>
+                            {% else %}
+                            <span class="text-slate-500 text-[11px]">-</span>
+                            {% endif %}
+                        </td>
+                        {% if session.get('role') == 'admin' %}
+                        <td class="p-3.5 text-center">
+                            <form action="{{ url_for('delete_warehouse_purchase', purchase_id=p.id) }}" method="POST" onsubmit="return confirm('آیا از حذف این فاکتور خرید اطمینان دارید؟');" class="inline">
+                                <button type="submit" class="text-rose-400 hover:text-rose-300 transition text-sm" title="حذف فاکتور">
+                                    🗑️
+                                </button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="p-8 text-center text-slate-500 font-bold">
+                            هنوز هیچ فاکتور خریدی برای انبار ثبت نشده است. با دکمه بالا اولین فاکتور را ثبت فرمایید.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- ==================== مودال ثبت فاکتور خرید انبار ==================== -->
+<div id="addPurchaseModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl">
+        <div class="flex justify-between items-center pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🛒</span>
+                <div>
+                    <h3 class="font-black text-white text-base">ثبت فاکتور خرید کالا و انبار</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">ثبت اقلام خریداری شده و تعیین منبع پرداخت (دخل نقدی یا حساب بانکی)</p>
+                </div>
+            </div>
+            <button type="button" onclick="document.getElementById('addPurchaseModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-2xl transition">✕</button>
+        </div>
+
+        <form action="{{ url_for('add_warehouse_purchase') }}" method="POST" enctype="multipart/form-data" class="space-y-4 mt-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">🏷️ عنوان و شرح کلی خرید: <span class="text-rose-400">*</span></label>
+                <input type="text" name="title" required placeholder="مثلاً: خرید ۱۶ متر سنگ اسلب طوسی یا شیرآلات" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">💰 مبلغ کل خرید (تومان): <span class="text-rose-400">*</span></label>
+                    <input type="number" name="total_amount" required placeholder="مثلاً: 16000000" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">🏢 شعبه مربوطه: <span class="text-rose-400">*</span></label>
+                    <select name="shop_id" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500">
+                        {% for shop in shops %}
+                        <option value="{{ shop.id }}">{{ shop.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- انتخاب منبع پرداخت -->
+            <div class="bg-gradient-to-r from-emerald-950/30 to-slate-900 border border-emerald-500/30 p-4 rounded-2xl">
+                <label class="block text-xs font-black text-emerald-300 mb-2">💳 منبع پرداخت مبلغ فاکتور:</label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl border border-white/10 bg-black/30 hover:border-emerald-500/50 cursor-pointer">
+                        <input type="radio" name="payment_source" value="shop_cash" checked onchange="toggleBankSelect(false)" class="text-emerald-500">
+                        <span class="text-xs font-bold text-white">💵 کسر از دخل مغازه</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl border border-white/10 bg-black/30 hover:border-indigo-500/50 cursor-pointer">
+                        <input type="radio" name="payment_source" value="bank_account" onchange="toggleBankSelect(true)" class="text-indigo-500">
+                        <span class="text-xs font-bold text-white">🏦 حساب بانکی</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl border border-white/10 bg-black/30 hover:border-amber-500/50 cursor-pointer">
+                        <input type="radio" name="payment_source" value="credit" onchange="toggleBankSelect(false)" class="text-amber-500">
+                        <span class="text-xs font-bold text-white">⏳ نسیه / اعتباری</span>
+                    </label>
+                </div>
+
+                <div id="bankAccountSelectContainer" class="hidden mt-3">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">انتخاب حساب بانکی پرداخت‌کننده:</label>
+                    <select name="bank_account_id" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+                        {% for b in bank_accounts %}
+                        <option value="{{ b.id }}">{{ b.title }} ({{ b.bank_name }}) - {{ b.card_number or b.sheba_number }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">👤 نام فروشنده / تامین‌کننده کالا:</label>
+                    <input type="text" name="supplier_name" placeholder="مثلاً: انبار سنگ شمس، پخش رضایی" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">📞 شماره تماس فروشنده (اختیاری):</label>
+                    <input type="text" name="supplier_phone" placeholder="0912..." class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-mono">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">📝 جزئیات اقلام، متراژ یا تعداد:</label>
+                <textarea name="items_desc" rows="2" placeholder="مثلاً: ۲ پالت سنگ اسلب طوسی مات، متراژ ۴۲ متر، هر متر فلان قدر..." class="w-full bg-[#1a2234] border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-emerald-500"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">📷 تصویر فاکتور فیزیکی خرید (اختیاری):</label>
+                <input type="file" name="factor_image" accept="image/*" class="w-full text-xs text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer">
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button type="button" onclick="document.getElementById('addPurchaseModal').classList.add('hidden')" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                    انصراف
+                </button>
+                <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition flex items-center gap-2">
+                    <span>✅</span> ثبت قطعی فاکتور خرید
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleBankSelect(show) {
+        const el = document.getElementById('bankAccountSelectContainer');
+        if (el) {
+            if (show) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}

@@ -361,12 +361,19 @@
                 </a>
 
                 {% if session.get('role') == 'admin' or session.get('can_manage_inventory') %}
+                <a href="{{ url_for('warehouse_purchases_view') }}" class="nav-pill {% if request.endpoint == 'warehouse_purchases_view' %}active{% endif %}" title="ثبت خرید انبار و کسر از دخل مغازه">
+                    <span>🛒</span> خرید انبار
+                </a>
                 <a href="{{ url_for('catalog_view') }}" class="nav-pill {% if request.endpoint == 'catalog_view' %}active{% endif %}">
                     <span>📋</span> کاتالوگ
                 </a>
                 {% endif %}
 
                 {% if session.get('role') == 'admin' %}
+                <a href="{{ url_for('admin_shift_reports_view') }}" class="nav-pill {% if request.endpoint == 'admin_shift_reports_view' %}active{% endif %}" title="گزارش پایان روز و بستن دخل فروشندگان">
+                    <span>📑</span> گزارش دخل
+                </a>
+
                 <a href="{{ url_for('payroll_view') }}" class="nav-pill {% if request.endpoint == 'payroll_view' %}active{% endif %}">
                     <span>💼</span> حقوق
                 </a>

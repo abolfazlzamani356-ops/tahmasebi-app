@@ -21,7 +21,7 @@ from models import (
     InventoryItem, StockLog, StockTransfer,
     Invoice, InvoiceItem, Cheque, SalarySlip,
     PettyCashDeposit, Expense, AuditLog, ProductCatalog,
-    CustomWorkshopOrder
+    CustomWorkshopOrder, PurchaseInvoice, DailyShiftReport
 )
 from helpers import (
     PERSIAN_MONTHS, DEFAULT_CATEGORIES, RETURN_REASONS,
@@ -2655,11 +2655,92 @@ def admin_dashboard():
             chart_sellers_labels.insert(0, f"{adm.full_name} (مدیریت)")
             chart_sellers_data.insert(0, adm_stats['net_sales'])
         
+        
     expenses = Expense.query.filter(Expense.shop_id.in_(tenant_shop_ids), Expense.shamsi_year == now_j.year, Expense.shamsi_month == selected_month).all()
     total_expenses = sum(e.amount for e in expenses)
     
     petty_deposits = PettyCashDeposit.query.filter(PettyCashDeposit.shop_id.in_(tenant_shop_ids), PettyCashDeposit.shamsi_year == now_j.year, PettyCashDeposit.shamsi_month == selected_month).all()
     total_petty_deposits = sum(d.amount for d in petty_deposits)
+
+    # ۵. فاکتورهای خرید انبار/مجموعه و خریدهای کسر شده از دخل شعب در ماه جاری
+    month_purchases = PurchaseInvoice.query.filter(
+        PurchaseInvoice.shop_id.in_(tenant_shop_ids),
+        PurchaseInvoice.shamsi_year == now_j.year,
+        PurchaseInvoice.shamsi_month == selected_month
+    ).order_by(PurchaseInvoice.id.desc()).all()
+    total_purchases_amount = sum(p.total_amount for p in month_purchases)
+    total_purchases_from_cash = sum(p.total_amount for p in month_purchases if p.payment_source == 'shop_cash')
+
+    # ۶. آمار تجمیعی و زنده فروش امروز به تفکیک شعب (Daily Branch Closing & Sales)
+    today_invoices = [inv for inv in month_invoices if getattr(inv, 'shamsi_day', None) == now_j.day]
+    today_purchases = [p for p in month_purchases if getattr(p, 'shamsi_day', None) == now_j.day]
+    
+    daily_branch_stats = []
+    today_grand_total = 0
+    today_grand_pos = 0
+    today_grand_cash = 0
+    today_grand_card = 0
+    today_grand_cheques = 0
+    today_grand_remaining = 0
+    today_grand_invoices_count = len(today_invoices)
+
+    for shop in shops:
+        s_invoices = [inv for inv in today_invoices if inv.shop_id == shop.id]
+        s_sales = [inv for inv in s_invoices if inv.invoice_type == 'sale']
+        s_returns = [inv for inv in s_invoices if inv.invoice_type == 'return']
+        
+        s_pos = sum(inv.paid_pos or 0 for inv in s_sales) - sum(inv.paid_pos or 0 for inv in s_returns)
+        s_cash = sum(inv.paid_cash or 0 for inv in s_sales) - sum(inv.paid_cash or 0 for inv in s_returns)
+        s_card = sum(inv.paid_card or 0 for inv in s_sales) - sum(inv.paid_card or 0 for inv in s_returns)
+        s_rem = sum(inv.remaining_balance or 0 for inv in s_sales)
+        
+        # جمع مبالغ چک‌های امروز این شعبه
+        s_cheques_amt = 0
+        s_cheques_cnt = 0
+        for inv in s_sales:
+            for chk in inv.cheques:
+                s_cheques_amt += chk.amount or 0
+                s_cheques_cnt += 1
+                
+        s_total = sum(inv.total_amount or 0 for inv in s_sales) - sum(inv.total_amount or 0 for inv in s_returns)
+        
+        # خریدهای انبار امروز از دخل این شعبه (مانند سنگ خریداری شده توسط خانم نقدی)
+        s_purchases_cash = sum(p.total_amount for p in today_purchases if p.shop_id == shop.id and p.payment_source == 'shop_cash')
+        
+        # خالص نقد باقی‌مانده در دخل مغازه در پایان امروز
+        s_net_cash_in_register = max(0, s_cash - s_purchases_cash)
+
+        daily_branch_stats.append({
+            'shop_id': shop.id,
+            'shop_name': shop.name,
+            'invoices_count': len(s_invoices),
+            'sales_count': len(s_sales),
+            'returns_count': len(s_returns),
+            'total_sales': s_total,
+            'paid_pos': s_pos,
+            'paid_cash': s_cash,
+            'purchases_from_cash': s_purchases_cash,
+            'net_cash_in_register': s_net_cash_in_register,
+            'paid_card': s_card,
+            'paid_cheque': s_cheques_amt,
+            'cheques_count': s_cheques_cnt,
+            'remaining_balance': s_rem
+        })
+        
+        today_grand_total += s_total
+        today_grand_pos += s_pos
+        today_grand_cash += s_cash
+        today_grand_card += s_card
+        today_grand_cheques += s_cheques_amt
+        today_grand_remaining += s_rem
+
+    # گزارش‌های شیفت و بستن دخل امروز فروشندگان
+    today_shift_reports = DailyShiftReport.query.filter(
+        DailyShiftReport.shop_id.in_(tenant_shop_ids),
+        DailyShiftReport.shamsi_year == now_j.year,
+        DailyShiftReport.shamsi_month == selected_month,
+        DailyShiftReport.shamsi_day == now_j.day
+    ).order_by(DailyShiftReport.id.desc()).all()
     
     all_categories = Category.query.all()
     all_month_items = InvoiceItem.query.join(Invoice).filter(
@@ -2893,7 +2974,20 @@ def admin_dashboard():
         settings=settings,
         logs=logs,
         top_selling_items=top_selling_items,
-        urgent_cheques=urgent_cheques
+        urgent_cheques=urgent_cheques,
+        daily_branch_stats=daily_branch_stats,
+        today_grand_total=today_grand_total,
+        today_grand_pos=today_grand_pos,
+        today_grand_cash=today_grand_cash,
+        today_grand_card=today_grand_card,
+        today_grand_cheques=today_grand_cheques,
+        today_grand_remaining=today_grand_remaining,
+        today_grand_invoices_count=today_grand_invoices_count,
+        month_purchases=month_purchases,
+        total_purchases_amount=total_purchases_amount,
+        total_purchases_from_cash=total_purchases_from_cash,
+        today_shift_reports=today_shift_reports,
+        today_shamsi_date=now_j.strftime("%Y/%m/%d")
     )
 
 # ==================== مدیریت حساب‌های بانکی (شماره کارت و شماره شبا) ====================
@@ -4979,6 +5073,358 @@ def add_expense():
     log_activity(f"ثبت هزینه تنخواه {exp.title} به مبلغ {exp.amount:,} تومان", session.get('full_name'), "مالی")
     flash('هزینه در تنخواه ثبت شد.', 'success')
     return redirect(url_for('index'))
+
+# ==================== ماژول فاکتورهای خرید انبار و کسر از دخل (خانم نقدی / ادمین انبار) ====================
+
+@app.route('/warehouse/purchases', methods=['GET'])
+def warehouse_purchases_view():
+    """مشاهده و ثبت فاکتورهای خرید انبار/مجموعه توسط ادمین انبار و مدیریت"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = User.query.get(session['user_id'])
+    can_access = bool(user and (user.role == 'admin' or getattr(user, 'can_manage_inventory', False)))
+    if not can_access:
+        flash('دسترسی به بخش خریدهای انبار و کسر از دخل فقط برای مدیریت و مسئول خرید/انباردار مجاز است.', 'warning')
+        return redirect(url_for('seller_dashboard'))
+        
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+    
+    bank_accounts = BankAccount.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+    purchases = PurchaseInvoice.query.filter(PurchaseInvoice.shop_id.in_(tenant_shop_ids)).order_by(PurchaseInvoice.id.desc()).limit(100).all()
+    
+    now_j = jdatetime.datetime.now()
+    today_purchases = [p for p in purchases if p.shamsi_year == now_j.year and p.shamsi_month == now_j.month and p.shamsi_day == now_j.day]
+    today_total = sum(p.total_amount for p in today_purchases)
+    today_from_cash = sum(p.total_amount for p in today_purchases if p.payment_source == 'shop_cash')
+    
+    return render_template(
+        'warehouse_purchases.html',
+        purchases=purchases,
+        shops=shops,
+        bank_accounts=bank_accounts,
+        today_total=today_total,
+        today_from_cash=today_from_cash,
+        today_shamsi=now_j.strftime("%Y/%m/%d"),
+        current_user=user
+    )
+
+@app.route('/warehouse/purchase/add', methods=['POST'])
+def add_warehouse_purchase():
+    """ثبت خرید جدید توسط مسئول انبار/مدیر با امکان کسر مستقیم از دخل شعبه"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = User.query.get(session['user_id'])
+    if not (user and (user.role == 'admin' or getattr(user, 'can_manage_inventory', False))):
+        flash('شما دسترسی ثبت خرید انبار را ندارید.', 'danger')
+        return redirect(url_for('seller_dashboard'))
+        
+    now_j = jdatetime.datetime.now()
+    title = request.form.get('title', '').strip()
+    supplier_name = request.form.get('supplier_name', '').strip() or 'تامین‌کننده بازار'
+    supplier_phone = request.form.get('supplier_phone', '').strip()
+    total_amount = safe_int(request.form.get('total_amount'), 0)
+    payment_source = request.form.get('payment_source', 'shop_cash')
+    bank_account_id = safe_int(request.form.get('bank_account_id'), None)
+    shop_id = safe_int(request.form.get('shop_id'), session.get('shop_id', 1))
+    items_desc = request.form.get('items_desc', '').strip()
+    notes = request.form.get('notes', '').strip()
+    
+    if not title or total_amount <= 0:
+        flash('عنوان خرید و مبلغ کل باید به درستی وارد شوند.', 'warning')
+        return redirect(request.referrer or url_for('warehouse_purchases_view'))
+        
+    # شماره فاکتور خرید یکتا
+    rand_suffix = random.randint(1000, 9999)
+    purchase_number = f"PUR-{now_j.year}{now_j.month:02d}{now_j.day:02d}-{rand_suffix}"
+    
+    # پردازش عکس فاکتور فیزیکی خرید (در صورت آپلود)
+    factor_image_data = None
+    factor_file = request.files.get('factor_image')
+    if factor_file and factor_file.filename:
+        try:
+            f_bytes = factor_file.read()
+            ext = factor_file.filename.rsplit('.', 1)[-1].lower() if '.' in factor_file.filename else 'jpg'
+            factor_image_data = f"data:image/{ext};base64," + base64.b64encode(f_bytes).decode('utf-8')
+        except Exception as img_err:
+            app.logger.warning(f"Purchase invoice image error: {img_err}")
+            
+    purchase = PurchaseInvoice(
+        purchase_number=purchase_number,
+        supplier_name=supplier_name,
+        supplier_phone=supplier_phone,
+        title=title,
+        total_amount=total_amount,
+        payment_source=payment_source,
+        bank_account_id=bank_account_id if payment_source == 'bank_account' else None,
+        shop_id=shop_id,
+        user_id=user.id,
+        items_desc=items_desc,
+        factor_image=factor_image_data,
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_day=now_j.day,
+        shamsi_date_time=now_j.strftime("%Y/%m/%d - %H:%M:%S"),
+        notes=notes
+    )
+    db.session.add(purchase)
+    
+    # اگر از دخل پرداخت شده، یک رکورد هزینه سیستمی متناظر هم برای شفافیت ثبت شود
+    if payment_source == 'shop_cash':
+        exp = Expense(
+            title=f"خرید انبار: {title} ({purchase_number})",
+            amount=total_amount,
+            category='خرید کالا و انبار',
+            shamsi_year=now_j.year,
+            shamsi_month=now_j.month,
+            shamsi_date_time=now_j.strftime("%Y/%m/%d - %H:%M:%S"),
+            shop_id=shop_id,
+            created_by=user.full_name
+        )
+        db.session.add(exp)
+        
+    db.session.commit()
+    
+    payment_label = 'کسر از دخل مغازه' if payment_source == 'shop_cash' else 'حساب بانکی'
+    log_activity(f"ثبت فاکتور خرید {purchase_number} به مبلغ {total_amount:,} تومان ({payment_label}) توسط {user.full_name}", user.full_name, "انبار / مالی")
+    flash(f'فاکتور خرید «{title}» با شماره {purchase_number} با موفقیت ثبت شد ({payment_label}).', 'success')
+    return redirect(url_for('warehouse_purchases_view'))
+
+@app.route('/warehouse/purchase/delete/<int:purchase_id>', methods=['POST'])
+def delete_warehouse_purchase(purchase_id):
+    """حذف فاکتور خرید توسط مدیر کل"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
+    p = PurchaseInvoice.query.get_or_404(purchase_id)
+    num = p.purchase_number
+    db.session.delete(p)
+    db.session.commit()
+    log_activity(f"حذف فاکتور خرید {num}", session.get('full_name'), "انبار / مالی")
+    flash(f'فاکتور خرید شماره {num} حذف شد.', 'warning')
+    return redirect(url_for('warehouse_purchases_view'))
+
+
+# ==================== ماژول گزارش کار و بستن دخل پایان روز فروشندگان ====================
+
+@app.route('/api/shift/summary_today', methods=['GET'])
+def api_shift_summary_today():
+    """استعلام مقادیر کارکرد سیستمی امروز برای فرم بستن دخل فروشنده"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید.'}), 401
+        
+    user = User.query.get(session['user_id'])
+    shop_id = session.get('shop_id') or (user.shop_id if user else 1) or 1
+    now_j = jdatetime.datetime.now()
+    
+    # فاکتورهای امروز شعبه
+    today_invoices = Invoice.query.filter(
+        Invoice.shop_id == shop_id,
+        Invoice.shamsi_year == now_j.year,
+        Invoice.shamsi_month == now_j.month,
+        Invoice.shamsi_day == now_j.day,
+        Invoice.status == 'final'
+    ).all()
+    
+    sales = [inv for inv in today_invoices if inv.invoice_type == 'sale']
+    returns = [inv for inv in today_invoices if inv.invoice_type == 'return']
+    
+    sys_pos = sum(inv.paid_pos or 0 for inv in sales) - sum(inv.paid_pos or 0 for inv in returns)
+    sys_cash = sum(inv.paid_cash or 0 for inv in sales) - sum(inv.paid_cash or 0 for inv in returns)
+    sys_card = sum(inv.paid_card or 0 for inv in sales) - sum(inv.paid_card or 0 for inv in returns)
+    
+    sys_cheques = 0
+    sys_cheques_count = 0
+    for inv in sales:
+        for chk in inv.cheques:
+            sys_cheques += chk.amount or 0
+            sys_cheques_count += 1
+            
+    sys_total = sum(inv.total_amount or 0 for inv in sales) - sum(inv.total_amount or 0 for inv in returns)
+    
+    # خریدهای نقدی کسر شده از دخل امروز این شعبه
+    today_purchases_cash = db.session.query(func.sum(PurchaseInvoice.total_amount)).filter(
+        PurchaseInvoice.shop_id == shop_id,
+        PurchaseInvoice.payment_source == 'shop_cash',
+        PurchaseInvoice.shamsi_year == now_j.year,
+        PurchaseInvoice.shamsi_month == now_j.month,
+        PurchaseInvoice.shamsi_day == now_j.day
+    ).scalar() or 0
+    
+    expected_cash = max(0, sys_cash - today_purchases_cash)
+
+    return jsonify({
+        'success': True,
+        'date_shamsi': now_j.strftime("%Y/%m/%d"),
+        'shop_id': shop_id,
+        'system_pos': sys_pos,
+        'system_cash': sys_cash,
+        'today_purchases_cash': today_purchases_cash,
+        'expected_cash_in_register': expected_cash,
+        'system_card': sys_card,
+        'system_cheques': sys_cheques,
+        'system_cheques_count': sys_cheques_count,
+        'invoices_count': len(today_invoices),
+        'total_sales': sys_total
+    })
+
+@app.route('/shift/submit_report', methods=['POST'])
+def submit_shift_report():
+    """ثبت نهایی گزارش پایان روز و بستن شیفت توسط فروشنده"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = User.query.get(session['user_id'])
+    shop_id = session.get('shop_id') or (user.shop_id if user else 1) or 1
+    now_j = jdatetime.datetime.now()
+    
+    # مبالغ اعلامی فروشنده
+    reported_pos = safe_int(request.form.get('reported_pos_amount'), 0)
+    reported_cash = safe_int(request.form.get('reported_cash_amount'), 0)
+    reported_card = safe_int(request.form.get('reported_card_amount'), 0)
+    reported_cheques = safe_int(request.form.get('reported_cheques_amount'), 0)
+    reported_cheques_count = safe_int(request.form.get('reported_cheques_count'), 0)
+    notes = request.form.get('notes', '').strip()
+    
+    # آپلود تصویر فیش پوز (عکس رول کارتخوان)
+    pos_slip_data = None
+    pos_file = request.files.get('pos_slip_image')
+    if pos_file and pos_file.filename:
+        try:
+            b = pos_file.read()
+            ext = pos_file.filename.rsplit('.', 1)[-1].lower() if '.' in pos_file.filename else 'jpg'
+            pos_slip_data = f"data:image/{ext};base64," + base64.b64encode(b).decode('utf-8')
+        except Exception as slip_err:
+            app.logger.warning(f"POS slip upload error: {slip_err}")
+            
+    # محاسبه مقادیر سیستمی فاکتورهای امروز شعبه
+    today_invoices = Invoice.query.filter(
+        Invoice.shop_id == shop_id,
+        Invoice.shamsi_year == now_j.year,
+        Invoice.shamsi_month == now_j.month,
+        Invoice.shamsi_day == now_j.day,
+        Invoice.status == 'final'
+    ).all()
+    
+    sales = [inv for inv in today_invoices if inv.invoice_type == 'sale']
+    returns = [inv for inv in today_invoices if inv.invoice_type == 'return']
+    
+    sys_pos = sum(inv.paid_pos or 0 for inv in sales) - sum(inv.paid_pos or 0 for inv in returns)
+    sys_cash = sum(inv.paid_cash or 0 for inv in sales) - sum(inv.paid_cash or 0 for inv in returns)
+    sys_card = sum(inv.paid_card or 0 for inv in sales) - sum(inv.paid_card or 0 for inv in returns)
+    
+    sys_cheques = 0
+    for inv in sales:
+        for chk in inv.cheques:
+            sys_cheques += chk.amount or 0
+            
+    sys_total = sum(inv.total_amount or 0 for inv in sales) - sum(inv.total_amount or 0 for inv in returns)
+    
+    # خریدهای انبار کسر شده از دخل امروز
+    today_purchases_cash = db.session.query(func.sum(PurchaseInvoice.total_amount)).filter(
+        PurchaseInvoice.shop_id == shop_id,
+        PurchaseInvoice.payment_source == 'shop_cash',
+        PurchaseInvoice.shamsi_year == now_j.year,
+        PurchaseInvoice.shamsi_month == now_j.month,
+        PurchaseInvoice.shamsi_day == now_j.day
+    ).scalar() or 0
+    
+    # مغایرت‌گیری هوشمند
+    pos_diff = reported_pos - sys_pos
+    # نقد دخل اعلامی با نقد انتظاری (سیستم منهای خریدها)
+    expected_cash = max(0, sys_cash - today_purchases_cash)
+    cash_diff = reported_cash - expected_cash
+    
+    status = 'balanced' if (pos_diff == 0 and cash_diff == 0) else 'discrepancy'
+    
+    # بررسی آیا قبلاً برای امروز گزارشی ثبت شده؟ بروزرسانی یا ثبت رکورد جدید
+    existing_report = DailyShiftReport.query.filter_by(
+        user_id=user.id,
+        shop_id=shop_id,
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_day=now_j.day
+    ).first()
+    
+    if existing_report:
+        report = existing_report
+        report.reported_pos_amount = reported_pos
+        report.reported_cash_amount = reported_cash
+        report.reported_card_amount = reported_card
+        report.reported_cheques_amount = reported_cheques
+        report.reported_cheques_count = reported_cheques_count
+        if pos_slip_data:
+            report.pos_slip_image = pos_slip_data
+        report.notes = notes
+    else:
+        report = DailyShiftReport(
+            user_id=user.id,
+            shop_id=shop_id,
+            shamsi_year=now_j.year,
+            shamsi_month=now_j.month,
+            shamsi_day=now_j.day,
+            shamsi_date_time=now_j.strftime("%Y/%m/%d - %H:%M:%S"),
+            pos_slip_image=pos_slip_data,
+            reported_pos_amount=reported_pos,
+            reported_cash_amount=reported_cash,
+            reported_card_amount=reported_card,
+            reported_cheques_amount=reported_cheques,
+            reported_cheques_count=reported_cheques_count,
+            notes=notes
+        )
+        db.session.add(report)
+        
+    report.system_pos_amount = sys_pos
+    report.system_cash_amount = sys_cash
+    report.system_card_amount = sys_card
+    report.system_cheques_amount = sys_cheques
+    report.system_invoices_count = len(today_invoices)
+    report.system_total_sales = sys_total
+    report.cash_expenses_deducted = today_purchases_cash
+    report.pos_difference = pos_diff
+    report.cash_difference = cash_diff
+    report.status = status
+    
+    db.session.commit()
+    
+    status_label = "بدون مغایرت و تراز کامل ✅" if status == 'balanced' else f"با مغایرت (پوز: {pos_diff:+,} | دخل نقد: {cash_diff:+,}) ⚠️"
+    log_activity(f"ثبت گزارش پایان روز و بستن دخل توسط {user.full_name} ({status_label})", user.full_name, "فروش / دخل")
+    flash(f'گزارش پایان روز شما با موفقیت ثبت شد ({status_label}). خسته نباشید!', 'success')
+    return redirect(url_for('seller_dashboard'))
+
+@app.route('/admin/shift_reports', methods=['GET'])
+def admin_shift_reports_view():
+    """مشاهده لیست کلیه گزارش‌های پایان روز فروشندگان توسط مدیریت"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+        
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+    
+    reports = DailyShiftReport.query.filter(DailyShiftReport.shop_id.in_(tenant_shop_ids)).order_by(DailyShiftReport.id.desc()).limit(120).all()
+    
+    return render_template(
+        'shift_reports.html',
+        reports=reports,
+        shops=shops
+    )
+
+@app.route('/admin/shift_report/verify/<int:report_id>', methods=['POST'])
+def verify_shift_report(report_id):
+    """تایید گزارش دخل توسط مدیریت"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
+    rep = DailyShiftReport.query.get_or_404(report_id)
+    rep.is_verified_by_admin = True
+    rep.admin_notes = request.form.get('admin_notes', 'تایید شد')
+    db.session.commit()
+    log_activity(f"تایید گزارش پایان روز شماره {rep.id} متعلق به {rep.user.full_name if rep.user else ''}", session.get('full_name'), "مالی")
+    flash('گزارش فروشنده با موفقیت تایید گردید.', 'success')
+    return redirect(request.referrer or url_for('admin_shift_reports_view'))
+
 
 BACKUPS_DIR = os.path.join(DATA_DIR, 'backups')
 os.makedirs(BACKUPS_DIR, exist_ok=True)

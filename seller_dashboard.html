@@ -13,6 +13,9 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
+        <button type="button" onclick="openDailyShiftModal()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-emerald-500/25">
+            <span>📑</span> ثبت گزارش پایان روز و دخل
+        </button>
         <a href="{{ url_for('workshop_orders_hub') }}" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-orange-500/25">
             <span>🔨</span> سفارش ساخت کارگاه
             {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}
@@ -2817,7 +2820,147 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             syncNewInvoicePartnerShares(share);
         }
     }
+
+    // ==================== بستن دخل و ثبت گزارش پایان روز فروشنده ====================
+    async function openDailyShiftModal() {
+        const modal = document.getElementById('dailyShiftModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+
+        // فراخوانی داده‌های سیستمی امروز
+        try {
+            const res = await fetch('/api/shift/summary_today');
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('shiftSysPosText').innerText = (data.system_pos || 0).toLocaleString() + ' تومان';
+                document.getElementById('shiftSysCashText').innerText = (data.system_cash || 0).toLocaleString() + ' تومان';
+                document.getElementById('shiftPurchasesCashText').innerText = (data.today_purchases_cash || 0).toLocaleString() + ' تومان';
+                document.getElementById('shiftExpectedCashText').innerText = (data.expected_cash_in_register || 0).toLocaleString() + ' تومان';
+                document.getElementById('shiftSysChequesText').innerText = (data.system_cheques || 0).toLocaleString() + ' تومان (' + (data.system_cheques_count || 0) + ' فقره)';
+                document.getElementById('shiftSysInvoicesText').innerText = (data.invoices_count || 0) + ' عدد فاکتور';
+                document.getElementById('shiftSysTotalText').innerText = (data.total_sales || 0).toLocaleString() + ' تومان';
+
+                // مقداردهی اولیه فیلدها در صورت خالی بودن
+                const posInp = document.getElementById('reported_pos_input');
+                const cashInp = document.getElementById('reported_cash_input');
+                const chkInp = document.getElementById('reported_cheques_input');
+                const chkCntInp = document.getElementById('reported_cheques_count_input');
+
+                if (posInp && !posInp.value) posInp.value = data.system_pos || 0;
+                if (cashInp && !cashInp.value) cashInp.value = data.expected_cash_in_register || 0;
+                if (chkInp && !chkInp.value) chkInp.value = data.system_cheques || 0;
+                if (chkCntInp && !chkCntInp.value) chkCntInp.value = data.system_cheques_count || 0;
+            }
+        } catch (e) {
+            console.error('Error fetching shift summary:', e);
+        }
+    }
+
+    function closeDailyShiftModal() {
+        const modal = document.getElementById('dailyShiftModal');
+        if (modal) modal.classList.add('hidden');
+    }
 </script>
+
+<!-- ==================== مودال بستن دخل و ثبت گزارش روزانه فروشنده ==================== -->
+<div id="dailyShiftModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-card max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl">
+        <div class="flex justify-between items-center pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">📑</span>
+                <div>
+                    <h3 class="font-black text-white text-base">ثبت گزارش کار و بستن دخل پایان روز</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">آپلود عکس پرینت کارتخوان (پوز)، اعلام نقدینگی صندوق و مغایرت‌گیری</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeDailyShiftModal()" class="text-slate-400 hover:text-white text-2xl transition">✕</button>
+        </div>
+
+        <!-- خلاصه سیستمی فروش امروز -->
+        <div class="my-5 p-4 rounded-2xl bg-[#0c1424] border border-cyan-500/30">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">🤖</span>
+                <span class="text-xs font-black text-cyan-300">آمار فاکتورهای ثبت‌شده شما در سیستم برای امروز:</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-mono">
+                <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+                    <span class="text-[10px] text-slate-400 block font-sans">💳 جمع کارتخوان سیستم:</span>
+                    <strong id="shiftSysPosText" class="text-indigo-300 font-black text-xs block mt-1">در حال محاسبه...</strong>
+                </div>
+                <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+                    <span class="text-[10px] text-slate-400 block font-sans">💵 نقد فاکتورها:</span>
+                    <strong id="shiftSysCashText" class="text-amber-300 font-black text-xs block mt-1">در حال محاسبه...</strong>
+                </div>
+                <div class="bg-rose-950/20 p-2.5 rounded-xl border border-rose-500/20">
+                    <span class="text-[10px] text-rose-300 block font-sans">🛒 کسر خرید انبار از دخل:</span>
+                    <strong id="shiftPurchasesCashText" class="text-rose-400 font-black text-xs block mt-1">در حال محاسبه...</strong>
+                </div>
+                <div class="bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-500/40">
+                    <span class="text-[10px] text-emerald-300 block font-sans font-bold">💰 نقد مورد انتظار در دخل:</span>
+                    <strong id="shiftExpectedCashText" class="text-emerald-400 font-black text-xs block mt-1">در حال محاسبه...</strong>
+                </div>
+                <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+                    <span class="text-[10px] text-slate-400 block font-sans">🗓️ چک‌های دریافتی:</span>
+                    <strong id="shiftSysChequesText" class="text-white font-black text-xs block mt-1">در حال محاسبه...</strong>
+                </div>
+                <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+                    <span class="text-[10px] text-slate-400 block font-sans">🧾 تعداد کل فاکتورها:</span>
+                    <strong id="shiftSysInvoicesText" class="text-cyan-300 font-black text-xs block mt-1">در حال محاسبه...</strong>
+                </div>
+            </div>
+        </div>
+
+        <form action="{{ url_for('submit_shift_report') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <!-- آپلود عکس پرینت رول کارتخوان -->
+            <div class="bg-gradient-to-r from-indigo-950/40 to-slate-900 border border-indigo-500/40 p-4 rounded-2xl">
+                <label class="block text-xs font-black text-indigo-300 mb-1 flex items-center gap-1.5">
+                    <span>📷</span>
+                    <span>عکس پرینت تجمیعی کارتخوان (رول پوز پایان شیفت):</span>
+                    <span class="text-rose-400 font-normal">* الزامی یا اختیاری</span>
+                </label>
+                <p class="text-[11px] text-slate-400 mb-2.5">از رول پرینت پایان روز دستگاه کارتخوان عکس بگیرید و آپلود نمایید تا با سیستم تطبیق داده شود.</p>
+                <input type="file" name="pos_slip_image" accept="image/*" capture="environment" class="w-full text-xs text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            </div>
+
+            <!-- فیلدهای مبالغ اعلامی فروشنده -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">💳 جمع کارتخوان اعلامی (طبق پرینت پوز به تومان):</label>
+                    <input type="number" name="reported_pos_amount" id="reported_pos_input" required class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">💵 نقد فیزیکی موجود در صندوق/دخل مغازه (تومان):</label>
+                    <input type="number" name="reported_cash_amount" id="reported_cash_input" required class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">🗓️ جمع کل چک‌های صیادی دریافت شده (تومان):</label>
+                    <input type="number" name="reported_cheques_amount" id="reported_cheques_input" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-purple-500 font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">🔢 تعداد برگ چک فیزیکی در صندوق:</label>
+                    <input type="number" name="reported_cheques_count" id="reported_cheques_count_input" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-purple-500 font-mono">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">📝 یادداشت و توضیحات روزانه (کسری/اضافه صندوق، توضیحات چک یا هزینه‌ها):</label>
+                <textarea name="notes" rows="2" placeholder="اگر مغایرت یا نکته خاصی در دخل امروز وجود دارد، اینجا یادداشت بفرمایید..." class="w-full bg-[#1a2234] border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-indigo-500"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button type="button" onclick="closeDailyShiftModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                    انصراف
+                </button>
+                <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition flex items-center gap-2">
+                    <span>✅</span> ثبت نهایی و بستن شیفت امروز
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 

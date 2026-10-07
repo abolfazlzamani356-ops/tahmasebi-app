@@ -573,3 +573,116 @@ class CustomWorkshopOrder(db.Model):
             'image_3': self.image_3 or '',
             'has_image': bool(self.image_1 or self.image_2 or self.image_3)
         }
+
+class PurchaseInvoice(db.Model):
+    """فاکتور خرید کالا و ملزومات برای انبار و مجموعه (ثبت توسط ادمین انبار/مسئول خرید)"""
+    __tablename__ = 'purchase_invoices'
+    id = db.Column(db.Integer, primary_key=True)
+    purchase_number = db.Column(db.String(50), nullable=False, unique=True) # شماره فاکتور خرید
+    supplier_name = db.Column(db.String(150), nullable=False) # تامین‌کننده / فروشنده
+    supplier_phone = db.Column(db.String(30), nullable=True) # تلفن تامین‌کننده
+    title = db.Column(db.String(200), nullable=False) # شرح خرید (مثلا: ۱۶ تومن سنگ)
+    total_amount = db.Column(db.BigInteger, nullable=False, default=0) # مبلغ کل خرید (تومان)
+    
+    payment_source = db.Column(db.String(50), default='shop_cash') # 'shop_cash' (کسر از دخل مغازه), 'bank_account' (حساب بانکی فروشگاه), 'credit' (نسیه)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
+    
+    shop_id = db.Column(db.Integer, db.ForeignKey('shops.id'), nullable=False) # شعبه‌ای که پرداخت از دخل آن انجام شد
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False) # کاربری که خرید را ثبت کرد (ادمین انبار)
+    
+    items_desc = db.Column(db.Text, nullable=True) # جزئیات اقلام خریداری شده
+    factor_image = db.Column(db.Text, nullable=True) # عکس فاکتور خرید فیزیکی (اختیاری)
+    
+    shamsi_year = db.Column(db.Integer, nullable=False)
+    shamsi_month = db.Column(db.Integer, nullable=False)
+    shamsi_day = db.Column(db.Integer, nullable=False)
+    shamsi_date_time = db.Column(db.String(40), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    shop = db.relationship('Shop', foreign_keys=[shop_id])
+    user = db.relationship('User', foreign_keys=[user_id])
+    bank_account = db.relationship('BankAccount', foreign_keys=[bank_account_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'purchase_number': self.purchase_number,
+            'supplier_name': self.supplier_name,
+            'supplier_phone': self.supplier_phone or '',
+            'title': self.title,
+            'total_amount': self.total_amount,
+            'payment_source': self.payment_source,
+            'payment_source_label': 'کسر مستقیم از دخل مغازه' if self.payment_source == 'shop_cash' else ('حساب بانکی' if self.payment_source == 'bank_account' else 'نسیه/اعتباری'),
+            'shop_id': self.shop_id,
+            'shop_name': self.shop.name if self.shop else '',
+            'user_id': self.user_id,
+            'user_name': self.user.full_name if self.user else '',
+            'shamsi_date_time': self.shamsi_date_time,
+            'has_image': bool(self.factor_image)
+        }
+
+class DailyShiftReport(db.Model):
+    """گزارش کار و بستن دخل پایان روز فروشنده با عکس پرینت پوز و مغایرت‌گیری هوشمند"""
+    __tablename__ = 'daily_shift_reports'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False) # فروشنده‌ای که شیفت را بست
+    shop_id = db.Column(db.Integer, db.ForeignKey('shops.id'), nullable=False) # شعبه
+    
+    shamsi_year = db.Column(db.Integer, nullable=False)
+    shamsi_month = db.Column(db.Integer, nullable=False)
+    shamsi_day = db.Column(db.Integer, nullable=False)
+    shamsi_date_time = db.Column(db.String(40), nullable=False)
+    
+    # مقادیر اعلامی فروشنده
+    pos_slip_image = db.Column(db.Text, nullable=True) # عکس فیش رول پرینت کارتخوان (پوز)
+    reported_pos_amount = db.Column(db.BigInteger, default=0) # مبلغ پرینت کارتخوان اعلامی
+    reported_cash_amount = db.Column(db.BigInteger, default=0) # مبلغ نقد فیزیکی موجود در دخل مغازه
+    reported_cheques_amount = db.Column(db.BigInteger, default=0) # مبلغ کل چک‌های صیادی دریافت شده
+    reported_card_amount = db.Column(db.BigInteger, default=0) # کارت‌به‌کارت اعلامی
+    reported_cheques_count = db.Column(db.Integer, default=0) # تعداد چک‌های فیزیکی
+    
+    # مقادیر واقعی ثبت شده در فاکتورهای سیستم برای آن روز
+    system_pos_amount = db.Column(db.BigInteger, default=0)
+    system_cash_amount = db.Column(db.BigInteger, default=0)
+    system_card_amount = db.Column(db.BigInteger, default=0)
+    system_cheques_amount = db.Column(db.BigInteger, default=0)
+    system_invoices_count = db.Column(db.Integer, default=0)
+    system_total_sales = db.Column(db.BigInteger, default=0)
+    
+    # خریدها و خروجی‌های کسر شده از دخل در آن روز
+    cash_expenses_deducted = db.Column(db.BigInteger, default=0) # هزینه‌ها و خریدهای نقدی کسر شده از دخل
+    
+    # مغایرت دخل نهایی
+    pos_difference = db.Column(db.BigInteger, default=0) # مغایرت پوز (اعلامی منهای سیستم)
+    cash_difference = db.Column(db.BigInteger, default=0) # مغایرت دخل نقد (با احتساب خروجی‌های دخل)
+    status = db.Column(db.String(30), default='balanced') # 'balanced' (تراز کامل), 'discrepancy' (دارای مغایرت)
+    
+    notes = db.Column(db.Text, nullable=True) # توضیحات روزانه فروشنده
+    admin_notes = db.Column(db.Text, nullable=True) # یادداشت یا تایید مدیر
+    is_verified_by_admin = db.Column(db.Boolean, default=False) # تایید شده توسط مدیریت
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', foreign_keys=[user_id])
+    shop = db.relationship('Shop', foreign_keys=[shop_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_name': self.user.full_name if self.user else '',
+            'shop_name': self.shop.name if self.shop else '',
+            'shamsi_date_time': self.shamsi_date_time,
+            'reported_pos_amount': self.reported_pos_amount,
+            'reported_cash_amount': self.reported_cash_amount,
+            'reported_cheques_amount': self.reported_cheques_amount,
+            'reported_cheques_count': self.reported_cheques_count,
+            'system_pos_amount': self.system_pos_amount,
+            'system_cash_amount': self.system_cash_amount,
+            'cash_expenses_deducted': self.cash_expenses_deducted,
+            'pos_difference': self.pos_difference,
+            'cash_difference': self.cash_difference,
+            'status': self.status,
+            'has_pos_slip': bool(self.pos_slip_image),
+            'is_verified': self.is_verified_by_admin
+        }
+

@@ -1317,7 +1317,12 @@
                     }
                     alert(`✅ مشخصات کالا «${d.name}» با هوش مصنوعی استخراج و فرم ثبت آماده شد.`);
                 } else {
-                    alert('خطا در پردازش تصویر: ' + (resp.message || 'امکان استخراج کالا وجود نداشت.'));
+                    let errMsg = resp.message || 'امکان استخراج کالا وجود نداشت.';
+                    if (errMsg.includes('کلید API') || errMsg.includes('api_key') || errMsg.includes('ثبت نشده')) {
+                        alert('⚠️ کلید API هوش مصنوعی در سیستم تنظیم نشده است:\n\n' + errMsg + '\n\nلطفاً از منوی «تنظیمات سیستم > هوش مصنوعی» کلید Google AI Studio خود را وارد نمایید.');
+                    } else {
+                        alert('⚠️ خطا در اسکن هوشمند: ' + errMsg);
+                    }
                 }
             })
             .catch(err => {
@@ -1343,7 +1348,7 @@
     </script>
 
     <!-- ==================== مودال اسکن هوشمند کالا با هوش مصنوعی ==================== -->
-    <div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-[99999]" style="display: none;" onclick="closeAiBoxScanModal(event)">
+    <div id="aiBoxScanModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-[99999]" onclick="closeAiBoxScanModal(event)">
         <div class="bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 text-white space-y-4" onclick="event.stopPropagation()">
             <!-- سربرگ -->
             <div class="flex items-center justify-between border-b border-white/10 pb-3">
@@ -1421,7 +1426,7 @@
     </div>
 
     <!-- ==================== مودال آپدیت درصدی و دسته‌جمعی لیست قیمت‌ها ==================== -->
-    <div id="batchPriceModal" class="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden" style="display: none;" onclick="if(event.target===this)closeBatchPriceModal()">
+    <div id="batchPriceModal" class="hidden fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onclick="if(event.target===this)closeBatchPriceModal()">
         <div class="glass-card max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center pb-4 border-b border-white/10">
                 <div class="flex items-center gap-3">

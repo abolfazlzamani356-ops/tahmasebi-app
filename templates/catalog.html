@@ -1421,8 +1421,8 @@
     </div>
 
     <!-- ==================== مودال آپدیت درصدی و دسته‌جمعی لیست قیمت‌ها ==================== -->
-    <div id="batchPriceModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="glass-card max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl">
+    <div id="batchPriceModal" class="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden" style="display: none;" onclick="if(event.target===this)closeBatchPriceModal()">
+        <div class="glass-card max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center pb-4 border-b border-white/10">
                 <div class="flex items-center gap-3">
                     <span class="text-3xl">⚡</span>
@@ -1524,11 +1524,18 @@
     <script>
         function openBatchPriceModal() {
             const m = document.getElementById('batchPriceModal');
-            if (m) m.classList.remove('hidden');
+            if (m) {
+                m.classList.remove('hidden');
+                m.style.display = 'flex';
+                m.style.zIndex = '99999';
+            }
         }
         function closeBatchPriceModal() {
             const m = document.getElementById('batchPriceModal');
-            if (m) m.classList.add('hidden');
+            if (m) {
+                m.classList.add('hidden');
+                m.style.display = 'none';
+            }
         }
         function toggleBatchInputs(type) {
             const discGroup = document.getElementById('batchDiscountInputGroup');

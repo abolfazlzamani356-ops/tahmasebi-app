@@ -3107,6 +3107,7 @@ def inventory_view():
         total_catalog_count=total_catalog_count,
         inventory_map=inventory_map,
         distinct_brands=distinct_brands,
+        all_brands=distinct_brands,
         search=search_q
     )
 
@@ -4163,11 +4164,13 @@ def reject_transfer(transfer_id):
 
 # ==================== ماژول حقوق، دستمزد و مساعده ====================
 @app.route('/admin/payroll')
+@app.route('/payroll')
 def payroll_view():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
     
     now_j = jdatetime.datetime.now()
+    selected_month = request.args.get('month', now_j.month, type=int)
     tenant_id = get_current_tenant_id()
     settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
     sellers = User.query.filter(User.tenant_id == tenant_id, User.is_active == True, User.role != 'admin').order_by(User.role, User.full_name).all()

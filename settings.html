@@ -756,5 +756,14 @@
             loadBackupsList();
         }
     };
+
+    // فعال‌سازی تب بر اساس پارامتر URL یا هش (مانند ?tab=backup یا #backup)
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab') || window.location.hash.replace('#', '');
+        if (tabParam && document.getElementById('tabContent_' + tabParam)) {
+            switchSettingsTab(tabParam);
+        }
+    });
 </script>
 {% endblock %}

@@ -3783,6 +3783,75 @@ def download_sample_excel():
     return send_file(out, download_name="tahmasebi_catalog_sample.xlsx", as_attachment=True, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+# ==================== ماژول آپدیت درصدی و دسته‌جمعی لیست قیمت‌ها (برند و دسته) ====================
+@app.route('/admin/catalog/batch_price_update', methods=['POST'])
+def batch_price_update():
+    """آپدیت دسته‌جمعی و سریع قیمت‌ها بر اساس درصد تخفیف خرید برند، تغییر قیمت مصوب یا هر دو"""
+    if not can_manage_stock():
+        flash('دسترسی فقط ویژه مدیریت و ادمین انبار است.', 'danger')
+        return redirect(url_for('login'))
+        
+    target_brand = request.form.get('target_brand', '').strip()
+    target_category = request.form.get('target_category', '').strip()
+    update_type = request.form.get('update_type', 'buy_discount') # 'buy_discount', 'sell_percent', 'both'
+    
+    # درصد تخفیف خرید از لیست مصوب (مثلا ۲۸٪ برای آس)
+    discount_pct = safe_float(request.form.get('discount_percent'), 0.0)
+    # درصد تغییر قیمت مصرف‌کننده/مصوب (مثلاً +۱۰٪ یا -۵٪)
+    sell_change_pct = safe_float(request.form.get('sell_change_percent'), 0.0)
+    sync_inventory = bool(request.form.get('sync_inventory', True))
+
+    query = ProductCatalog.query
+    applied_conditions = []
+    
+    if target_brand and target_brand != 'all':
+        query = query.filter(ProductCatalog.brand == target_brand)
+        applied_conditions.append(f"برند {target_brand}")
+        
+    if target_category and target_category != 'all':
+        query = query.filter(ProductCatalog.category == target_category)
+        applied_conditions.append(f"دسته {target_category}")
+        
+    if not applied_conditions:
+        flash('لطفاً حداقل یک برند یا دسته‌بندی را برای آپدیت انتخاب فرمایید.', 'warning')
+        return redirect(request.referrer or url_for('catalog_view'))
+
+    items = query.all()
+    if not items:
+        flash('هیچ کالایی با شرایط انتخابی یافت نشد.', 'warning')
+        return redirect(request.referrer or url_for('catalog_view'))
+
+    updated_count = 0
+    now_j = jdatetime.datetime.now()
+    user_name = session.get('full_name', 'مسئول انبار')
+
+    for it in items:
+        # ۱. تغییر قیمت فروش مصوب در صورت درخواست (مثلاً تورم یا تغییر لیست پایه)
+        if update_type in ['sell_percent', 'both'] and sell_change_pct != 0:
+            it.sell_price = max(0, int(it.sell_price * (1.0 + (sell_change_pct / 100.0))))
+
+        # ۲. محاسبه بهای تمام شده خرید با درصد تخفیف (مثلاً ۲۸٪ کم شود)
+        if update_type in ['buy_discount', 'both'] and discount_pct > 0:
+            it.buy_price = max(0, int(it.sell_price * ((100.0 - discount_pct) / 100.0)))
+            
+        updated_count += 1
+        
+        # ۳. همگام‌سازی فوری قیمت‌های خرید و فروش در انبار فیزیکی تمام شعب
+        if sync_inventory:
+            InventoryItem.query.filter_by(name=it.name).update({
+                'buy_price': it.buy_price,
+                'sell_price': it.sell_price
+            })
+
+    db.session.commit()
+    
+    cond_desc = " و ".join(applied_conditions)
+    log_msg = f"آپدیت دسته‌جمعی قیمت‌ها: {cond_desc} ({updated_count} قلم) - تخفیف خرید: {discount_pct}٪ | تغییر فروش: {sell_change_pct:+}%"
+    log_activity(log_msg, user_name, "کاتالوگ")
+    flash(f'✅ قیمت‌های {updated_count} قلم کالا در «{cond_desc}» با موفقیت آپدیت و در انبار کلیه شعب اعمال شد.', 'success')
+    return redirect(request.referrer or url_for('catalog_view'))
+
+
 @app.route('/api/catalog/search')
 def api_catalog_search():
     """جستجوی سریع محصولات برای پرکردن خودکار قیمت خرید و فروش هنگام فاکتور زدن با نرمال‌سازی فارسی/عربی و چندکلمه‌ای"""

@@ -253,6 +253,11 @@
                     <p class="text-xs text-slate-300 mt-1">کاتالوگ‌های رسمی آس، زرشام، کسرا، استیل البرز، اخوان، نگین الماس، بیمکث، ایلیا استیل، میلان، گاتریا و کابین روشویی KRD</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    {% if is_admin or can_manage_stock %}
+                    <button onclick="openBatchPriceModal()" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                        ⚡ آپدیت درصدی قیمت‌ها (برند/دسته)
+                    </button>
+                    {% endif %}
                     {% if is_admin %}
                     <button onclick="openFaucetWizardModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                         🚿 سازنده سریع ست شیرآلات
@@ -1414,6 +1419,132 @@
             </div>
         </div>
     </div>
+
+    <!-- ==================== مودال آپدیت درصدی و دسته‌جمعی لیست قیمت‌ها ==================== -->
+    <div id="batchPriceModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-card max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl">
+            <div class="flex justify-between items-center pb-4 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">⚡</span>
+                    <div>
+                        <h3 class="font-black text-white text-base">آپدیت دسته‌جمعی و درصدی لیست قیمت‌ها</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">محاسبه خودکار بهای خرید از درصد تخفیف برند یا تغییر قیمت مصوب</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeBatchPriceModal()" class="text-slate-400 hover:text-white text-2xl transition">✕</button>
+            </div>
+
+            <form action="{{ url_for('batch_price_update') }}" method="POST" class="space-y-4 mt-4" onsubmit="return confirm('آیا از اعمال این تغییرات درصدی روی کالاهای انتخابی اطمینان دارید؟');">
+                <!-- انتخاب برند هدف -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">🏷️ انتخاب برند هدف:</label>
+                    <select name="target_brand" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                        <option value="all">همه برندها</option>
+                        {% for b in all_brands %}
+                        <option value="{{ b }}">{{ b }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="text-[10px] text-slate-400 block mt-1">مثلاً برند «آس» یا «زرشام» یا «کسرا»</span>
+                </div>
+
+                <!-- انتخاب دسته‌بندی هدف -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">📦 انتخاب دسته‌بندی (اختیاری):</label>
+                    <select name="target_category" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-500">
+                        <option value="all">همه دسته‌بندی‌ها</option>
+                        {% for cat in all_categories %}
+                        <option value="{{ cat.name }}">{{ cat.icon }} {{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- نوع عملیات آپدیت -->
+                <div class="bg-gradient-to-r from-cyan-950/40 to-slate-900 border border-cyan-500/30 p-4 rounded-2xl">
+                    <label class="block text-xs font-black text-cyan-300 mb-2">🎯 نوع تغییر و فرمول محاسبه:</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <input type="radio" name="update_type" value="buy_discount" checked onchange="toggleBatchInputs('buy')" class="text-cyan-500">
+                            <span class="text-xs font-bold text-white">تغییر بهای خرید با درصد تخفیف از قیمت مصرف‌کننده (مثلاً ۲۸٪ تخفیف)</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <input type="radio" name="update_type" value="sell_percent" onchange="toggleBatchInputs('sell')" class="text-cyan-500">
+                            <span class="text-xs font-bold text-white">افزایش/کاهش درصدی قیمت فروش مصوب (مثلاً +۱۰٪ یا -۵٪ تورم)</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <input type="radio" name="update_type" value="both" onchange="toggleBatchInputs('both')" class="text-cyan-500">
+                            <span class="text-xs font-bold text-white">همزمان: تغییر قیمت فروش و محاسبه مجدد درصد خرید</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- فیلد درصد تخفیف خرید -->
+                <div id="batchDiscountInputGroup">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">
+                        📉 درصد تخفیف خرید از لیست مصوب (مثلاً ۲۸ برای آس):
+                    </label>
+                    <div class="relative">
+                        <input type="number" step="0.1" min="0" max="100" name="discount_percent" value="28" placeholder="مثلاً: 28" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-500 font-mono">
+                        <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">٪</span>
+                    </div>
+                    <span class="text-[10px] text-emerald-400 block mt-1">فرمول: قیمت خرید = قیمت مصوب × (۱۰۰ - ۲۸)٪</span>
+                </div>
+
+                <!-- فیلد تغییر درصدی قیمت فروش -->
+                <div id="batchSellChangeGroup" class="hidden">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">
+                        📈 درصد تغییر قیمت فروش مصرف‌کننده:
+                    </label>
+                    <div class="relative">
+                        <input type="number" step="0.1" name="sell_change_percent" value="0" placeholder="مثلاً: 10 برای +۱۰٪ یا -5 برای کاهش ۵٪" class="w-full bg-[#1a2234] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-cyan-500 font-mono">
+                        <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">٪</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 block mt-1">مقدار مثبت برای گران شدن و مقدار منفی برای ارزان شدن</span>
+                </div>
+
+                <!-- تیک همگام‌سازی با انبار شعب -->
+                <div class="pt-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="sync_inventory" value="1" checked class="rounded text-cyan-500 w-4 h-4">
+                        <span class="text-xs text-slate-300 font-bold">همگام‌سازی فوری قیمت‌های جدید در موجودی انبارهای کلیه شعب</span>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                    <button type="button" onclick="closeBatchPriceModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                        انصراف
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+                        <span>⚡</span> اعمال آنی تغییرات قیمت
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openBatchPriceModal() {
+            const m = document.getElementById('batchPriceModal');
+            if (m) m.classList.remove('hidden');
+        }
+        function closeBatchPriceModal() {
+            const m = document.getElementById('batchPriceModal');
+            if (m) m.classList.add('hidden');
+        }
+        function toggleBatchInputs(type) {
+            const discGroup = document.getElementById('batchDiscountInputGroup');
+            const sellGroup = document.getElementById('batchSellChangeGroup');
+            if (type === 'buy') {
+                discGroup.classList.remove('hidden');
+                sellGroup.classList.add('hidden');
+            } else if (type === 'sell') {
+                discGroup.classList.add('hidden');
+                sellGroup.classList.remove('hidden');
+            } else {
+                discGroup.classList.remove('hidden');
+                sellGroup.classList.remove('hidden');
+            }
+        }
+    </script>
 </body>
 </html>
 

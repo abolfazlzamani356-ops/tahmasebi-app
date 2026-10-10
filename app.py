@@ -482,7 +482,7 @@ def initialize_database():
     # بارگذاری کاتالوگ‌های رسمی
     try:
         from abs_catalog_data import generate_all_abs_items
-        _seed_catalog('آس (ABS)', generate_all_abs_items, 28.0, 'ABS')
+        _seed_catalog('آس (ABS)', generate_all_abs_items, 18.0, 'ABS')
     except Exception as e:
         app.logger.warning(f"ABS import warning: {e}")
 
@@ -507,7 +507,7 @@ def initialize_database():
 
     try:
         from akhavan_catalog_data import generate_all_akhavan_items
-        _seed_catalog('اخوان (Akhavan)', generate_all_akhavan_items, 18.0, 'Akhavan')
+        _seed_catalog('اخوان (Akhavan)', generate_all_akhavan_items, 20.0, 'Akhavan')
     except Exception as e:
         app.logger.warning(f"Akhavan import warning: {e}")
 

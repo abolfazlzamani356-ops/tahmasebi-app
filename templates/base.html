@@ -698,7 +698,6 @@
         });
 
         function handlePWAInstall() {
-            const isIOSChrome = isIOSDevice && (navigator.userAgent.includes('CriOS') || (navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Safari')));
             if (pwaDeferredPrompt) {
                 pwaDeferredPrompt.prompt();
                 pwaDeferredPrompt.userChoice.then(function(choiceResult) {
@@ -708,19 +707,27 @@
                     }
                     pwaDeferredPrompt = null;
                 });
+                return;
+            }
+            
+            // در صورتی که رویداد مرورگر در دسترس نباشد، پنجره راهنمای تطبیق‌پذیر را بر اساس نوع دستگاه و مرورگر باز کن
+            const ua = navigator.userAgent;
+            const isIOS = isIOSDevice;
+            const isIOSChrome = isIOS && (ua.includes('CriOS') || (ua.includes('Chrome') && !ua.includes('Safari')));
+            const isAndroid = /Android/i.test(ua);
+            
+            if (isIOSChrome) {
+                switchPwaTab('chrome');
+            } else if (isIOS) {
+                switchPwaTab('safari');
             } else {
-                if (isIOSChrome) {
-                    switchPwaTab('chrome');
-                } else if (isIOSDevice) {
-                    switchPwaTab('safari');
-                } else {
-                    switchPwaTab('desktop');
-                }
-                const modal = document.getElementById('pwaInstallModal');
-                if (modal) {
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                }
+                switchPwaTab('desktop');
+            }
+            
+            const modal = document.getElementById('pwaInstallModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
             }
         }
 
@@ -734,7 +741,13 @@
                     pwaDeferredPrompt = null;
                 });
             } else {
-                alert('برای نصب روی کامپیوتر یا موبایل، روی علامت ➕ یا نماد نصب در سمت راست نوار آدرس مرورگر کلیک کنید.');
+                // پیام راهنمای تطبیقی بر اساس پلتفرم
+                const isAndroid = /Android/i.test(navigator.userAgent);
+                if (isAndroid) {
+                    alert('در مرورگر کروم گوشی، روی منوی ۳ نقطه (...) بالا سمت راست بزنید و گزینه «افزودن به صفحه اصلی» (Add to Home screen / Install app) را انتخاب فرمایید.');
+                } else {
+                    alert('در بالای مرورگر کامپیوتر (کروم یا مایکروسافت اج)، روی آیکون ➕ یا مانیتور در انتهای نوار آدرس کلیک کنید، یا از منوی ۳ نقطه گزینه «Install / نصب برنامه» را بزنید.');
+                }
             }
         }
 

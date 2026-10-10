@@ -1749,9 +1749,16 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             if (priceElem) priceElem.value = data.unitSalePrice.toLocaleString('en-US');
             if (origElem) origElem.value = data.origPrice > 0 ? data.origPrice.toLocaleString('en-US') : data.unitSalePrice.toLocaleString('en-US');
             if (buyElem && data.buyPrice > 0) buyElem.value = data.buyPrice.toLocaleString('en-US');
-            if (pctElem) pctElem.value = discountPct > 0 ? discountPct : '';
+            
+            let itemDiscPct = 0;
+            if (data.origPrice > data.unitSalePrice && data.origPrice > 0) {
+                itemDiscPct = Math.round(((data.origPrice - data.unitSalePrice) / data.origPrice) * 100);
+            } else if (discountPct > 0) {
+                itemDiscPct = discountPct;
+            }
+            if (pctElem) pctElem.value = itemDiscPct > 0 ? itemDiscPct : '';
 
-            onPriceOrDiscountChange(priceElem || origElem, 'price');
+            onPriceOrDiscountChange(priceElem || origElem, 'combo');
         }
 
         // درج در فاکتور
@@ -2268,7 +2275,10 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         let pctVal = parseNumeric(pctInput ? pctInput.value : '');
         const qty = Math.max(1, parseNumeric(qtyInput ? qtyInput.value : '1') || 1);
 
-        if (trigger === 'price' || trigger === 'orig') {
+        if (trigger === 'combo') {
+            // اقلام درج شده از مودال پکیج ترکیبی: حفظ قیمت مصوب و درصد تخفیف کلی
+            // origInput و pctInput قبلاً با مقادیر مصوب پر شده‌اند
+        } else if (trigger === 'price' || trigger === 'orig') {
             // کاربر مستقیماً قیمت واحد را تغییر داده (بالاتر، پایین‌تر یا مساوی کاتالوگ)
             // به هیچ وجه درصد تخفیف خودکار تولید نمی‌شود!
             if (origInput) {

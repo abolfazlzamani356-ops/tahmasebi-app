@@ -1164,8 +1164,13 @@
             <div class="bg-purple-950/40 p-4 rounded-2xl border border-purple-500/40 space-y-3.5 shadow-inner">
                 <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                     <div class="sm:col-span-7">
-                        <label class="block text-xs font-bold text-emerald-400 mb-1">💰 قیمت توافقی کل پکیج (تومان):</label>
-                        <input type="text" id="comboTotalPriceInput" placeholder="مثال: 6,800,000" oninput="formatNumber(this); updateComboModalPreview()" class="w-full p-2.5 bg-slate-800 border-2 border-emerald-500/60 rounded-xl text-sm font-black text-emerald-300 text-left font-mono dir-ltr focus:ring-2 focus:ring-emerald-400" dir="ltr">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-emerald-400">💰 قیمت توافقی کل پکیج (تومان):</label>
+                            <button type="button" onclick="resetComboToCatalogSum()" class="text-[10px] text-cyan-300 hover:text-white bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-lg transition" title="تنظیم خودکار مبلغ کل پکیج روی جمع مصوب اقلام">
+                                🔄 جمع مصوب کالاها
+                            </button>
+                        </div>
+                        <input type="text" id="comboTotalPriceInput" placeholder="جمع خودکار اقلام..." oninput="onComboTotalPriceUserInput(this)" class="w-full p-2.5 bg-slate-800 border-2 border-emerald-500/60 rounded-xl text-sm font-black text-emerald-300 text-left font-mono dir-ltr focus:ring-2 focus:ring-emerald-400" dir="ltr">
                     </div>
                     <div class="sm:col-span-5">
                         <label class="block text-xs font-bold text-amber-400 mb-1">٪ تخفیف روی کل پکیج (اختیاری):</label>
@@ -1397,14 +1402,6 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             });
         }
 
-        if (tabName === 'pos') {
-            window.isUserTypingPos = false;
-            const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
-            const posInp = document.getElementById('paidPosInput');
-            if (posInp && total > 0) {
-                posInp.value = total.toLocaleString('en-US');
-            }
-        }
         calcPaymentBalances();
     }
 
@@ -1460,8 +1457,28 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
     }
 
     let comboRowCounter = 0;
+    window.comboUserHasCustomPrice = false;
+
+    function onComboTotalPriceUserInput(elem) {
+        if (elem) {
+            const raw = elem.value ? elem.value.replace(/,/g, '').trim() : '';
+            window.comboUserHasCustomPrice = (raw !== '');
+            formatNumber(elem);
+        }
+        updateComboModalPreview();
+    }
+
+    function resetComboToCatalogSum() {
+        window.comboUserHasCustomPrice = false;
+        const customPriceInp = document.getElementById('comboTotalPriceInput');
+        if (customPriceInp) customPriceInp.value = '';
+        const discInp = document.getElementById('comboDiscountPctInput');
+        if (discInp) discInp.value = '';
+        updateComboModalPreview();
+    }
 
     function openComboModal() {
+        window.comboUserHasCustomPrice = false;
         const modal = document.getElementById('comboPackageModal');
         if (!modal) return;
         modal.classList.remove('hidden');
@@ -1716,8 +1733,10 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         if (sumD) sumD.innerText = totalCatalogSum > 0 ? (totalCatalogSum.toLocaleString('en-US') + ' تومان') : '۰ تومان';
 
         const customPriceInp = document.getElementById('comboTotalPriceInput');
-        if (customPriceInp && !customPriceInp.value && totalCatalogSum > 0) {
-            customPriceInp.value = totalCatalogSum.toLocaleString('en-US');
+        if (customPriceInp) {
+            if (!window.comboUserHasCustomPrice) {
+                customPriceInp.value = totalCatalogSum > 0 ? totalCatalogSum.toLocaleString('en-US') : '';
+            }
         }
 
         const discountPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('comboDiscountPctInput')?.value) || 0));
@@ -1831,10 +1850,9 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             if (origElem) origElem.value = data.origPrice > 0 ? data.origPrice.toLocaleString('en-US') : data.unitSalePrice.toLocaleString('en-US');
             if (buyElem && data.buyPrice > 0) buyElem.value = data.buyPrice.toLocaleString('en-US');
             
+            // درصد تخفیف فقط در صورتی درج می‌شود که فروشنده صراحتاً در کادر تخفیف کل پکیج عددی وارد کرده باشد
             let itemDiscPct = 0;
-            if (data.origPrice > data.unitSalePrice && data.origPrice > 0) {
-                itemDiscPct = Math.round(((data.origPrice - data.unitSalePrice) / data.origPrice) * 100);
-            } else if (discountPct > 0) {
+            if (discountPct > 0) {
                 itemDiscPct = discountPct;
             }
             if (pctElem) pctElem.value = itemDiscPct > 0 ? itemDiscPct : '';
@@ -2694,14 +2712,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             chequesSum += parseNumeric(chk.value);
         });
 
-        const activeTab = window.currentActivePayTab || 'pos';
-        const posInp = document.getElementById('paidPosInput');
-        // در صورتی که تب کارتخوان فعال است و روش دیگری انتخاب نشده، خودکار با مبلغ کل تسویه شود
-        if (activeTab === 'pos' && posInp && (!window.isUserTypingPos || pos === 0) && card === 0 && cash === 0 && chequesSum === 0 && total > 0) {
-            pos = total;
-            posInp.value = total.toLocaleString('en-US');
-        }
-
+        // سیستم به هیچ وجه مبلغ کارتخوان را خودکار پر نمی‌کند و تسویه سرخود لحاظ نمی‌شود
         const totalPaidAndCheques = pos + card + cash + chequesSum;
         const remaining = Math.max(total - totalPaidAndCheques, 0);
 
@@ -2710,17 +2721,22 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         
         if (remDisplay && remInput) {
             remInput.value = remaining;
-            remDisplay.innerText = Number(remaining).toLocaleString('en-US') + ' تومان';
             const dueBox = document.getElementById('dueSettlementDateBox');
-            if (remaining === 0 && total > 0) {
+            if (totalPaidAndCheques >= total && total > 0) {
                 remDisplay.className = 'font-mono text-xs font-black text-emerald-400';
-                remDisplay.innerText = '✅ تسویه کامل (کارتخوان)';
+                remDisplay.innerText = '✅ تسویه کامل (' + Number(totalPaidAndCheques).toLocaleString('en-US') + ' تومان)';
                 if (dueBox) dueBox.classList.add('hidden');
             } else if (remaining > 0) {
                 remDisplay.className = 'font-mono text-xs font-black text-rose-400';
-                remDisplay.innerText = '⏳ مانده بیعانه / نسیه: ' + Number(remaining).toLocaleString('en-US') + ' تومان';
+                if (totalPaidAndCheques > 0) {
+                    remDisplay.innerText = '⏳ مانده تسویه / نسیه: ' + Number(remaining).toLocaleString('en-US') + ' ت (دریافتی: ' + Number(totalPaidAndCheques).toLocaleString('en-US') + ' ت)';
+                } else {
+                    remDisplay.innerText = '⏳ مانده تسویه نشده (نسیه کامل): ' + Number(remaining).toLocaleString('en-US') + ' تومان';
+                }
                 if (dueBox) dueBox.classList.remove('hidden');
             } else {
+                remDisplay.className = 'font-mono text-xs font-black text-slate-400';
+                remDisplay.innerText = '۰ تومان';
                 if (dueBox) dueBox.classList.add('hidden');
             }
         }

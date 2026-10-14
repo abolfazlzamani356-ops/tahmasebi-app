@@ -164,6 +164,37 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
         }
     </style>
+    <script>
+        window.openBatchPriceModal = function() {
+            const m = document.getElementById('batchPriceModal');
+            if (m) {
+                m.classList.remove('hidden');
+                m.style.removeProperty('display');
+                m.style.zIndex = '999999';
+            }
+        };
+        window.closeBatchPriceModal = function() {
+            const m = document.getElementById('batchPriceModal');
+            if (m) {
+                m.classList.add('hidden');
+            }
+        };
+        window.toggleBatchInputs = function(type) {
+            const discGroup = document.getElementById('batchDiscountInputGroup');
+            const sellGroup = document.getElementById('batchSellChangeGroup');
+            if (!discGroup || !sellGroup) return;
+            if (type === 'buy') {
+                discGroup.classList.remove('hidden');
+                sellGroup.classList.add('hidden');
+            } else if (type === 'sell') {
+                discGroup.classList.add('hidden');
+                sellGroup.classList.remove('hidden');
+            } else {
+                discGroup.classList.remove('hidden');
+                sellGroup.classList.remove('hidden');
+            }
+        };
+    </script>
 </head>
 <body class="min-h-screen">
 
@@ -254,7 +285,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     {% if is_admin or can_manage_stock %}
-                    <button onclick="openBatchPriceModal()" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
+                    <button type="button" onclick="openBatchPriceModal()" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5">
                         ⚡ آپدیت درصدی قیمت‌ها (برند/دسته)
                     </button>
                     {% endif %}
@@ -1426,7 +1457,7 @@
     </div>
 
     <!-- ==================== مودال آپدیت درصدی و دسته‌جمعی لیست قیمت‌ها ==================== -->
-    <div id="batchPriceModal" style="display: none;" class="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md items-center justify-center p-4" onclick="if(event.target===this)closeBatchPriceModal()">
+    <div id="batchPriceModal" class="hidden fixed inset-0 z-[999999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onclick="if(event.target===this)closeBatchPriceModal()">
         <div class="glass-card max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl rounded-3xl" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center pb-4 border-b border-white/10">
                 <div class="flex items-center gap-3">
@@ -1531,15 +1562,14 @@
             const m = document.getElementById('batchPriceModal');
             if (m) {
                 m.classList.remove('hidden');
-                m.style.display = 'flex';
-                m.style.zIndex = '99999';
+                m.style.removeProperty('display');
+                m.style.zIndex = '999999';
             }
         }
         function closeBatchPriceModal() {
             const m = document.getElementById('batchPriceModal');
             if (m) {
                 m.classList.add('hidden');
-                m.style.display = 'none';
             }
         }
         function toggleBatchInputs(type) {

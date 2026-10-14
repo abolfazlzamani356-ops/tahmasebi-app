@@ -1647,20 +1647,16 @@ def add_invoice():
                     'due_date': cheque_due_dates[idx] if idx < len(cheque_due_dates) and cheque_due_dates[idx] else 'نامشخص'
                 })
 
-        # مانده تسویه نشده / بیعانه
+        # مانده تسویه نشده / بیعانه بر اساس پرداخت‌های واقعی وارد شده توسط فروشنده
         total_paid_immediate = paid_pos + paid_card + paid_cash
         remaining_balance = safe_int(request.form.get('remaining_balance'), 0)
-        raw_remaining = request.form.get('remaining_balance')
-        
-        # اگر در فاکتور فروش قطعی هیچ روش پرداختی دستی پر نشده و مانده بیعانه هم صراحتاً ثبت نشده باشد، پیش‌فرض کارتخوان تسویه کامل لحاظ می‌شود
-        if status == 'final' and inv_type == 'sale' and total_amount > 0:
-            if total_paid_immediate == 0 and paid_cheque == 0 and (raw_remaining is None or raw_remaining.strip() == '' or raw_remaining.strip() == '0'):
-                paid_pos = total_amount
-                total_paid_immediate = total_amount
-                remaining_balance = 0
 
-        if remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
-            remaining_balance = max(0, total_amount - (total_paid_immediate + paid_cheque))
+        # محاسبه خودکار مانده در صورتی که مجموع دریافتی‌ها کمتر از کل فاکتور باشد
+        total_received = total_paid_immediate + paid_cheque
+        if total_received < total_amount:
+            remaining_balance = max(0, total_amount - total_received)
+        elif total_received >= total_amount:
+            remaining_balance = 0
 
         is_settled = (remaining_balance <= 0) and (paid_cheque == 0)
         
@@ -1670,8 +1666,8 @@ def add_invoice():
         if paid_card > 0: active_methods.append(f"کارت/شبا: {paid_card:,}")
         if paid_cash > 0: active_methods.append(f"نقد: {paid_cash:,}")
         if paid_cheque > 0: active_methods.append(f"چک صیادی: {paid_cheque:,}")
-        if remaining_balance > 0: active_methods.append(f"مانده بیعانه: {remaining_balance:,}")
-        payment_method_str = " | ".join(active_methods) if active_methods else "کارتخوان (POS)"
+        if remaining_balance > 0: active_methods.append(f"مانده تسویه نشده: {remaining_balance:,}")
+        payment_method_str = " | ".join(active_methods) if active_methods else "در انتظار تسویه (نسیه)"
 
         dest_card = request.form.get('dest_card_number', '').strip()
         dest_sheba = request.form.get('dest_sheba_number', '').strip()

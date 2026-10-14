@@ -94,3 +94,62 @@ def test_combo_package_invoice_clean_names_and_stock_deduction():
         db.session.delete(item1)
         db.session.delete(item2)
         db.session.commit()
+
+def test_invoice_no_automatic_pos_settlement():
+    """تست عدم تبدیل سرخود فاکتور به کارتخوان در صورت خالی بودن روش‌های پرداخت"""
+    with app.app_context():
+        shop = Shop.query.first() or Shop(name="شعبه آزمایشی", commission_rate=1.0)
+        item = InventoryItem(
+            name="کالای تست نسیه بدون پوز",
+            category="عمومی",
+            stock_quantity=10,
+            buy_price=1000000,
+            sell_price=2000000,
+            shop_id=shop.id
+        )
+        db.session.add(item)
+        db.session.commit()
+
+        seller = User.query.filter_by(role='seller').first() or User(username='test_seller_nopos', full_name='فروشنده تست', role='seller', shop_id=shop.id)
+        client = app.test_client()
+        with client.session_transaction() as sess:
+            sess['user_id'] = seller.id
+            sess['role'] = 'seller'
+            sess['shop_id'] = shop.id
+            sess['tenant_id'] = 1
+
+        payload = {
+            'customer_name': 'مشتری تست نسیه',
+            'customer_phone': '09121111111',
+            'item_inventory_id[]': [str(item.id)],
+            'item_custom_name[]': [item.name],
+            'item_category[]': ['عمومی'],
+            'item_quantity[]': ['1'],
+            'item_original_price[]': ['2,000,000'],
+            'item_discount_percent[]': [''],
+            'item_price[]': ['2,000,000'],
+            'item_buy_price[]': ['1,000,000'],
+            'total_amount': '2,000,000',
+            'paid_pos': '',
+            'paid_card': '',
+            'paid_cash': '',
+            'remaining_balance': '',
+            'customer_rating': '5',
+            'split_ratio': '100'
+        }
+
+        resp = client.post('/invoice/add', data=payload, follow_redirects=True)
+        assert resp.status_code == 200
+
+        inv = Invoice.query.filter_by(customer_name='مشتری تست نسیه').order_by(Invoice.id.desc()).first()
+        assert inv is not None
+        assert inv.total_amount == 2000000
+        # فاکتور نباید تسویه شده فرض شود و کارتخوان نباید ۲ میلیون پر شده باشد
+        assert inv.paid_pos == 0
+        assert inv.remaining_balance == 2000000
+        assert inv.is_settled == False
+        assert "در انتظار تسویه" in inv.payment_method or "مانده" in inv.payment_method
+
+        db.session.delete(inv)
+        db.session.delete(item)
+        db.session.commit()

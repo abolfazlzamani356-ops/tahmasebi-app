@@ -39,14 +39,29 @@
 </div>
 
 <!-- Stat Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div class="glass-card p-5 border-r-4 border-r-indigo-500">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mb-6">
+    <div class="glass-card p-4 border-r-4 border-r-emerald-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">فروش خالص شما در {{ current_month_name }}</span>
+            <span class="text-xs text-slate-300 font-bold">فروش کل فاکتورها در {{ current_month_name }}</span>
+            <span class="text-lg">🧾</span>
+        </div>
+        <h3 class="text-xl font-black text-emerald-400 mt-2">{{ "{:,}".format(stats.gross_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-slate-400">({{ stats.sales_count }} فاکتور صادر شده)</span>
+    </div>
+
+    <div class="glass-card p-4 border-r-4 border-r-indigo-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-300 font-bold">فروش تسویه‌شده (نقد و چک)</span>
             <span class="text-lg">🛒</span>
         </div>
-        <h3 class="text-2xl font-black text-indigo-400 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
-        <span class="text-[10px] text-slate-400">({{ stats.sales_count }} فاکتور تایید شده)</span>
+        <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-indigo-300 font-bold">
+            {% if stats.gross_sales > stats.net_sales %}
+            ⏳ {{ "{:,}".format(stats.gross_sales - stats.net_sales) }} ت در انتظار تسویه
+            {% else %}
+            ✅ ۱۰۰٪ تسویه کامل
+            {% endif %}
+        </span>
     </div>
 
     <div class="glass-card p-5 border-r-4 border-r-rose-500">
@@ -318,6 +333,13 @@
                 <div id="invoiceItemsContainer" class="space-y-2.5 max-h-[32rem] overflow-y-auto custom-scrollbar p-1">
                     <!-- ردیف کالا مدرن، فوق‌سریع و فشرده -->
                     <div class="item-row bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/80 space-y-2 text-xs shadow-sm hover:border-slate-600 transition">
+                        <!-- نشانگر پکیج ترکیبی -->
+                        <div class="combo-indicator hidden flex items-center justify-between pb-1 border-b border-purple-500/20 text-[10px]">
+                            <span class="font-bold text-purple-300 flex items-center gap-1">
+                                <span>✨</span> عضو پکیج ترکیبی (<span class="combo-member-role text-amber-300 font-bold"></span>)
+                            </span>
+                            <span class="text-purple-400 font-mono">کسر خودکار موجودی انبار</span>
+                        </div>
                         <!-- سطر ۱: انتخاب کالا (انبار شعبه یا نام کاتالوگ/دلخواه) -->
                         <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-center">
                             <div class="sm:col-span-5">
@@ -472,7 +494,7 @@
                 <div id="payPanelPos" class="pay-panel bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-1.5">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-300 w-24">🛒 مبلغ کارتخوان:</span>
-                        <input type="text" name="paid_pos" id="paidPosInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
+                        <input type="text" name="paid_pos" id="paidPosInput" oninput="window.isUserTypingPos = true; calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
                     </div>
                 </div>
 
@@ -1328,7 +1350,11 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         document.getElementById('chequeDirectBox').style.display = (val === 'cheque') ? 'block' : 'none';
     }
 
+    window.currentActivePayTab = 'pos';
+    window.isUserTypingPos = false;
+
     function switchPayTab(tabName) {
+        window.currentActivePayTab = tabName;
         const panels = {
             'pos': document.getElementById('payPanelPos'),
             'card': document.getElementById('payPanelCard'),
@@ -1370,6 +1396,16 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 }
             });
         }
+
+        if (tabName === 'pos') {
+            window.isUserTypingPos = false;
+            const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
+            const posInp = document.getElementById('paidPosInput');
+            if (posInp && total > 0) {
+                posInp.value = total.toLocaleString('en-US');
+            }
+        }
+        calcPaymentBalances();
     }
 
     function payFullWithPos() {
@@ -1417,41 +1453,85 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         newRow.querySelector('.item-row-total-display').innerText = '۰ ت';
         const badge = newRow.querySelector('.item-discount-badge');
         if (badge) badge.classList.add('hidden');
+        const comboInd = newRow.querySelector('.combo-indicator');
+        if (comboInd) comboInd.classList.add('hidden');
         container.appendChild(newRow);
         calcTotal();
-    }
-
-    function openComboModal() {
-        const modal = document.getElementById('comboPackageModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            updateComboModalPreview();
-        }
-    }
-
-    function closeComboModal() {
-        const modal = document.getElementById('comboPackageModal');
-        if (modal) modal.classList.add('hidden');
-    }
-
-    function addComboItemRow() {
-        openComboModal();
     }
 
     let comboRowCounter = 0;
 
     function openComboModal() {
         const modal = document.getElementById('comboPackageModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            const cont = document.getElementById('comboRowsContainer');
-            if (cont && cont.children.length === 0) {
-                // درج ۲ ردیف پیش‌فرض برای شروع
-                addComboRow();
-                addComboRow();
+        if (!modal) return;
+        modal.classList.remove('hidden');
+
+        const cont = document.getElementById('comboRowsContainer');
+        if (!cont) return;
+
+        // ریست کانتینر اقلام پکیج
+        cont.innerHTML = '';
+        comboRowCounter = 0;
+
+        // بررسی ردیف فعال یا تکمیل‌شده در فرم فاکتور جهت پیش‌بارگذاری هوشمند قلم اول
+        const existingRows = document.querySelectorAll('#invoiceItemsContainer .item-row');
+        let prefillItem = null;
+        if (existingRows.length > 0) {
+            for (let i = existingRows.length - 1; i >= 0; i--) {
+                const r = existingRows[i];
+                const sel = r.querySelector('.item-select');
+                const nameInp = r.querySelector('.item-name');
+                const catInp = r.querySelector('.item-cat');
+                const origInp = r.querySelector('.item-orig-price');
+                const priceInp = r.querySelector('.item-price');
+                const buyInp = r.querySelector('.item-buy-price');
+                const qtyInp = r.querySelector('.item-qty');
+
+                const name = nameInp?.value?.trim() || (sel?.selectedIndex > 0 ? sel.options[sel.selectedIndex].getAttribute('data-name') : '');
+                const invId = sel ? sel.value : '';
+                const origPrice = parseNumeric(origInp?.value) || parseNumeric(priceInp?.value) || 0;
+                const buyPrice = parseNumeric(buyInp?.value) || 0;
+                const cat = catInp?.value || '';
+                const qty = Math.max(1, parseInt(qtyInp?.value) || 1);
+
+                if (name || invId || origPrice > 0) {
+                    prefillItem = { invId, name, cat, origPrice, buyPrice, qty };
+                    break;
+                }
             }
-            updateComboModalPreview();
         }
+
+        // افزودن قلم اول (اگر کالایی در ردیف بود از قبل پر شود)
+        addComboRow();
+        if (prefillItem) {
+            const firstRow = cont.querySelector('.combo-sub-row');
+            if (firstRow) {
+                const selElem = firstRow.querySelector('.combo-row-select');
+                const nameElem = firstRow.querySelector('.combo-row-name');
+                const catElem = firstRow.querySelector('.combo-row-category');
+                const origElem = firstRow.querySelector('.combo-row-orig-price');
+                const buyElem = firstRow.querySelector('.combo-row-buy-price');
+                const qtyElem = firstRow.querySelector('.combo-row-qty');
+
+                if (selElem && prefillItem.invId) selElem.value = prefillItem.invId;
+                if (nameElem && prefillItem.name) nameElem.value = prefillItem.name;
+                if (catElem && prefillItem.cat) catElem.value = prefillItem.cat;
+                if (origElem && prefillItem.origPrice > 0) origElem.value = prefillItem.origPrice.toLocaleString('en-US');
+                if (buyElem && prefillItem.buyPrice > 0) buyElem.value = prefillItem.buyPrice;
+                if (qtyElem && prefillItem.qty > 0) qtyElem.value = prefillItem.qty;
+            }
+        }
+
+        // افزودن قلم دوم به عنوان قلم مکمل
+        addComboRow();
+
+        // ریست اینپوت‌های قیمت و تخفیف مودال
+        const customPriceInp = document.getElementById('comboTotalPriceInput');
+        if (customPriceInp) customPriceInp.value = '';
+        const discInp = document.getElementById('comboDiscountPctInput');
+        if (discInp) discInp.value = '';
+
+        updateComboModalPreview();
     }
 
     function closeComboModal() {
@@ -1718,7 +1798,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         itemsData.forEach((item, i) => {
             if (i === itemsData.length - 1) {
                 // برای ردیف آخر جهت پرهیز از خطای گرد کردن
-                item.allocatedTotal = agreedTotal - allocatedSum;
+                item.allocatedTotal = Math.max(0, agreedTotal - allocatedSum);
             } else {
                 let ratio = (totalCatalogSum > 0) ? (item.rowBaseSum / totalCatalogSum) : (1 / itemsData.length);
                 let alloc = Math.round(agreedTotal * ratio);
@@ -1743,7 +1823,8 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const pctElem = targetRow.querySelector('.item-discount-pct');
 
             if (selectElem) selectElem.value = data.invId;
-            if (nameElem) nameElem.value = data.name + (isFirst ? ' (پکیج ترکیبی)' : ' (همراه پکیج)');
+            // نام کالا بدون دستکاری و به صورت استاندارد ذخیره می‌شود تا در انبار و کاتالوگ دقیقاً کسر و منطبق گردد
+            if (nameElem) nameElem.value = data.name;
             if (catElem && data.category) catElem.value = data.category;
             if (qtyElem) qtyElem.value = data.qty;
             if (priceElem) priceElem.value = data.unitSalePrice.toLocaleString('en-US');
@@ -1758,25 +1839,67 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             }
             if (pctElem) pctElem.value = itemDiscPct > 0 ? itemDiscPct : '';
 
+            // نمایش نشانگر زیبای پکیج ترکیبی در ردیف فاکتور
+            const comboInd = targetRow.querySelector('.combo-indicator');
+            const comboRole = targetRow.querySelector('.combo-member-role');
+            if (comboInd) {
+                comboInd.classList.remove('hidden');
+                if (comboRole) comboRole.innerText = isFirst ? 'قلم اصلی پکیج' : 'قلم مکمل پکیج';
+            }
+
             onPriceOrDiscountChange(priceElem || origElem, 'combo');
         }
 
-        // درج در فاکتور
-        itemsData.forEach((data, index) => {
-            const rows = invoiceContainer.querySelectorAll('.item-row');
-            let targetRow = null;
+        // درج هوشمند در فاکتور بدون ردیف‌های تکراری یا جا ماندن کالای قبلی
+        const currentRows = Array.from(invoiceContainer.querySelectorAll('.item-row'));
+        let firstTargetRow = null;
 
-            if (index === 0 && rows.length === 1 && !rows[0].querySelector('.item-select')?.value && !rows[0].querySelector('.item-name')?.value) {
-                targetRow = rows[0];
+        if (currentRows.length === 1) {
+            // اگر فقط یک ردیف در فاکتور وجود دارد (خالی یا کالای انتخابی قبلی)، ردیف اول پکیج جایگزین آن می‌شود
+            firstTargetRow = currentRows[0];
+        } else {
+            // اگر چندین ردیف است، بررسی کن آیا ردیف خالی یا ردیف منطبق با قلم اول وجود دارد
+            for (let r of currentRows) {
+                const sel = r.querySelector('.item-select')?.value;
+                const nm = r.querySelector('.item-name')?.value?.trim();
+                const pr = parseNumeric(r.querySelector('.item-price')?.value);
+                if (!nm && !sel && pr <= 0) {
+                    firstTargetRow = r;
+                    break;
+                }
+                if (itemsData[0] && ((itemsData[0].invId && sel == itemsData[0].invId) || (itemsData[0].name && nm == itemsData[0].name))) {
+                    firstTargetRow = r;
+                    break;
+                }
+            }
+        }
+
+        itemsData.forEach((data, index) => {
+            let targetRow = null;
+            if (index === 0 && firstTargetRow) {
+                targetRow = firstTargetRow;
             } else {
                 addInvoiceItemRow();
                 const updatedRows = invoiceContainer.querySelectorAll('.item-row');
                 targetRow = updatedRows[updatedRows.length - 1];
             }
-
             fillMainItemRow(targetRow, data, index === 0);
         });
 
+        // پاکسازی ردیف‌های کاملاً خالی احتمالی اضافی که بدون استفاده مانده‌اند
+        const finalRows = Array.from(invoiceContainer.querySelectorAll('.item-row'));
+        if (finalRows.length > itemsData.length) {
+            finalRows.forEach(r => {
+                const sel = r.querySelector('.item-select')?.value;
+                const nm = r.querySelector('.item-name')?.value?.trim();
+                const pr = parseNumeric(r.querySelector('.item-price')?.value);
+                if (!nm && !sel && pr <= 0) {
+                    r.remove();
+                }
+            });
+        }
+
+        window.isUserTypingTotal = false;
         closeComboModal();
         calcTotal();
 
@@ -2562,7 +2685,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
 
     function calcPaymentBalances() {
         const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
-        const pos = parseNumeric(document.getElementById('paidPosInput')?.value);
+        let pos = parseNumeric(document.getElementById('paidPosInput')?.value);
         const card = parseNumeric(document.getElementById('paidCardInput')?.value);
         const cash = parseNumeric(document.getElementById('paidCashInput')?.value);
         
@@ -2570,6 +2693,14 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         document.querySelectorAll('.chk-amount').forEach(chk => {
             chequesSum += parseNumeric(chk.value);
         });
+
+        const activeTab = window.currentActivePayTab || 'pos';
+        const posInp = document.getElementById('paidPosInput');
+        // در صورتی که تب کارتخوان فعال است و روش دیگری انتخاب نشده، خودکار با مبلغ کل تسویه شود
+        if (activeTab === 'pos' && posInp && (!window.isUserTypingPos || pos === 0) && card === 0 && cash === 0 && chequesSum === 0 && total > 0) {
+            pos = total;
+            posInp.value = total.toLocaleString('en-US');
+        }
 
         const totalPaidAndCheques = pos + card + cash + chequesSum;
         const remaining = Math.max(total - totalPaidAndCheques, 0);
@@ -2583,16 +2714,16 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const dueBox = document.getElementById('dueSettlementDateBox');
             if (remaining === 0 && total > 0) {
                 remDisplay.className = 'font-mono text-xs font-black text-emerald-400';
-                remDisplay.innerText = '✅ تسویه کامل';
+                remDisplay.innerText = '✅ تسویه کامل (کارتخوان)';
                 if (dueBox) dueBox.classList.add('hidden');
             } else if (remaining > 0) {
                 remDisplay.className = 'font-mono text-xs font-black text-rose-400';
+                remDisplay.innerText = '⏳ مانده بیعانه / نسیه: ' + Number(remaining).toLocaleString('en-US') + ' تومان';
                 if (dueBox) dueBox.classList.remove('hidden');
             } else {
                 if (dueBox) dueBox.classList.add('hidden');
             }
         }
-
     }
 
     async function processAiInput() {

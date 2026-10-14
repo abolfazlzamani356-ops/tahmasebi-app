@@ -1577,6 +1577,15 @@ def seller_dashboard():
         leaderboard=leaderboard
     )
 
+# ==================== صندوق فروشگاهی لمسی نسل جدید (POS v2 Demo) ====================
+@app.route('/pos')
+@app.route('/demo/pos')
+def pos_v2_view():
+    """صندوق فروشگاهی لمسی نسل جدید Vue 3 + Tailwind با سرعت آنی و طراحی تاچ‌فرندلی"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('pos_demo.html')
+
 # ==================== صدور و مدیریت فاکتور متصل به انبار (با پرداخت ترکیبی) ====================
 @app.route('/invoice/add', methods=['POST'])
 def add_invoice():

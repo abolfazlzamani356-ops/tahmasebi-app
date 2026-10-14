@@ -4799,20 +4799,95 @@ def store_settings_view():
                            db_stats=db_stats,
                            current_user=current_user)
 
+def send_test_sms(phone):
+    """ارسال بلادرنگ پیامک آزمایشی به درگاه SMS.ir با گزارش جزئیات خطا یا موفقیت"""
+    import requests, re
+    from models import Settings, db
+    
+    if not phone:
+        return False, "شماره موبایل وارد نشده است."
+        
+    phone = to_english_digits(str(phone)).strip()
+    phone = re.sub(r'[^\d]', '', phone)
+    if phone.startswith('98') and len(phone) == 12:
+        phone = '0' + phone[2:]
+    elif not phone.startswith('0') and len(phone) == 10:
+        phone = '0' + phone
+        
+    if not phone.startswith('09') or len(phone) != 11:
+        return False, f"شماره موبایل وارد شده ({phone}) نامعتبر است. شماره همراه باید با 09 شروع شده و ۱۱ رقم باشد."
+        
+    settings = Settings.query.first()
+    api_key = (settings.sms_api_key if settings and settings.sms_api_key else 'mDVL1257srjKMnY7X9Yj87Y1ssazFsEncwDtt3kMF9NtAcBa').strip()
+    template_id_str = str(settings.sms_template_id if settings and settings.sms_template_id else '355952').strip()
+    sms_enabled = settings.sms_enabled if settings and settings.sms_enabled is not None else True
+    
+    if not sms_enabled:
+        return False, "ارسال پیامک در تنظیمات سیستم غیرفعال است. ابتدا تیک «فعال‌سازی ارسال پیامک خودکار» را بزنید و ذخیره فرمایید."
+        
+    try:
+        template_id = int(template_id_str)
+    except Exception:
+        template_id = 355952
+        
+    domain = (settings.public_domain if settings and settings.public_domain else 'tahmasebistore.ir').strip()
+    if not domain.startswith('http://') and not domain.startswith('https://'):
+        domain = f"https://{domain}"
+        
+    payload = {
+        "mobile": phone,
+        "templateId": template_id,
+        "parameters": [
+            {"name": "NAME", "value": "مدیریت محترم"},
+            {"name": "INVOICE", "value": "TEST-101"},
+            {"name": "CODE", "value": "101"},
+            {"name": "LINK", "value": domain}
+        ]
+    }
+    
+    headers = {
+        "X-API-KEY": api_key,
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        resp = requests.post("https://api.sms.ir/v1/send/verify", json=payload, headers=headers, timeout=12)
+        resp_json = {}
+        try:
+            resp_json = resp.json()
+        except Exception:
+            pass
+            
+        is_success = resp.status_code in [200, 201] and (
+            resp_json.get('status') == 1 or 
+            resp_json.get('isSuccessful') is True or 
+            'data' in resp_json
+        )
+        
+        if is_success:
+            return True, f"پیامک آزمایشی با موفقیت به شماره {phone} ارسال گردید (کد تأیید درگاه: {resp.status_code})."
+        else:
+            err = resp_json.get('message') or resp.text or f"کد وضعیت {resp.status_code}"
+            return False, f"خطای درگاه پیامک: {err}"
+    except requests.exceptions.Timeout:
+        return False, "تایم‌اوت ارتباط با سرور پیامک (بیش از ۱۲ ثانیه طول کشید)."
+    except Exception as ex:
+        return False, f"خطای ارتباط با سامانه پیامکی: {str(ex)}"
+
 @app.route('/admin/settings/test_sms', methods=['POST'])
 def test_sms_route():
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
     test_mobile = request.form.get('test_phone', '').strip()
-    if not test_mobile or len(test_mobile) < 10:
-        flash('شماره موبایل وارد شده معتبر نیست.', 'danger')
-        return redirect(url_for('store_settings_view'))
-    
-    success = send_warranty_sms_direct("مشتری تست", test_mobile, "TEST-101", 1405, 7)
-    if success:
-        flash(f'پیامک آزمایشی با موفقیت به شماره {test_mobile} ارسال گردید.', 'success')
-    else:
-        flash('ارسال با خطا مواجه شد یا درگاه غیرفعال است. لطفاً کلید API و شناسه قالب را بررسی نمایید.', 'warning')
+    try:
+        success, msg = send_test_sms(test_mobile)
+        if success:
+            flash(msg, 'success')
+        else:
+            flash(msg, 'warning')
+    except Exception as e:
+        flash(f'خطا در تست پیامک: {str(e)}', 'danger')
     return redirect(url_for('store_settings_view'))
 
 @app.route('/admin/shop/add', methods=['POST'])
@@ -5635,13 +5710,13 @@ def perform_system_backup(label="auto"):
         except Exception as drv_err:
             app.logger.warning(f"Drive copy warning: {drv_err}")
 
-        # چرخش و پاکسازی فایل‌های قدیمی‌تر از ۱۲۰ نسخه در پوشه اصلی
+        # چرخش هوشمند و پاکسازی فایل‌های قدیمی‌تر از ۲۰ نسخه در پوشه اصلی جهت بهینه‌سازی دیسک
         try:
             all_backups = sorted(
                 [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR) if f.endswith('.db')],
                 key=os.path.getmtime
             )
-            while len(all_backups) > 120:
+            while len(all_backups) > 20:
                 old_file = all_backups.pop(0)
                 try:
                     os.remove(old_file)

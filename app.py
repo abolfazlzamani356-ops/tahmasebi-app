@@ -1650,7 +1650,15 @@ def add_invoice():
         # مانده تسویه نشده / بیعانه
         total_paid_immediate = paid_pos + paid_card + paid_cash
         remaining_balance = safe_int(request.form.get('remaining_balance'), 0)
+        raw_remaining = request.form.get('remaining_balance')
         
+        # اگر در فاکتور فروش قطعی هیچ روش پرداختی دستی پر نشده و مانده بیعانه هم صراحتاً ثبت نشده باشد، پیش‌فرض کارتخوان تسویه کامل لحاظ می‌شود
+        if status == 'final' and inv_type == 'sale' and total_amount > 0:
+            if total_paid_immediate == 0 and paid_cheque == 0 and (raw_remaining is None or raw_remaining.strip() == '' or raw_remaining.strip() == '0'):
+                paid_pos = total_amount
+                total_paid_immediate = total_amount
+                remaining_balance = 0
+
         if remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
             remaining_balance = max(0, total_amount - (total_paid_immediate + paid_cheque))
 
@@ -1918,7 +1926,12 @@ def add_invoice():
         if new_inv.total_amount <= 0 and items_total_sum > 0:
             new_inv.total_amount = items_total_sum
             total_amount = items_total_sum
-            if remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
+            if status == 'final' and inv_type == 'sale' and total_paid_immediate == 0 and paid_cheque == 0 and (raw_remaining is None or raw_remaining.strip() == '' or raw_remaining.strip() == '0'):
+                new_inv.paid_pos = total_amount
+                new_inv.paid_amount = total_amount
+                new_inv.remaining_balance = 0
+                new_inv.is_settled = True
+            elif remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
                 remaining_balance = max(0, total_amount - (total_paid_immediate + paid_cheque))
                 new_inv.remaining_balance = remaining_balance
                 new_inv.is_settled = (remaining_balance <= 0)

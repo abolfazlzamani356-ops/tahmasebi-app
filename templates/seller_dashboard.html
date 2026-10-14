@@ -39,14 +39,29 @@
 </div>
 
 <!-- Stat Cards -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div class="glass-card p-5 border-r-4 border-r-indigo-500">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mb-6">
+    <div class="glass-card p-4 border-r-4 border-r-emerald-500">
         <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-bold">فروش خالص شما در {{ current_month_name }}</span>
+            <span class="text-xs text-slate-300 font-bold">فروش کل فاکتورها در {{ current_month_name }}</span>
+            <span class="text-lg">🧾</span>
+        </div>
+        <h3 class="text-xl font-black text-emerald-400 mt-2">{{ "{:,}".format(stats.gross_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-slate-400">({{ stats.sales_count }} فاکتور صادر شده)</span>
+    </div>
+
+    <div class="glass-card p-4 border-r-4 border-r-indigo-500">
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-300 font-bold">فروش تسویه‌شده (نقد و چک)</span>
             <span class="text-lg">🛒</span>
         </div>
-        <h3 class="text-2xl font-black text-indigo-400 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
-        <span class="text-[10px] text-slate-400">({{ stats.sales_count }} فاکتور تایید شده)</span>
+        <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
+        <span class="text-[10px] text-indigo-300 font-bold">
+            {% if stats.gross_sales > stats.net_sales %}
+            ⏳ {{ "{:,}".format(stats.gross_sales - stats.net_sales) }} ت در انتظار تسویه
+            {% else %}
+            ✅ ۱۰۰٪ تسویه کامل
+            {% endif %}
+        </span>
     </div>
 
     <div class="glass-card p-5 border-r-4 border-r-rose-500">
@@ -472,7 +487,7 @@
                 <div id="payPanelPos" class="pay-panel bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-1.5">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-300 w-24">🛒 مبلغ کارتخوان:</span>
-                        <input type="text" name="paid_pos" id="paidPosInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
+                        <input type="text" name="paid_pos" id="paidPosInput" oninput="window.isUserTypingPos = true; calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
                     </div>
                 </div>
 
@@ -1328,7 +1343,11 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         document.getElementById('chequeDirectBox').style.display = (val === 'cheque') ? 'block' : 'none';
     }
 
+    window.currentActivePayTab = 'pos';
+    window.isUserTypingPos = false;
+
     function switchPayTab(tabName) {
+        window.currentActivePayTab = tabName;
         const panels = {
             'pos': document.getElementById('payPanelPos'),
             'card': document.getElementById('payPanelCard'),
@@ -1370,6 +1389,16 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 }
             });
         }
+
+        if (tabName === 'pos') {
+            window.isUserTypingPos = false;
+            const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
+            const posInp = document.getElementById('paidPosInput');
+            if (posInp && total > 0) {
+                posInp.value = total.toLocaleString('en-US');
+            }
+        }
+        calcPaymentBalances();
     }
 
     function payFullWithPos() {
@@ -2562,7 +2591,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
 
     function calcPaymentBalances() {
         const total = parseNumeric(document.getElementById('totalAmountInput')?.value);
-        const pos = parseNumeric(document.getElementById('paidPosInput')?.value);
+        let pos = parseNumeric(document.getElementById('paidPosInput')?.value);
         const card = parseNumeric(document.getElementById('paidCardInput')?.value);
         const cash = parseNumeric(document.getElementById('paidCashInput')?.value);
         
@@ -2570,6 +2599,14 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         document.querySelectorAll('.chk-amount').forEach(chk => {
             chequesSum += parseNumeric(chk.value);
         });
+
+        const activeTab = window.currentActivePayTab || 'pos';
+        const posInp = document.getElementById('paidPosInput');
+        // در صورتی که تب کارتخوان فعال است و روش دیگری انتخاب نشده، خودکار با مبلغ کل تسویه شود
+        if (activeTab === 'pos' && posInp && (!window.isUserTypingPos || pos === 0) && card === 0 && cash === 0 && chequesSum === 0 && total > 0) {
+            pos = total;
+            posInp.value = total.toLocaleString('en-US');
+        }
 
         const totalPaidAndCheques = pos + card + cash + chequesSum;
         const remaining = Math.max(total - totalPaidAndCheques, 0);
@@ -2583,16 +2620,16 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const dueBox = document.getElementById('dueSettlementDateBox');
             if (remaining === 0 && total > 0) {
                 remDisplay.className = 'font-mono text-xs font-black text-emerald-400';
-                remDisplay.innerText = '✅ تسویه کامل';
+                remDisplay.innerText = '✅ تسویه کامل (کارتخوان)';
                 if (dueBox) dueBox.classList.add('hidden');
             } else if (remaining > 0) {
                 remDisplay.className = 'font-mono text-xs font-black text-rose-400';
+                remDisplay.innerText = '⏳ مانده بیعانه / نسیه: ' + Number(remaining).toLocaleString('en-US') + ' تومان';
                 if (dueBox) dueBox.classList.remove('hidden');
             } else {
                 if (dueBox) dueBox.classList.add('hidden');
             }
         }
-
     }
 
     async function processAiInput() {

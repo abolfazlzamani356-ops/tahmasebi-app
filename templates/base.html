@@ -341,6 +341,16 @@
                 </button>
 
                 {% if session.get('user_id') %}
+                <!-- دکمه سوئیچ به صندوق لمسی POS v2 (Dual-Mode Two-Way Switcher) -->
+                <a href="{{ url_for('pos_v2_view') }}" 
+                   onclick="setTahmasebiUiMode('pos_v2')" 
+                   class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:via-teal-400 hover:to-emerald-400 text-white text-xs font-black shadow-lg shadow-cyan-500/25 transition transform hover:-translate-y-0.5 active:translate-y-0 border border-cyan-300/30 ring-1 ring-cyan-400/20 shrink-0" 
+                   title="سوئیچ به حالت صندوق فروش لمسی سریع نسل جدید (POS v2 Touch)">
+                    <span class="text-sm">📱</span>
+                    <span class="hidden sm:inline font-black">ورود به صندوق لمسی POS v2</span>
+                    <span class="sm:hidden font-black">صندوق POS</span>
+                </a>
+
                 <!-- Navigation Links -->
                 <div class="flex flex-wrap items-center gap-1.5">
                 <a href="{{ url_for('index') }}" class="nav-pill {% if request.endpoint in ['index', 'seller_dashboard', 'admin_dashboard'] %}active{% endif %}">
@@ -756,6 +766,24 @@
             if (modal) {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
+            }
+        }
+
+        // ==================== Dual-Mode Two-Way Switcher Persistence ====================
+        function setTahmasebiUiMode(mode) {
+            try {
+                localStorage.setItem('tahmasebi_ui_mode', mode);
+                document.cookie = "tahmasebi_ui_mode=" + encodeURIComponent(mode) + ";path=/;max-age=31536000;SameSite=Lax";
+            } catch (e) {
+                console.warn("Tahmasebi UI mode storage error:", e);
+            }
+        }
+
+        function getTahmasebiUiMode() {
+            try {
+                return localStorage.getItem('tahmasebi_ui_mode') || 'classic_erp';
+            } catch (e) {
+                return 'classic_erp';
             }
         }
     </script>

@@ -702,7 +702,9 @@ def can_manage_stock():
         return False
     if session.get('role') == 'admin':
         return True
-    user = User.query.get(session['user_id'])
+    if 'can_manage_inventory' in session:
+        return bool(session.get('can_manage_inventory'))
+    user = db.session.get(User, session['user_id'])
     return bool(user and getattr(user, 'can_manage_inventory', False))
 
 @app.context_processor
@@ -1541,7 +1543,7 @@ def seller_dashboard():
     catalog_products = ProductCatalog.query.order_by(ProductCatalog.name).limit(35).all()
     custom_invoices = [inv for inv in invoices if getattr(inv, 'has_custom_items', False)]
 
-    # تولید هوشمند شماره فاکتور پیشنهادی بعدی
+    # تولید هوشمند شماره فاکتور پیشنهادی بعدی با تضمین قطعی یکتایی
     last_inv = Invoice.query.order_by(Invoice.id.desc()).first()
     next_inv_suggestion = ""
     if last_inv and last_inv.invoice_number:
@@ -1552,6 +1554,15 @@ def seller_dashboard():
             next_inv_suggestion = last_inv.invoice_number[:m.start(1)] + f"{next_num:0{len(digits)}d}"
     if not next_inv_suggestion:
         next_inv_suggestion = f"INV-{now_j.year}{now_j.month:02d}{now_j.day:02d}-1001"
+    
+    while Invoice.query.filter_by(invoice_number=next_inv_suggestion).first():
+        m = re.search(r'(\d+)$', next_inv_suggestion)
+        if m:
+            digits = m.group(1)
+            next_num = int(digits) + 1
+            next_inv_suggestion = next_inv_suggestion[:m.start(1)] + f"{next_num:0{len(digits)}d}"
+        else:
+            next_inv_suggestion = f"{next_inv_suggestion}-1"
 
     return render_template(
         'seller_dashboard.html',
@@ -1578,8 +1589,8 @@ def seller_dashboard():
     )
 
 # ==================== صندوق فروشگاهی لمسی نسل جدید (POS v2 Demo) ====================
-@app.route('/pos')
 @app.route('/demo/pos')
+@app.route('/pos')
 def pos_v2_view():
     """صندوق فروشگاهی لمسی نسل جدید Vue 3 + Tailwind با سرعت آنی و طراحی تاچ‌فرندلی"""
     if 'user_id' not in session:
@@ -1589,100 +1600,142 @@ def pos_v2_view():
 # ==================== صدور و مدیریت فاکتور متصل به انبار (با پرداخت ترکیبی) ====================
 @app.route('/invoice/add', methods=['POST'])
 def add_invoice():
+    is_json = request.is_json or (request.content_type and 'application/json' in request.content_type)
     if 'user_id' not in session:
+        if is_json:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
         return redirect(url_for('login'))
+
+    req_json = request.get_json(silent=True) or {} if is_json else {}
 
     user = User.query.get(session['user_id'])
     shop_id = session.get('shop_id') or (user.shop_id if user else None) or 1
-    if user and user.role == 'admin':
+    # Allow shop selection from request
+    req_shop = safe_int(req_json.get('shop_id') or req_json.get('target_shop_id') or request.form.get('shop_id') or request.form.get('target_shop_id'), 0)
+    if req_shop > 0:
+        shop_id = req_shop
+    elif user and user.role == 'admin':
         admin_target_shop = safe_int(request.form.get('target_shop_id'), 0)
         if admin_target_shop > 0:
             shop_id = admin_target_shop
 
     try:
         now_j = jdatetime.datetime.now()
-        doc_status = request.form.get('doc_status', 'final')
+        doc_status = (req_json.get('doc_status') or req_json.get('invoice_type') or request.form.get('doc_status', 'final')).strip()
         inv_type = 'return' if doc_status == 'return' else 'sale'
         status = 'proforma' if doc_status == 'proforma' else 'final'
         
         exact_date_time = now_j.strftime("%Y/%m/%d - %H:%M:%S")
-        customer_name = request.form.get('customer_name', '').strip() or 'مشتری محترم'
-        customer_phone = request.form.get('customer_phone', '').strip()
+        customer_name = (req_json.get('customer_name') or request.form.get('customer_name', '')).strip() or 'مشتری محترم'
+        customer_phone = (req_json.get('customer_phone') or request.form.get('customer_phone', '')).strip()
         
         # ثبت یا دریافت مشتری در CRM
         customer = get_or_create_customer(customer_name, customer_phone)
         
-        second_seller = request.form.get('second_seller_id')
-        second_seller_id = safe_int(second_seller, None) if second_seller and second_seller != 'none' else None
+        seller_id = safe_int(req_json.get('seller_id'), session.get('user_id'))
+        second_seller = req_json.get('second_seller_id') or request.form.get('second_seller_id')
+        second_seller_id = safe_int(second_seller, None) if second_seller and str(second_seller) != 'none' else None
         
         # شماره فاکتور - بررسی یکتایی و تولید هوشمند در صورت عدم ورود یا تکراری بودن
-        invoice_number = request.form.get('invoice_number', '').strip()
+        invoice_number = (req_json.get('invoice_number') or request.form.get('invoice_number', '')).strip()
         if invoice_number:
             existing_inv = Invoice.query.filter_by(invoice_number=invoice_number).first()
             if existing_inv:
+                if is_json:
+                    return jsonify({'success': False, 'error': f'شماره فاکتور «{invoice_number}» قبلاً در سامانه ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.'}), 400
                 flash(f'شماره فاکتور «{invoice_number}» قبلاً در سامانه ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.', 'warning')
                 return redirect(request.referrer or url_for('seller_dashboard'))
         else:
             base_inv = f"INV-{now_j.year}{now_j.month:02d}{now_j.day:02d}"
             rand_code = random.randint(1000, 9999)
             invoice_number = f"{base_inv}-{rand_code}"
-            while Invoice.query.filter_by(invoice_number=invoice_number).first():
+            while Invoice.query.filter_by(invoice_number=invoice_number).first() or StockLog.query.filter_by(reference_id=invoice_number).first():
                 rand_code = random.randint(1000, 99999)
                 invoice_number = f"{base_inv}-{rand_code}"
 
-        # دریافت مبالغ پرداخت با safe_int
-        total_amount = safe_int(request.form.get('total_amount'), 0)
-        paid_pos = safe_int(request.form.get('paid_pos'), 0)
-        paid_card = safe_int(request.form.get('paid_card'), 0)
-        paid_cash = safe_int(request.form.get('paid_cash'), 0)
+        # دریافت مبالغ پرداخت با safe_int (5-way split payment)
+        total_amount = safe_int(req_json.get('total_amount') or request.form.get('total_amount'), 0)
+        paid_pos = safe_int(req_json.get('paid_pos') or req_json.get('paid_amount') or request.form.get('paid_pos') or request.form.get('paid_amount'), 0)
+        paid_card = safe_int(req_json.get('paid_card') or request.form.get('paid_card'), 0)
+        paid_cash = safe_int(req_json.get('paid_cash') or request.form.get('paid_cash'), 0)
+        paid_cheque = safe_int(req_json.get('paid_cheque') or request.form.get('paid_cheque'), 0)
         
         # چک‌های صیادی چندگانه
-        cheque_sayads = request.form.getlist('cheque_sayad[]')
-        cheque_banks = request.form.getlist('cheque_bank[]')
-        cheque_amounts = request.form.getlist('cheque_amount[]')
-        cheque_due_dates = request.form.getlist('cheque_due_date[]')
-        
-        paid_cheque = 0
         cheques_to_create = []
-        for idx in range(len(cheque_sayads)):
-            sayad_val = cheque_sayads[idx].strip() if idx < len(cheque_sayads) else ''
-            if sayad_val:
+        if is_json and 'cheques' in req_json and isinstance(req_json['cheques'], list):
+            for chk in req_json['cheques']:
+                sayad_val = str(chk.get('sayad') or chk.get('sayad_number') or '').strip()
+                chk_amt = safe_int(chk.get('amount'), 0)
+                chk_bank = str(chk.get('bank') or chk.get('bank_name') or 'نامشخص').strip()
+                chk_due = str(chk.get('due_date') or chk.get('due_shamsi_date') or 'نامشخص').strip()
+                if sayad_val or chk_amt > 0:
+                    cheques_to_create.append({
+                        'sayad': sayad_val or 'ثبت در صندوق',
+                        'bank': chk_bank,
+                        'amount': chk_amt,
+                        'due_date': chk_due
+                    })
+        else:
+            cheque_sayads = request.form.getlist('cheque_sayad[]') or request.form.getlist('cheque_numbers[]') or (req_json.get('cheque_numbers[]') if is_json else []) or []
+            cheque_banks = request.form.getlist('cheque_bank[]') or request.form.getlist('cheque_banks[]') or (req_json.get('cheque_banks[]') if is_json else []) or []
+            cheque_amounts = request.form.getlist('cheque_amount[]') or request.form.getlist('cheque_amounts[]') or (req_json.get('cheque_amounts[]') if is_json else []) or []
+            cheque_due_dates = request.form.getlist('cheque_due_date[]') or request.form.getlist('cheque_due_dates[]') or (req_json.get('cheque_due_dates[]') if is_json else []) or []
+            for idx in range(max(len(cheque_sayads), len(cheque_amounts))):
+                sayad_val = cheque_sayads[idx].strip() if idx < len(cheque_sayads) else ''
                 chk_amt = safe_int(cheque_amounts[idx], 0) if idx < len(cheque_amounts) else 0
-                paid_cheque += chk_amt
-                cheques_to_create.append({
-                    'sayad': sayad_val,
-                    'bank': cheque_banks[idx] if idx < len(cheque_banks) and cheque_banks[idx] else 'نامشخص',
-                    'amount': chk_amt,
-                    'due_date': cheque_due_dates[idx] if idx < len(cheque_due_dates) and cheque_due_dates[idx] else 'نامشخص'
-                })
+                if sayad_val or chk_amt > 0:
+                    cheques_to_create.append({
+                        'sayad': sayad_val or 'ثبت در صندوق',
+                        'bank': cheque_banks[idx] if idx < len(cheque_banks) and cheque_banks[idx] else 'نامشخص',
+                        'amount': chk_amt,
+                        'due_date': cheque_due_dates[idx] if idx < len(cheque_due_dates) and cheque_due_dates[idx] else 'نامشخص'
+                    })
 
-        # مانده تسویه نشده / بیعانه بر اساس پرداخت‌های واقعی وارد شده توسط فروشنده
+        chk_sum = sum(c['amount'] for c in cheques_to_create)
+        if paid_cheque > 0 and not cheques_to_create:
+            cheques_to_create.append({
+                'sayad': str(req_json.get('sayad_number') or request.form.get('sayad_number') or 'ثبت در صندوق'),
+                'bank': str(req_json.get('bank_name') or request.form.get('bank_name') or 'نامشخص'),
+                'amount': paid_cheque,
+                'due_date': str(req_json.get('due_shamsi_date') or request.form.get('due_shamsi_date') or now_j.strftime("%Y/%m/%d"))
+            })
+        elif chk_sum > 0 and paid_cheque == 0:
+            paid_cheque = chk_sum
+
+        # مانده تسویه نشده / بیعانه بر اساس پرداخت‌های واقعی وارد شده
         total_paid_immediate = paid_pos + paid_card + paid_cash
-        remaining_balance = safe_int(request.form.get('remaining_balance'), 0)
-
-        # محاسبه خودکار مانده در صورتی که مجموع دریافتی‌ها کمتر از کل فاکتور باشد
         total_received = total_paid_immediate + paid_cheque
-        if total_received < total_amount:
-            remaining_balance = max(0, total_amount - total_received)
-        elif total_received >= total_amount:
-            remaining_balance = 0
+        raw_remaining = req_json.get('remaining_balance') if is_json else request.form.get('remaining_balance')
 
-        is_settled = (remaining_balance <= 0) and (paid_cheque == 0)
-        
+        # قانون طلایی: نسیه غیرتحمیلی - اگر هیچ پرداختی وارد نشود مانده برابر کل مبلغ است و هرگز به پوز تحمیل نمی‌شود
+        if total_received == 0:
+            remaining_balance = total_amount
+            is_settled = False
+        elif raw_remaining is not None and str(raw_remaining).strip() != '':
+            remaining_balance = safe_int(raw_remaining, 0)
+            is_settled = (remaining_balance <= 0) and (paid_cheque == 0)
+        else:
+            if total_received < total_amount:
+                remaining_balance = max(0, total_amount - total_received)
+                is_settled = False
+            else:
+                remaining_balance = 0
+                is_settled = (paid_cheque == 0)
+
         # تشخیص روش پرداخت برای نمایش در فاکتور
         active_methods = []
         if paid_pos > 0: active_methods.append(f"کارتخوان: {paid_pos:,}")
         if paid_card > 0: active_methods.append(f"کارت/شبا: {paid_card:,}")
         if paid_cash > 0: active_methods.append(f"نقد: {paid_cash:,}")
         if paid_cheque > 0: active_methods.append(f"چک صیادی: {paid_cheque:,}")
-        if remaining_balance > 0: active_methods.append(f"مانده تسویه نشده: {remaining_balance:,}")
+        if remaining_balance > 0: active_methods.append(f"مانده تسویه نشده (نسیه): {remaining_balance:,}")
         payment_method_str = " | ".join(active_methods) if active_methods else "در انتظار تسویه (نسیه)"
 
-        dest_card = request.form.get('dest_card_number', '').strip()
-        dest_sheba = request.form.get('dest_sheba_number', '').strip()
+        dest_card = (req_json.get('dest_card_number') or request.form.get('dest_card_number', '')).strip()
+        dest_sheba = (req_json.get('dest_sheba_number') or request.form.get('dest_sheba_number', '')).strip()
 
-        partner_share_raw = request.form.get('partner_share')
-        split_ratio_raw = request.form.get('split_ratio')
+        partner_share_raw = req_json.get('partner_share') if is_json else request.form.get('partner_share')
+        split_ratio_raw = req_json.get('split_ratio') if is_json else request.form.get('split_ratio')
         if not second_seller_id:
             split_ratio = 100
         elif partner_share_raw is not None and str(partner_share_raw).strip() != '':
@@ -1691,26 +1744,26 @@ def add_invoice():
         else:
             split_ratio = max(0, min(100, safe_int(split_ratio_raw, 100)))
 
-        customer_rating = safe_int(request.form.get('customer_rating'), 5)
+        customer_rating = safe_int(req_json.get('customer_rating') or request.form.get('customer_rating'), 5)
 
         # دریافت تصویر فاکتور دفتری
-        paper_img_file = request.files.get('paper_invoice_image')
+        paper_img_file = request.files.get('paper_invoice_image') if not is_json else None
         paper_img_name = None
         if paper_img_file and paper_img_file.filename:
             paper_img_name = save_paper_invoice_file(paper_img_file)
-        elif request.form.get('existing_paper_image'):
-            paper_img_name = request.form.get('existing_paper_image').strip()
+        elif req_json.get('existing_paper_image') or request.form.get('existing_paper_image'):
+            paper_img_name = (req_json.get('existing_paper_image') or request.form.get('existing_paper_image', '')).strip()
 
         new_inv = Invoice(
             invoice_number=invoice_number,
             customer_id=customer.id if customer else None,
             customer_name=customer_name,
             customer_phone=customer_phone,
-            items_desc=request.form.get('items_desc'),
+            items_desc=req_json.get('items_desc') or request.form.get('items_desc'),
             status=status,
-            proforma_valid_until=request.form.get('proforma_valid_until'),
+            proforma_valid_until=req_json.get('proforma_valid_until') or request.form.get('proforma_valid_until'),
             invoice_type=inv_type,
-            return_reason=request.form.get('return_reason'),
+            return_reason=req_json.get('return_reason') or request.form.get('return_reason'),
             payment_method=payment_method_str,
             paid_pos=paid_pos,
             paid_card=paid_card,
@@ -1720,12 +1773,12 @@ def add_invoice():
             paid_amount=total_paid_immediate,
             dest_card_number=dest_card,
             dest_sheba_number=dest_sheba,
-            payment_tracking_code=request.form.get('payment_tracking_code'),
+            payment_tracking_code=req_json.get('payment_tracking_code') or request.form.get('payment_tracking_code'),
             total_amount=total_amount,
-            due_settlement_date=request.form.get('due_settlement_date'),
-            is_settled=(remaining_balance <= 0),
+            due_settlement_date=req_json.get('due_settlement_date') or request.form.get('due_settlement_date'),
+            is_settled=(remaining_balance <= 0) and (paid_cheque == 0),
             paper_invoice_image=paper_img_name,
-            seller_id=session['user_id'],
+            seller_id=seller_id,
             second_seller_id=second_seller_id,
             split_ratio=split_ratio,
             customer_rating=customer_rating,
@@ -1738,16 +1791,57 @@ def add_invoice():
         db.session.add(new_inv)
         db.session.flush()
 
-        # پردازش اقلام فاکتور و کسر از انبار
-        inv_item_ids = request.form.getlist('item_inventory_id[]')
-        custom_names = request.form.getlist('item_custom_name[]')
-        custom_cats = request.form.getlist('item_category[]')
-        quantities = request.form.getlist('item_quantity[]')
-        orig_prices = request.form.getlist('item_original_price[]')
-        discount_percents = request.form.getlist('item_discount_percent[]')
-        prices = request.form.getlist('item_price[]')
-        buy_prices = request.form.getlist('item_buy_price[]')
-        
+        # استخراج ساختار اقلام فاکتور (JSON یا فرم چندگانه)
+        items_input = []
+        if is_json and 'items' in req_json and isinstance(req_json['items'], list):
+            for it in req_json['items']:
+                items_input.append({
+                    'inventory_id': it.get('inventory_id') or it.get('item_inventory_id'),
+                    'catalog_id': it.get('catalog_id') or it.get('item_catalog_id') or it.get('id'),
+                    'name': (it.get('name') or it.get('custom_name') or it.get('item_custom_name') or '').strip(),
+                    'category': (it.get('category') or it.get('item_category') or '').strip(),
+                    'quantity': it.get('quantity') or it.get('qty') or it.get('item_quantity') or 1,
+                    'unit_price': it.get('unit_price') or it.get('price') or it.get('item_unit_price') or it.get('item_price') or 0,
+                    'original_price': it.get('original_price') or it.get('item_original_price') or it.get('sell_price') or 0,
+                    'discount': it.get('discount') or it.get('item_discount') or 0,
+                    'discount_percent': it.get('discount_percent') or it.get('item_discount_percent') or 0.0,
+                    'buy_price': it.get('buy_price') or it.get('item_buy_price') or 0
+                })
+        else:
+            def extract_parallel(key):
+                if is_json:
+                    val = req_json.get(key)
+                    if isinstance(val, list): return val
+                    if val is not None: return [val]
+                    return []
+                return request.form.getlist(key)
+
+            inv_item_ids = extract_parallel('item_inventory_id[]') or extract_parallel('item_inventory_id')
+            cat_item_ids = extract_parallel('item_catalog_id[]') or extract_parallel('item_catalog_id')
+            custom_names = extract_parallel('item_custom_name[]') or extract_parallel('item_custom_name')
+            custom_cats = extract_parallel('item_category[]') or extract_parallel('item_category')
+            quantities = extract_parallel('item_quantity[]') or extract_parallel('item_quantity')
+            orig_prices = extract_parallel('item_original_price[]') or extract_parallel('item_original_price')
+            discount_percents = extract_parallel('item_discount_percent[]') or extract_parallel('item_discount_percent')
+            discounts = extract_parallel('item_discount[]') or extract_parallel('item_discount')
+            prices = extract_parallel('item_price[]') or extract_parallel('item_price') or extract_parallel('item_unit_price[]') or extract_parallel('item_unit_price')
+            buy_prices = extract_parallel('item_buy_price[]') or extract_parallel('item_buy_price')
+
+            max_len = max(len(quantities), len(prices), len(custom_names), len(inv_item_ids), len(cat_item_ids), 0)
+            for idx in range(max_len):
+                items_input.append({
+                    'inventory_id': inv_item_ids[idx] if idx < len(inv_item_ids) else None,
+                    'catalog_id': cat_item_ids[idx] if idx < len(cat_item_ids) else None,
+                    'name': custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx] else '',
+                    'category': custom_cats[idx].strip() if idx < len(custom_cats) and custom_cats[idx] else '',
+                    'quantity': quantities[idx] if idx < len(quantities) else 1,
+                    'unit_price': prices[idx] if idx < len(prices) else 0,
+                    'original_price': orig_prices[idx] if idx < len(orig_prices) else 0,
+                    'discount': discounts[idx] if idx < len(discounts) else 0,
+                    'discount_percent': discount_percents[idx] if idx < len(discount_percents) else 0.0,
+                    'buy_price': buy_prices[idx] if idx < len(buy_prices) else 0
+                })
+
         total_actual_buy_cost = 0
         categories_used = set()
         items_total_sum = 0
@@ -1757,66 +1851,93 @@ def add_invoice():
         created_invoice_items = []
         auto_learned_names = set()
 
-        for idx in range(len(quantities)):
-            qty = safe_int(quantities[idx], 1) if idx < len(quantities) else 1
+        for item_data in items_input:
+            qty = safe_int(item_data.get('quantity'), 1)
             if qty <= 0:
                 qty = 1
-            orig_p = safe_int(orig_prices[idx], 0) if idx < len(orig_prices) else 0
-            final_p = safe_int(prices[idx], 0) if idx < len(prices) else 0
-            disc_pct = safe_float(discount_percents[idx], 0.0) if idx < len(discount_percents) else 0.0
-            custom_buy_p = safe_int(buy_prices[idx], 0) if idx < len(buy_prices) else 0
-            
-            item_id_val = safe_int(inv_item_ids[idx], None) if idx < len(inv_item_ids) and inv_item_ids[idx] else None
-            inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
-            # آیا کاربر صراحتاً یک کالای انبار انتخاب کرده؟ (برای تشخیص سفارشی بودن)
-            user_explicitly_linked_inventory = inv_item is not None
+            orig_p = safe_int(item_data.get('original_price'), 0)
+            final_p = safe_int(item_data.get('unit_price'), 0)
+            disc_pct = safe_float(item_data.get('discount_percent'), 0.0)
+            disc_val = safe_int(item_data.get('discount'), 0)
+            custom_buy_p = safe_int(item_data.get('buy_price'), 0)
 
-            name_val = inv_item.name if inv_item else (custom_names[idx].strip() if idx < len(custom_names) and custom_names[idx].strip() else '')
+            item_id_val = safe_int(item_data.get('inventory_id'), None)
+            cat_id_val = safe_int(item_data.get('catalog_id'), None)
+            name_val = item_data.get('name', '').strip()
+
+            inv_item = InventoryItem.query.get(item_id_val) if item_id_val else None
+            cat_obj = ProductCatalog.query.get(cat_id_val) if cat_id_val else None
+
+            # آیا کاربر صراحتاً یک کالای انبار یا کاتالوگ انتخاب کرده؟ (برای تشخیص سفارشی بودن)
+            user_explicitly_linked_inventory = (inv_item is not None) or (cat_obj is not None)
+
+            # اگر از کاتالوگ انتخاب شده اما در انبار این شعبه رکورد ندارد، برای ردیابی انبار ایجاد کنیم
+            if cat_obj and not inv_item:
+                inv_item = InventoryItem.query.filter_by(name=cat_obj.name, shop_id=shop_id).first()
+                if not inv_item:
+                    inv_item = InventoryItem(
+                        name=cat_obj.name,
+                        category=cat_obj.category,
+                        brand=cat_obj.brand,
+                        code=cat_obj.code,
+                        sell_price=cat_obj.sell_price,
+                        buy_price=cat_obj.buy_price or 0,
+                        stock_quantity=0,
+                        shop_id=shop_id
+                    )
+                    db.session.add(inv_item)
+                    db.session.flush()
+
+            if inv_item and not name_val:
+                name_val = inv_item.name
+            elif cat_obj and not name_val:
+                name_val = cat_obj.name
+
             if not name_val:
-                # اگر ردیف کاملاً خالی بود و قیمت هم نداشت رد شو
                 if final_p <= 0 and orig_p <= 0 and not inv_item:
                     continue
                 name_val = 'تجهیزات بهداشتی'
-            
-            # تعیین قیمت پایه مصوب و قیمت نهایی با تخفیف
+
+            # تعیین قیمت پایه مصوب و قیمت نهایی
             if orig_p <= 0:
                 if inv_item and inv_item.sell_price > 0:
                     orig_p = inv_item.sell_price
+                elif cat_obj and cat_obj.sell_price > 0:
+                    orig_p = cat_obj.sell_price
                 elif final_p > 0:
                     orig_p = final_p
-            
+
             if final_p <= 0:
                 if orig_p > 0:
                     if disc_pct > 0:
                         final_p = int(orig_p * (1 - (disc_pct / 100.0)))
+                    elif disc_val > 0:
+                        final_p = max(0, orig_p - disc_val)
                     else:
                         final_p = orig_p
                 else:
                     final_p = 0
 
-            # در صورت ورود تک‌قیمت یا بیشتر بودن قیمت نهایی، قیمت مصوب با نهایی هم‌تراز می‌شود
             if orig_p < final_p:
                 orig_p = final_p
 
-            # محاسبه تخفیف ردیف
-            row_discount = max(0, (orig_p - final_p) * qty) if orig_p > final_p else 0
+            row_discount = max(0, (orig_p - final_p) * qty) if orig_p > final_p else (disc_val * qty if disc_val > 0 else 0)
             row_total = final_p * qty
             row_gross = orig_p * qty
 
             items_gross_sum += row_gross
             items_discount_sum += row_discount
             items_total_sum += row_total
-            
+
             # اگر شناسه کالا ارسال نشده بود، بررسی تطابق خودکار نام کالا با انبار همین شعبه
             # (فقط برای کسر موجودی - تأثیری روی is_custom_row ندارد)
             if not inv_item and name_val:
                 inv_item = InventoryItem.query.filter_by(name=name_val, shop_id=shop_id).first()
-            
-            cat_val = inv_item.category if inv_item else (custom_cats[idx].strip() if idx < len(custom_cats) and custom_cats[idx].strip() else 'عمومی')
+
+            cat_val = inv_item.category if inv_item else (cat_obj.category if cat_obj else (item_data.get('category') or 'عمومی'))
             if cat_val:
                 categories_used.add(cat_val)
-            
-            # ثبت خودکار دسته جدید بدون کامیت زودرس
+
             if cat_val and not Category.query.filter_by(name=cat_val).first():
                 db.session.add(Category(name=cat_val))
                 db.session.flush()
@@ -1829,23 +1950,22 @@ def add_invoice():
                     cat_match = ProductCatalog.query.filter(ProductCatalog.name.contains(name_val[:10])).first()
 
             # استخراج بهای خرید واقعی و تشخیص اقلام سفارشی
-            # «سفارشی» = هر کالایی که کاربر صراحتاً از انبار انتخاب نکرده باشد
+            # «سفارشی» = هر کالایی که کاربر صراحتاً از انبار یا کاتالوگ انتخاب نکرده باشد
             is_custom_row = not user_explicitly_linked_inventory
             buy_p = 0
             if custom_buy_p > 0:
-                # فروشنده/مدیر صراحتاً قیمت خرید وارد کرده
                 buy_p = custom_buy_p
             elif user_explicitly_linked_inventory and inv_item and inv_item.buy_price > 0:
-                # کالای انبار با قیمت خرید مشخص
                 buy_p = inv_item.buy_price
+            elif user_explicitly_linked_inventory and cat_obj and cat_obj.buy_price > 0:
+                buy_p = cat_obj.buy_price
             else:
-                # بهای خرید مشخص نیست → صفر منظور می‌شود (بدون پیش‌فرض تخمینی)
                 buy_p = 0
 
             if is_custom_row:
                 has_any_custom = True
 
-            # خودآموزی کاتالوگ: ثبت خودکار کالا در ProductCatalog برای اقلام جدید/سفارشی
+            # خودآموزی کاتالوگ برای اقلام سفارشی جدید
             if is_custom_row and name_val and name_val != 'تجهیزات بهداشتی' and not inv_item:
                 if name_val not in auto_learned_names:
                     existing_cat = ProductCatalog.query.filter(ProductCatalog.name == name_val).first()
@@ -1862,10 +1982,10 @@ def add_invoice():
                         db.session.add(new_cat_entry)
                         db.session.flush()
                         auto_learned_names.add(name_val)
-            
+
             row_profit = row_total - (buy_p * qty)
             total_actual_buy_cost += (buy_p * qty)
-            
+
             inv_row = InvoiceItem(
                 invoice_id=new_inv.id,
                 inventory_item_id=inv_item.id if inv_item else None,
@@ -1881,8 +2001,8 @@ def add_invoice():
             )
             db.session.add(inv_row)
             created_invoice_items.append(inv_row)
-            
-            # کسر از انبار برای فاکتور قطعی (اتمیک همراه با کل فاکتور)
+
+            # کسر اتمیک از انبار شعبه هدف برای فاکتور قطعی و ثبت لاگ انبار
             if status == 'final' and inv_item:
                 if inv_type == 'sale':
                     record_stock_change(inv_item.id, shop_id, 'sale', -qty, new_inv.invoice_number, session.get('full_name'), f"فروش در فاکتور {new_inv.invoice_number}", commit=False)
@@ -1927,19 +2047,22 @@ def add_invoice():
                 items_gross_sum = new_inv.total_amount
                 items_total_sum = new_inv.total_amount
 
-        # اگر مبلغ کل فاکتور در فیلد وارد نشده بود اما اقلام قیمت داشتند
+        # اگر مبلغ کل فاکتور در هدر وارد نشده بود اما اقلام قیمت داشتند
         if new_inv.total_amount <= 0 and items_total_sum > 0:
             new_inv.total_amount = items_total_sum
             total_amount = items_total_sum
-            if status == 'final' and inv_type == 'sale' and total_paid_immediate == 0 and paid_cheque == 0 and (raw_remaining is None or raw_remaining.strip() == '' or raw_remaining.strip() == '0'):
-                new_inv.paid_pos = total_amount
-                new_inv.paid_amount = total_amount
-                new_inv.remaining_balance = 0
-                new_inv.is_settled = True
-            elif remaining_balance == 0 and (total_paid_immediate + paid_cheque) < total_amount:
-                remaining_balance = max(0, total_amount - (total_paid_immediate + paid_cheque))
+            # رعایت عدم تحمیل نسیه: اگر پرداختی نیست مانده برابر کل مبلغ است
+            if total_received == 0:
+                remaining_balance = total_amount
                 new_inv.remaining_balance = remaining_balance
-                new_inv.is_settled = (remaining_balance <= 0)
+                new_inv.is_settled = False
+            elif remaining_balance == 0 and total_received < total_amount:
+                remaining_balance = max(0, total_amount - total_received)
+                new_inv.remaining_balance = remaining_balance
+                new_inv.is_settled = False
+            else:
+                new_inv.remaining_balance = remaining_balance
+                new_inv.is_settled = (remaining_balance <= 0) and (paid_cheque == 0)
 
         # تنظیم مبالغ ناخالص و تخفیف کل فاکتور
         new_inv.subtotal_amount = max(items_gross_sum, new_inv.total_amount) if items_gross_sum > 0 else new_inv.total_amount
@@ -1951,6 +2074,8 @@ def add_invoice():
         # اعتبارسنجی نهایی مبلغ فاکتور
         if new_inv.total_amount <= 0:
             db.session.rollback()
+            if is_json:
+                return jsonify({'success': False, 'error': 'مبلغ کل فاکتور نمی‌تواند صفر یا خالی باشد. لطفاً اقلام یا مبلغ فاکتور را وارد فرمایید.'}), 400
             flash('مبلغ کل فاکتور نمی‌تواند صفر یا خالی باشد. لطفاً اقلام یا مبلغ فاکتور را وارد فرمایید.', 'warning')
             return redirect(request.referrer or url_for('seller_dashboard'))
 
@@ -2014,12 +2139,26 @@ def add_invoice():
                 app.logger.warning(f"SMS auto-trigger exception: {ex}")
 
         log_activity(f"ثبت سند {new_inv.invoice_number} ({status}) به مبلغ {total_amount:,} تومان با پرداخت ترکیبی", session.get('full_name'), "فروش")
+        
+        if is_json:
+            return jsonify({
+                'success': True,
+                'invoice_id': new_inv.id,
+                'invoice_number': new_inv.invoice_number,
+                'total_amount': new_inv.total_amount,
+                'remaining_balance': new_inv.remaining_balance,
+                'paid_amount': new_inv.paid_amount,
+                'is_settled': new_inv.is_settled
+            })
+
         flash(f'فاکتور {new_inv.invoice_number} با موفقیت در سامانه ثبت شد و تغییرات انبار و حسابداری اعمال گردید.', 'success')
         return redirect(url_for('seller_dashboard'))
 
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error creating invoice: {e}", exc_info=True)
+        if is_json:
+            return jsonify({'success': False, 'error': str(e)}), 400
         flash(f'خطا در ثبت فاکتور: {str(e)}', 'error')
         return redirect(request.referrer or url_for('seller_dashboard'))
 
@@ -2546,6 +2685,7 @@ def edit_invoice(invoice_id):
 
 # ==================== چاپ فاکتورها (A4 و فیش پرینتر) ====================
 @app.route('/invoice/print/a4/<int:invoice_id>')
+@app.route('/invoice/print_a4/<int:invoice_id>')
 @app.route('/print_a4_invoice/<int:invoice_id>', endpoint='print_a4_invoice')
 def print_invoice_a4(invoice_id):
     if 'user_id' not in session:
@@ -2592,6 +2732,7 @@ def send_invoice_sms_action(invoice_id):
 
 # ==================== داشبورد مدیریت کل ====================
 @app.route('/admin')
+@app.route('/admin/dashboard')
 @app.route('/admin_dashboard')
 def admin_dashboard():
     if 'user_id' not in session or session.get('role') != 'admin':
@@ -2940,6 +3081,115 @@ def admin_dashboard():
     profit_margin_percent = round((store_net_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
     gross_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
 
+    # ۶. آمار روزانه مقایسه‌ای شعب ۱ و ۲
+    days_in_month = 31 if selected_month <= 6 else (30 if selected_month <= 11 else 29)
+    branch_daily_labels = [str(d) for d in range(1, days_in_month + 1)]
+    b1_daily_sales = [0] * days_in_month
+    b2_daily_sales = [0] * days_in_month
+    b1_daily_profit = [0] * days_in_month
+    b2_daily_profit = [0] * days_in_month
+
+    for inv in month_invoices:
+        day = getattr(inv, 'shamsi_day', 1) or 1
+        d_idx = min(max(day - 1, 0), days_in_month - 1)
+        amt = inv.total_amount or 0
+        prf = inv.real_profit or 0
+        if inv.invoice_type == 'sale':
+            if inv.shop_id == 2:
+                b2_daily_sales[d_idx] += amt
+                b2_daily_profit[d_idx] += prf
+            else:
+                b1_daily_sales[d_idx] += amt
+                b1_daily_profit[d_idx] += prf
+        elif inv.invoice_type == 'return':
+            if inv.shop_id == 2:
+                b2_daily_sales[d_idx] -= amt
+                b2_daily_profit[d_idx] -= prf
+            else:
+                b1_daily_sales[d_idx] -= amt
+                b1_daily_profit[d_idx] -= prf
+
+    # سود ناخالص شعب ۱ و ۲
+    shop1_profit = sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale') - sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return')
+    shop2_profit = sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale') - sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return')
+
+    # ۷. تحلیل سودآوری و فروش برندها
+    catalog_brands_map = {c.name.strip(): (c.brand or '').strip() for c in ProductCatalog.query.all() if c.brand}
+    inv_brands_map = {i.id: (i.brand or '').strip() for i in all_inventory if i.brand}
+    brand_dict = {}
+    known_brand_keys = ['آس', 'اخوان', 'استیل البرز', 'قهرمان', 'فونیکس', 'داتیس', 'بیمکث', 'ایلیا استیل', 'کسری', 'زرشام', 'گاتریا', 'نگین الماس', 'میلان', 'روژن']
+
+    for inv in month_invoices:
+        if inv.invoice_type != 'sale' or inv.status != 'final':
+            continue
+        for it in inv.items:
+            inm = (it.item_name or '').strip()
+            br = catalog_brands_map.get(inm)
+            if not br and it.inventory_item_id:
+                br = inv_brands_map.get(it.inventory_item_id)
+            if not br:
+                for kb in known_brand_keys:
+                    if kb in inm:
+                        br = kb
+                        break
+            if not br:
+                br = 'سفارشی / سایر' if getattr(it, 'is_custom', False) else 'سایر برندها'
+                
+            if br not in brand_dict:
+                brand_dict[br] = {'brand': br, 'sales': 0, 'profit': 0, 'qty': 0}
+            brand_dict[br]['sales'] += (it.total_price or 0)
+            brand_dict[br]['profit'] += (it.row_profit or 0)
+            brand_dict[br]['qty'] += (it.quantity or 1)
+
+    top_brands_list = sorted(brand_dict.values(), key=lambda x: x['sales'], reverse=True)
+    for b in top_brands_list:
+        b['profit_margin'] = round((b['profit'] / b['sales'] * 100), 1) if b['sales'] > 0 else 0
+
+    brand_chart_labels = [b['brand'] for b in top_brands_list[:8]]
+    brand_chart_sales = [b['sales'] for b in top_brands_list[:8]]
+    brand_chart_profits = [b['profit'] for b in top_brands_list[:8]]
+
+    # ۸. ساختار ترازنامه مالی رسمی
+    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    total_cogs = max(0, cogs_sales - cogs_returns)
+    net_invoiced_sales = total_sales_all
+    gross_profit_balanced = net_invoiced_sales - total_cogs
+    operating_expenses = total_expenses
+    store_net_profit_balanced = gross_profit_balanced - (operating_expenses + total_rent + total_payroll)
+    gross_margin_percent_balanced = round((gross_profit_balanced / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
+    profit_margin_percent_balanced = round((store_net_profit_balanced / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
+
+    store_balance_sheet = {
+        'gross_sales': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final'),
+        'returns_amount': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final'),
+        'net_sales': net_invoiced_sales,
+        'cogs': total_cogs,
+        'gross_profit': gross_profit_balanced,
+        'gross_margin_percent': gross_margin_percent_balanced,
+        'expenses': operating_expenses,
+        'operating_expenses': operating_expenses,
+        'rent': total_rent,
+        'base_salaries': total_base_salaries,
+        'commissions': total_commissions,
+        'payroll': total_payroll,
+        'total_operating_expenses': operating_expenses + total_rent + total_payroll,
+        'net_profit': store_net_profit_balanced,
+        'net_margin_percent': profit_margin_percent_balanced
+    }
+
+    daily_comparison_31 = [
+        {
+            'day': d,
+            'shop1_sales': b1_daily_sales[d - 1] if d - 1 < len(b1_daily_sales) else 0,
+            'shop2_sales': b2_daily_sales[d - 1] if d - 1 < len(b2_daily_sales) else 0,
+            'shop1_profit': b1_daily_profit[d - 1] if d - 1 < len(b1_daily_profit) else 0,
+            'shop2_profit': b2_daily_profit[d - 1] if d - 1 < len(b2_daily_profit) else 0
+        }
+        for d in range(1, days_in_month + 1)
+    ]
+    bi_brands_data = top_brands_list[:10]
+
     return render_template(
         'admin_dashboard.html',
         sellers_data=sellers_data,
@@ -2948,6 +3198,20 @@ def admin_dashboard():
         seller_filter=seller_filter,
         shop1_total=shop1_total,
         shop2_total=shop2_total,
+        shop1_profit=shop1_profit,
+        shop2_profit=shop2_profit,
+        branch_daily_labels=branch_daily_labels,
+        b1_daily_sales=b1_daily_sales,
+        b2_daily_sales=b2_daily_sales,
+        b1_daily_profit=b1_daily_profit,
+        b2_daily_profit=b2_daily_profit,
+        top_brands_list=top_brands_list,
+        brand_chart_labels=brand_chart_labels,
+        brand_chart_sales=brand_chart_sales,
+        brand_chart_profits=brand_chart_profits,
+        daily_comparison_31=daily_comparison_31,
+        bi_brands_data=bi_brands_data,
+        store_balance_sheet=store_balance_sheet,
         total_commissions=total_commissions,
         total_base_salaries=total_base_salaries,
         total_payroll=total_payroll,
@@ -3007,6 +3271,190 @@ def admin_dashboard():
         today_shift_reports=today_shift_reports,
         today_shamsi_date=now_j.strftime("%Y/%m/%d")
     )
+
+@app.route('/api/admin/bi_analytics')
+def api_admin_bi_analytics():
+    """ارسال داده‌های جامع هوش تجاری شامل مقایسه شعب، سودآوری برندها و ترازنامه به صورت JSON"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    now_j = jdatetime.datetime.now()
+    selected_month = request.args.get('month', default=now_j.month, type=int)
+    selected_year = request.args.get('year', default=now_j.year, type=int)
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+
+    month_invoices = Invoice.query.options(
+        selectinload(Invoice.cheques),
+        selectinload(Invoice.items)
+    ).filter(
+        Invoice.shop_id.in_(tenant_shop_ids),
+        Invoice.shamsi_year == selected_year,
+        Invoice.shamsi_month == selected_month,
+        Invoice.status == 'final'
+    ).all()
+
+    days_in_month = 31 if selected_month <= 6 else (30 if selected_month <= 11 else 29)
+    daily_labels = [str(d) for d in range(1, days_in_month + 1)]
+    b1_daily_sales = [0] * days_in_month
+    b2_daily_sales = [0] * days_in_month
+    b1_daily_profit = [0] * days_in_month
+    b2_daily_profit = [0] * days_in_month
+
+    shop1_total = 0
+    shop2_total = 0
+    shop1_profit = 0
+    shop2_profit = 0
+    total_sales_all = 0
+    estimated_gross_profit = 0
+
+    catalog_brands_map = {c.name.strip(): (c.brand or '').strip() for c in ProductCatalog.query.all() if c.brand}
+    inv_brands_map = {i.id: (i.brand or '').strip() for i in InventoryItem.query.all() if i.brand}
+    brand_dict = {}
+    known_brand_keys = ['آس', 'اخوان', 'استیل البرز', 'قهرمان', 'فونیکس', 'داتیس', 'بیمکث', 'ایلیا استیل', 'کسری', 'زرشام', 'گاتریا', 'نگین الماس', 'میلان', 'روژن']
+
+    for inv in month_invoices:
+        valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+        immediate_paid = (inv.paid_amount or 0) if (inv.paid_amount or 0) > 0 else ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0))
+        settled_amt = immediate_paid + valid_cheques
+        profit_amt = inv.real_profit or 0
+
+        day = getattr(inv, 'shamsi_day', 1) or 1
+        d_idx = min(max(day - 1, 0), days_in_month - 1)
+
+        if inv.invoice_type == 'sale':
+            total_sales_all += settled_amt
+            estimated_gross_profit += profit_amt
+            if inv.shop_id == 2:
+                shop2_total += settled_amt
+                shop2_profit += profit_amt
+                b2_daily_sales[d_idx] += settled_amt
+                b2_daily_profit[d_idx] += profit_amt
+            else:
+                shop1_total += settled_amt
+                shop1_profit += profit_amt
+                b1_daily_sales[d_idx] += settled_amt
+                b1_daily_profit[d_idx] += profit_amt
+
+            for it in inv.items:
+                inm = (it.item_name or '').strip()
+                br = catalog_brands_map.get(inm)
+                if not br and it.inventory_item_id:
+                    br = inv_brands_map.get(it.inventory_item_id)
+                if not br:
+                    for kb in known_brand_keys:
+                        if kb in inm:
+                            br = kb
+                            break
+                if not br:
+                    br = 'سفارشی / سایر' if getattr(it, 'is_custom', False) else 'سایر برندها'
+                if br not in brand_dict:
+                    brand_dict[br] = {'brand': br, 'sales': 0, 'profit': 0, 'qty': 0}
+                brand_dict[br]['sales'] += (it.total_price or 0)
+                brand_dict[br]['profit'] += (it.row_profit or 0)
+                brand_dict[br]['qty'] += (it.quantity or 1)
+
+        elif inv.invoice_type == 'return':
+            total_sales_all -= settled_amt
+            estimated_gross_profit -= profit_amt
+            if inv.shop_id == 2:
+                shop2_total -= settled_amt
+                shop2_profit -= profit_amt
+                b2_daily_sales[d_idx] -= settled_amt
+                b2_daily_profit[d_idx] -= profit_amt
+            else:
+                shop1_total -= settled_amt
+                shop1_profit -= profit_amt
+                b1_daily_sales[d_idx] -= settled_amt
+                b1_daily_profit[d_idx] -= profit_amt
+
+    top_brands = sorted(brand_dict.values(), key=lambda x: x['sales'], reverse=True)
+    for b in top_brands:
+        b['profit_margin'] = round((b['profit'] / b['sales'] * 100), 1) if b['sales'] > 0 else 0
+
+    expenses = Expense.query.filter(Expense.shop_id.in_(tenant_shop_ids), Expense.shamsi_year == selected_year, Expense.shamsi_month == selected_month).all()
+    total_expenses = sum(e.amount for e in expenses)
+    total_rent = sum(s.rent_amount or 0 for s in shops)
+
+    all_staff = User.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+    total_base_salaries = sum(u.base_salary or 0 for u in all_staff if u.role != 'admin')
+    settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
+    sellers = User.query.filter(User.tenant_id == tenant_id, User.role.in_(['seller', 'cashier']), User.is_active == True).all()
+    total_commissions = 0
+    sellers_scorecards = []
+    for s in sellers:
+        s_stats = calculate_seller_exact_stats(s.id, selected_year, selected_month, s.commission_rate, settings, user=s)
+        total_commissions += s_stats['settled_commission'] + s_stats.get('tier_bonus_amount', 0)
+        sellers_scorecards.append({
+            'seller_id': s.id,
+            'name': s.full_name,
+            'role': s.role,
+            'stats': s_stats
+        })
+
+    total_payroll = total_base_salaries + total_commissions
+    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    total_cogs = max(0, cogs_sales - cogs_returns)
+    net_invoiced_sales = total_sales_all
+    gross_profit = net_invoiced_sales - total_cogs
+    operating_expenses = total_expenses
+    net_profit = gross_profit - (operating_expenses + total_rent + total_payroll)
+    gross_margin_percent = round((gross_profit / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
+    net_margin_percent = round((net_profit / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
+
+    store_balance_sheet_data = {
+        'gross_sales': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final'),
+        'returns_amount': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final'),
+        'net_sales': net_invoiced_sales,
+        'cogs': total_cogs,
+        'gross_profit': gross_profit,
+        'gross_margin_percent': gross_margin_percent,
+        'operating_expenses': operating_expenses,
+        'expenses': operating_expenses,
+        'rent': total_rent,
+        'payroll': total_payroll,
+        'base_salaries': total_base_salaries,
+        'commissions': total_commissions,
+        'total_operating_expenses': operating_expenses + total_rent + total_payroll,
+        'net_profit': net_profit,
+        'net_margin_percent': net_margin_percent
+    }
+
+    branch_comparison_list = []
+    for d in range(1, 32):
+        d_idx = d - 1
+        branch_comparison_list.append({
+            'day': d,
+            'shop1_sales': b1_daily_sales[d_idx] if d_idx < len(b1_daily_sales) else 0,
+            'shop2_sales': b2_daily_sales[d_idx] if d_idx < len(b2_daily_sales) else 0,
+            'shop1_profit': b1_daily_profit[d_idx] if d_idx < len(b1_daily_profit) else 0,
+            'shop2_profit': b2_daily_profit[d_idx] if d_idx < len(b2_daily_profit) else 0
+        })
+
+    return jsonify({
+        'success': True,
+        'year': selected_year,
+        'month': selected_month,
+        'branch_comparison': branch_comparison_list,
+        'branch_comparison_data': {
+            'shop1_total_sales': shop1_total,
+            'shop2_total_sales': shop2_total,
+            'shop1_gross_profit': shop1_profit,
+            'shop2_gross_profit': shop2_profit,
+            'daily_labels': daily_labels,
+            'b1_daily_sales': b1_daily_sales,
+            'b2_daily_sales': b2_daily_sales,
+            'b1_daily_profit': b1_daily_profit,
+            'b2_daily_profit': b2_daily_profit
+        },
+        'top_brands': top_brands,
+        'brand_analytics': top_brands,
+        'store_balance_sheet': store_balance_sheet_data,
+        'balance_sheet': store_balance_sheet_data,
+        'sellers_scorecards': sellers_scorecards
+    })
 
 # ==================== مدیریت حساب‌های بانکی (شماره کارت و شماره شبا) ====================
 @app.route('/admin/bank_account/add', methods=['POST'])
@@ -3072,18 +3520,43 @@ def update_shops_rent():
     flash('مبالغ اجاره ماهانه شعب با موفقیت ذخیره و در محاسبات سود اعمال شد.', 'success')
     return redirect(url_for('admin_dashboard'))
 
+def ensure_workshop_shop():
+    """تضمین وجود کارگاه ساخت و خدمات طهماسبی در دیتابیس به عنوان شعبه/انبار ۳"""
+    try:
+        workshop = Shop.query.filter((Shop.id == 3) | (Shop.name.contains('کارگاه'))).first()
+        if not workshop:
+            tenant = Tenant.query.first()
+            if tenant and (tenant.max_shops or 0) < 5:
+                tenant.max_shops = 5
+            workshop = Shop(
+                id=3,
+                tenant_id=tenant.id if tenant else 1,
+                name='کارگاه ساخت و خدمات طهماسبی',
+                phone='021-33333333',
+                address='کارگاه مرکزی ساخت کابینت روشویی و مصنوعات فلزی'
+            )
+            db.session.add(workshop)
+            db.session.commit()
+        return workshop
+    except Exception:
+        db.session.rollback()
+        return None
+
 # ==================== ماژول انبارداری و انبارگردانی ====================
 @app.route('/inventory')
 def inventory_view():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    ensure_workshop_shop()
     tenant_id = get_current_tenant_id()
-    shops = Shop.query.filter_by(tenant_id=tenant_id).all()
-    tenant_shop_ids = [s.id for s in shops] or [1, 2]
+    shops = Shop.query.filter((Shop.tenant_id == tenant_id) | (Shop.id.in_([1, 2, 3]))).all()
+    tenant_shop_ids = [s.id for s in shops] or [1, 2, 3]
     all_inventory = InventoryItem.query.filter(InventoryItem.shop_id.in_(tenant_shop_ids)).all()
     all_categories = Category.query.all()
-    transfers = StockTransfer.query.filter(StockTransfer.from_shop_id.in_(tenant_shop_ids)).order_by(StockTransfer.id.desc()).limit(15).all()
+    transfers = StockTransfer.query.filter(
+        db.or_(StockTransfer.from_shop_id.in_(tenant_shop_ids), StockTransfer.to_shop_id.in_(tenant_shop_ids))
+    ).order_by(StockTransfer.id.desc()).limit(25).all()
     search_q = request.args.get('search', '').strip()
     cat_query = ProductCatalog.query
     if search_q:
@@ -3388,20 +3861,75 @@ def api_inventory_catalog_stock():
     for c in catalog_items:
         s1 = inventory_map.get((c.name, shop_1_id), {'stock': 0, 'min_alert': 2, 'id': 0})
         s2 = inventory_map.get((c.name, shop_2_id), {'stock': 0, 'min_alert': 2, 'id': 0})
+        s3 = inventory_map.get((c.name, 3), {'stock': 0, 'min_alert': 2, 'id': 0})
         result.append({
             'id': c.id,
             'name': c.name,
             'category': c.category,
             'brand': c.brand or '',
             'code': c.code or '',
-            'buy_price': c.buy_price if is_admin_user else 0,
+            'buy_price': c.buy_price if (is_admin_user or can_manage_stock()) else 0,
             'sell_price': c.sell_price,
             'stock_1': s1['stock'],
             'min_1': s1['min_alert'],
             'stock_2': s2['stock'],
-            'min_2': s2['min_alert']
+            'min_2': s2['min_alert'],
+            'stock_3': s3['stock'],
+            'min_3': s3['min_alert']
         })
     return jsonify(result)
+
+@app.route('/api/catalog/quick_price', methods=['POST'])
+def api_catalog_quick_price():
+    """ویرایش درجا و سریع قیمت خرید و فروش کاتالوگ با همگام‌سازی لحظه‌ای انبار شعب"""
+    if not can_manage_stock():
+        return jsonify({'success': False, 'message': 'شما دسترسی مجاز برای تغییر قیمت‌های کاتالوگ را ندارید.'}), 403
+
+    data = request.get_json(silent=True) or request.form
+    catalog_id = safe_int(data.get('catalog_id') or data.get('item_id'), None)
+    if not catalog_id:
+        return jsonify({'success': False, 'message': 'شناسه کالا نامعتبر است.'}), 400
+
+    item = ProductCatalog.query.get(catalog_id)
+    if not item:
+        return jsonify({'success': False, 'message': 'کالای مورد نظر در کاتالوگ یافت نشد.'}), 404
+
+    buy_price = data.get('buy_price')
+    sell_price = data.get('sell_price')
+    sync_inventory = data.get('sync_inventory', True)
+    if isinstance(sync_inventory, str):
+        sync_inventory = sync_inventory.lower() in ['true', '1', 'yes']
+
+    updated = False
+    if buy_price is not None:
+        item.buy_price = max(0, safe_int(buy_price, item.buy_price))
+        updated = True
+
+    if sell_price is not None:
+        item.sell_price = max(0, safe_int(sell_price, item.sell_price))
+        updated = True
+
+    if updated and sync_inventory:
+        InventoryItem.query.filter_by(name=item.name).update({
+            'buy_price': item.buy_price,
+            'sell_price': item.sell_price
+        })
+
+    db.session.commit()
+    profit_margin = item.sell_price - item.buy_price
+    margin_percent = round((profit_margin / item.sell_price * 100), 1) if item.sell_price > 0 else 0
+
+    return jsonify({
+        'success': True,
+        'item_id': item.id,
+        'catalog_id': item.id,
+        'name': item.name,
+        'buy_price': item.buy_price,
+        'sell_price': item.sell_price,
+        'profit_margin': profit_margin,
+        'margin_percent': margin_percent,
+        'message': f'قیمت کالای «{item.name}» با موفقیت ثبت و ذخیره شد.'
+    })
 
 # ==================== کاتالوگ مرجع و لیست قیمت مصوب کالاها (بدون وابستگی به موجودی) ====================
 @app.route('/admin/catalog')
@@ -3805,20 +4333,31 @@ def download_sample_excel():
 # ==================== ماژول آپدیت درصدی و دسته‌جمعی لیست قیمت‌ها (برند و دسته) ====================
 @app.route('/admin/catalog/batch_price_update', methods=['POST'])
 def batch_price_update():
-    """آپدیت دسته‌جمعی و سریع قیمت‌ها بر اساس درصد تخفیف خرید برند، تغییر قیمت مصوب یا هر دو"""
+    """آپدیت دسته‌جمعی و سریع قیمت‌ها بر اساس درصد تخفیف خرید برند، تغییر قیمت مصوب یا هر دو (پشتیبانی از فرم و JSON)"""
+    is_json = (
+        request.is_json
+        or (request.headers.get('Accept') and 'application/json' in request.headers.get('Accept'))
+        or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    )
     if not can_manage_stock():
+        if is_json:
+            return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت و ادمین انبار است.'}), 403
         flash('دسترسی فقط ویژه مدیریت و ادمین انبار است.', 'danger')
         return redirect(url_for('login'))
         
-    target_brand = request.form.get('target_brand', '').strip()
-    target_category = request.form.get('target_category', '').strip()
-    update_type = request.form.get('update_type', 'buy_discount') # 'buy_discount', 'sell_percent', 'both'
+    data = request.get_json(silent=True) or request.form
+    target_brand = (data.get('target_brand') or '').strip()
+    target_category = (data.get('target_category') or '').strip()
+    update_type = data.get('update_type', 'buy_discount') # 'buy_discount', 'sell_percent', 'both'
     
     # درصد تخفیف خرید از لیست مصوب (مثلا ۲۸٪ برای آس)
-    discount_pct = safe_float(request.form.get('discount_percent'), 0.0)
+    discount_pct = safe_float(data.get('discount_percent'), 0.0)
     # درصد تغییر قیمت مصرف‌کننده/مصوب (مثلاً +۱۰٪ یا -۵٪)
-    sell_change_pct = safe_float(request.form.get('sell_change_percent'), 0.0)
-    sync_inventory = bool(request.form.get('sync_inventory', True))
+    sell_change_pct = safe_float(data.get('sell_change_percent'), 0.0)
+    sync_inventory = data.get('sync_inventory', True)
+    if isinstance(sync_inventory, str):
+        sync_inventory = sync_inventory.lower() in ['true', '1', 'yes']
+    sync_inventory = bool(sync_inventory)
 
     query = ProductCatalog.query
     applied_conditions = []
@@ -3832,16 +4371,21 @@ def batch_price_update():
         applied_conditions.append(f"دسته {target_category}")
         
     if not applied_conditions:
-        flash('لطفاً حداقل یک برند یا دسته‌بندی را برای آپدیت انتخاب فرمایید.', 'warning')
+        msg = 'لطفاً حداقل یک برند یا دسته‌بندی را برای آپدیت انتخاب فرمایید.'
+        if is_json:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'warning')
         return redirect(request.referrer or url_for('catalog_view'))
 
     items = query.all()
     if not items:
-        flash('هیچ کالایی با شرایط انتخابی یافت نشد.', 'warning')
+        msg = 'هیچ کالایی با شرایط انتخابی یافت نشد.'
+        if is_json:
+            return jsonify({'success': False, 'message': msg}), 404
+        flash(msg, 'warning')
         return redirect(request.referrer or url_for('catalog_view'))
 
     updated_count = 0
-    now_j = jdatetime.datetime.now()
     user_name = session.get('full_name', 'مسئول انبار')
 
     for it in items:
@@ -3867,7 +4411,21 @@ def batch_price_update():
     cond_desc = " و ".join(applied_conditions)
     log_msg = f"آپدیت دسته‌جمعی قیمت‌ها: {cond_desc} ({updated_count} قلم) - تخفیف خرید: {discount_pct}٪ | تغییر فروش: {sell_change_pct:+}%"
     log_activity(log_msg, user_name, "کاتالوگ")
-    flash(f'✅ قیمت‌های {updated_count} قلم کالا در «{cond_desc}» با موفقیت آپدیت و در انبار کلیه شعب اعمال شد.', 'success')
+    success_msg = f'✅ قیمت‌های {updated_count} قلم کالا در «{cond_desc}» با موفقیت آپدیت و در انبار کلیه شعب اعمال شد.'
+    
+    if is_json:
+        return jsonify({
+            'success': True,
+            'updated_count': updated_count,
+            'applied_conditions': applied_conditions,
+            'target_brand': target_brand,
+            'target_category': target_category,
+            'discount_percent': discount_pct,
+            'sell_change_percent': sell_change_pct,
+            'message': success_msg
+        })
+        
+    flash(success_msg, 'success')
     return redirect(request.referrer or url_for('catalog_view'))
 
 
@@ -3889,15 +4447,23 @@ def api_customer_lookup():
     """استعلام سریع سوابق و مانده بدهی مشتری با شماره تلفن یا نام"""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
+    q = (request.args.get('q') or '').strip()
     phone = to_english_digits(request.args.get('phone', '')).strip()
     name = request.args.get('name', '').strip()
+    if not phone and not name and q:
+        digits_q = to_english_digits(q)
+        if any(c.isdigit() for c in digits_q) and len(digits_q) >= 4:
+            phone = digits_q
+        else:
+            name = q
     tenant_id = get_current_tenant_id()
+    customer = None
     if phone:
         clean_phone = phone.replace(' ', '').replace('-', '')
         customer = Customer.query.filter_by(tenant_id=tenant_id).filter(Customer.phone.contains(clean_phone)).first()
         if not customer:
             customer = Customer.query.filter(Customer.phone.contains(clean_phone)).first()
-    if not customer and name and len(name) >= 3:
+    if not customer and name and len(name) >= 2:
         clean_name = normalize_persian_text(name)
         customer = Customer.query.filter_by(tenant_id=tenant_id).filter(
             (Customer.name.contains(name)) | (Customer.name.contains(clean_name))
@@ -4092,33 +4658,92 @@ def seed_abs_faucets():
 
 @app.route('/transfer/request', methods=['POST'])
 def request_transfer():
+    is_json = request.is_json or (request.headers.get('Accept') and 'application/json' in request.headers.get('Accept'))
     if 'user_id' not in session:
+        if is_json:
+            return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید.'}), 401
         return redirect(url_for('login'))
-    item_name = (request.form.get('item_name') or '').strip()
+        
+    data = request.get_json(silent=True) or request.form
+    item_name = (data.get('item_name') or '').strip()
     if not item_name:
+        if is_json:
+            return jsonify({'success': False, 'message': 'نام کالا الزامی است.'}), 400
         flash('نام کالا الزامی است.', 'error')
         return redirect(url_for('inventory_view'))
         
-    from_shop_id = safe_int(request.form.get('from_shop_id'), 1)
-    to_shop_id = session.get('shop_id', 1)
+    from_shop_id = safe_int(data.get('from_shop_id'), 1)
+    default_to = 2 if from_shop_id == 1 else 1
+    to_shop_id = safe_int(data.get('to_shop_id'), default_to)
     if from_shop_id == to_shop_id:
-        flash('شعبه مبدا و مقصد انتقال نمی‌توانند یکسان باشند.', 'warning')
+        msg = 'مبدا و مقصد انتقال نمی‌توانند یکسان باشند.'
+        if is_json:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'warning')
         return redirect(url_for('inventory_view'))
 
-    quantity = max(1, safe_int(request.form.get('quantity'), 1))
+    quantity = max(1, safe_int(data.get('quantity'), 1))
+    auto_approve = bool(data.get('auto_approve') in [True, 1, '1', 'true']) and can_manage_stock()
+    
     now_j = jdatetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S")
     st = StockTransfer(
         item_name=item_name,
         from_shop_id=from_shop_id,
         to_shop_id=to_shop_id,
         quantity=quantity,
+        status='accepted' if auto_approve else 'pending',
         requested_by=session.get('full_name', 'پرسنل'),
         shamsi_date_time=now_j
     )
     db.session.add(st)
+    db.session.flush()
+
+    if auto_approve:
+        src_item = InventoryItem.query.filter_by(name=st.item_name, shop_id=st.from_shop_id).first()
+        dst_item = InventoryItem.query.filter_by(name=st.item_name, shop_id=st.to_shop_id).first()
+        if not src_item:
+            cat_match = ProductCatalog.query.filter_by(name=st.item_name).first()
+            src_item = InventoryItem(
+                name=st.item_name,
+                category=dst_item.category if dst_item else (cat_match.category if cat_match else 'عمومی'),
+                brand=dst_item.brand if dst_item else (cat_match.brand if cat_match else ''),
+                shop_id=st.from_shop_id,
+                stock_quantity=0,
+                min_alert_stock=2,
+                buy_price=dst_item.buy_price if dst_item else (cat_match.buy_price if cat_match else 0),
+                sell_price=dst_item.sell_price if dst_item else (cat_match.sell_price if cat_match else 0)
+            )
+            db.session.add(src_item)
+            db.session.flush()
+        record_stock_change(src_item.id, st.from_shop_id, 'transfer_out', -st.quantity, f'TR-{st.id}', session.get('full_name'), f"انتقال به واحد {st.to_shop_id}", commit=False)
+        if not dst_item:
+            cat_match = ProductCatalog.query.filter_by(name=st.item_name).first()
+            dst_item = InventoryItem(
+                name=st.item_name,
+                category=src_item.category if src_item else (cat_match.category if cat_match else 'عمومی'),
+                brand=src_item.brand if src_item else (cat_match.brand if cat_match else ''),
+                shop_id=st.to_shop_id,
+                stock_quantity=0,
+                min_alert_stock=2,
+                buy_price=src_item.buy_price if src_item else (cat_match.buy_price if cat_match else 0),
+                sell_price=src_item.sell_price if src_item else (cat_match.sell_price if cat_match else 0)
+            )
+            db.session.add(dst_item)
+            db.session.flush()
+        record_stock_change(dst_item.id, st.to_shop_id, 'transfer_in', st.quantity, f'TR-{st.id}', session.get('full_name'), f"انتقال از واحد {st.from_shop_id}", commit=False)
+
     db.session.commit()
-    log_activity(f"درخواست انتقال {st.quantity} عدد {st.item_name} از شعبه {from_shop_id} به شعبه {to_shop_id}", session.get('full_name'), "انبار")
-    flash('درخواست انتقال کالا با موفقیت ثبت شد.', 'success')
+    log_activity(f"ثبت حواله انتقال {st.quantity} عدد {st.item_name} از واحد {from_shop_id} به واحد {to_shop_id} (وضعیت: {st.status})", session.get('full_name'), "انبار")
+
+    if is_json:
+        return jsonify({
+            'success': True,
+            'transfer_id': st.id,
+            'status': st.status,
+            'message': f'حواله انتقال {st.quantity} عدد «{st.item_name}» با موفقیت ثبت شد.'
+        })
+
+    flash(f'حواله انتقال {st.quantity} عدد «{st.item_name}» با موفقیت ثبت شد.', 'success')
     return redirect(url_for('inventory_view'))
 
 @app.route('/transfer/approve/<int:transfer_id>', methods=['POST'])
@@ -4136,8 +4761,21 @@ def approve_transfer(transfer_id):
     dst_item = InventoryItem.query.filter_by(name=st.item_name, shop_id=st.to_shop_id).first()
 
     # کسر از مبدا
-    if src_item:
-        record_stock_change(src_item.id, st.from_shop_id, 'transfer_out', -st.quantity, f'TR-{st.id}', session.get('full_name'), f"انتقال به شعبه {st.to_shop_id}", commit=False)
+    if not src_item:
+        cat_match = ProductCatalog.query.filter_by(name=st.item_name).first()
+        src_item = InventoryItem(
+            name=st.item_name,
+            category=dst_item.category if dst_item else (cat_match.category if cat_match else 'عمومی'),
+            brand=dst_item.brand if dst_item else (cat_match.brand if cat_match else ''),
+            shop_id=st.from_shop_id,
+            stock_quantity=0,
+            min_alert_stock=2,
+            buy_price=dst_item.buy_price if dst_item else (cat_match.buy_price if cat_match else 0),
+            sell_price=dst_item.sell_price if dst_item else (cat_match.sell_price if cat_match else 0)
+        )
+        db.session.add(src_item)
+        db.session.flush()
+    record_stock_change(src_item.id, st.from_shop_id, 'transfer_out', -st.quantity, f'TR-{st.id}', session.get('full_name'), f"انتقال به شعبه {st.to_shop_id}", commit=False)
 
     # افزودن به مقصد
     if not dst_item:
@@ -4944,6 +5582,7 @@ def delete_shop(shop_id):
     return redirect(url_for('store_settings_view'))
 
 @app.route('/admin/cheques')
+@app.route('/cheques')
 def cheques_view():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -4982,9 +5621,54 @@ def cheques_view():
         bounced_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'bounced')
         assigned_sum = sum((c.amount or 0) for c in all_cheques if c.status == 'assigned')
         
-        today_shamsi = jdatetime.datetime.now().strftime("%Y/%m/%d")
+        now_j = jdatetime.datetime.now()
+        cal_year = request.args.get('cal_year', now_j.year, type=int)
+        cal_month = request.args.get('cal_month', now_j.month, type=int)
+        if cal_month < 1:
+            cal_month = 12
+            cal_year -= 1
+        elif cal_month > 12:
+            cal_month = 1
+            cal_year += 1
+
+        first_day_date = jdatetime.date(cal_year, cal_month, 1)
+        first_day_weekday = first_day_date.weekday() # 0 is Saturday, 6 is Friday
+        if cal_month <= 6:
+            month_days_count = 31
+        elif cal_month <= 11:
+            month_days_count = 30
+        else:
+            month_days_count = 29 if not jdatetime.date(cal_year, 1, 1).isleap() else 30
+
+        calendar_cheques_by_day = {d: [] for d in range(1, month_days_count + 1)}
+        for c in all_cheques:
+            if not c.due_shamsi_date:
+                continue
+            norm_date = c.due_shamsi_date.replace('-', '/').strip()
+            try:
+                parts = [int(p) for p in norm_date.split('/')]
+                if len(parts) == 3 and parts[0] == cal_year and parts[1] == cal_month:
+                    day_num = parts[2]
+                    if 1 <= day_num <= month_days_count:
+                        calendar_cheques_by_day[day_num].append({
+                            'id': c.id,
+                            'sayad_number': c.sayad_number,
+                            'bank_name': c.bank_name,
+                            'amount': c.amount or 0,
+                            'status': c.status,
+                            'customer_name': c.customer_name,
+                            'customer_phone': c.customer_phone or '',
+                            'due_shamsi_date': c.due_shamsi_date,
+                            'payee_name': c.payee_name or '',
+                            'invoice_id': c.invoice_id
+                        })
+            except Exception:
+                pass
+
+        today_shamsi = now_j.strftime("%Y/%m/%d")
         
         current_user = User.query.get(session['user_id'])
+        cal_year_fa = str(cal_year).translate(str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹'))
         return render_template('cheques.html',
                                cheques=cheques,
                                status_filter=status_filter,
@@ -4995,6 +5679,17 @@ def cheques_view():
                                assigned_sum=assigned_sum,
                                total_count=len(all_cheques),
                                today_shamsi=today_shamsi,
+                               cal_year=cal_year,
+                               cal_year_fa=cal_year_fa,
+                               cal_month=cal_month,
+                               calendar_month_name=PERSIAN_MONTHS.get(cal_month, ''),
+                               month_days_count=month_days_count,
+                               first_day_weekday=first_day_weekday,
+                               calendar_cheques_by_day=calendar_cheques_by_day,
+                               months=PERSIAN_MONTHS,
+                               today_j_year=now_j.year,
+                               today_j_month=now_j.month,
+                               today_j_day=now_j.day,
                                shops=shops,
                                current_user=current_user)
     except Exception as e:
@@ -5152,13 +5847,43 @@ def add_user():
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/cheque/status/<int:cheque_id>', methods=['POST'])
-def update_cheque_status(cheque_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+@app.route('/api/cheque/update_status', methods=['POST'])
+def update_cheque_status(cheque_id=None):
+    is_json = request.is_json or (request.headers.get('Accept') and 'application/json' in request.headers.get('Accept'))
+    if 'user_id' not in session:
+        if is_json:
+            return jsonify({'success': False, 'message': 'لطفاً وارد سیستم شوید.'}), 401
         return redirect(url_for('login'))
-    chk = Cheque.query.get_or_404(cheque_id)
-    new_status = request.form.get('status')
+        
+    user_role = session.get('role')
+    can_manage_inv = session.get('can_manage_inventory', False)
+    if user_role != 'admin' and not can_manage_inv and not can_manage_stock():
+        if is_json:
+            return jsonify({'success': False, 'message': 'شما دسترسی مجاز برای تغییر وضعیت چک را ندارید.'}), 403
+        flash('دسترسی فقط ویژه مدیریت و حسابداری است.', 'danger')
+        return redirect(url_for('seller_dashboard'))
+
+    data = request.get_json(silent=True) or request.form
+    target_id = cheque_id or safe_int(data.get('cheque_id'), None)
+    if not target_id:
+        if is_json:
+            return jsonify({'success': False, 'message': 'شناسه چک ارسال نشده است.'}), 400
+        flash('شناسه چک نامعتبر است.', 'danger')
+        return redirect(url_for('cheques_view'))
+
+    chk = Cheque.query.get_or_404(target_id)
+    new_status = data.get('status')
+    if not new_status or new_status not in ['pending', 'passed', 'bounced', 'assigned']:
+        if is_json:
+            return jsonify({'success': False, 'message': 'وضعیت ارسالی نامعتبر است.'}), 400
+        flash('وضعیت نامعتبر است.', 'warning')
+        return redirect(url_for('cheques_view'))
+
     old_status = chk.status
     chk.status = new_status
+    payee_name = (data.get('payee_name') or '').strip()
+    if payee_name:
+        chk.payee_name = payee_name
 
     # اگر وضعیت قبلی برگشتی بوده و اکنون تغییر کرده، بدهی اضافه شده قبلی برگشت داده شود
     if old_status == 'bounced' and new_status != 'bounced':
@@ -5168,7 +5893,8 @@ def update_cheque_status(cheque_id):
             chk.invoice.remaining_balance = max(0, (chk.invoice.remaining_balance or 0) - chk.amount)
 
     if new_status == 'passed':
-        chk.passed_shamsi_date = jdatetime.datetime.now().strftime("%Y/%m/%d")
+        passed_date = (data.get('passed_date') or '').strip()
+        chk.passed_shamsi_date = passed_date if passed_date else jdatetime.datetime.now().strftime("%Y/%m/%d")
     elif new_status == 'bounced':
         chk.passed_shamsi_date = None
         # فقط در صورتی که قبلاً برگشتی نبوده، جریمه بدهی اضافه شود تا دوباره اضافه نشود
@@ -5193,8 +5919,126 @@ def update_cheque_status(cheque_id):
 
     db.session.commit()
     log_activity(f"تغییر وضعیت چک {chk.sayad_number} ({chk.amount:,} ت) به {new_status}", session.get('full_name'), "مالی")
-    flash('وضعیت چک با موفقیت به‌روزرسانی و در حساب فاکتور اعمال شد.', 'success')
-    return redirect(request.referrer or url_for('admin_dashboard'))
+    success_msg = f'وضعیت چک {chk.sayad_number} با موفقیت به «{new_status}» تغییر یافت.'
+    
+    if is_json:
+        return jsonify({
+            'success': True,
+            'cheque_id': chk.id,
+            'status': chk.status,
+            'passed_date': chk.passed_shamsi_date,
+            'payee_name': chk.payee_name or '',
+            'message': success_msg
+        })
+
+    flash(success_msg, 'success')
+    return redirect(request.referrer or url_for('cheques_view'))
+
+@app.route('/api/customer/ledger')
+def api_customer_ledger():
+    """استعلام پرونده اعتباری و ریز گردش حساب مشتری شامل فاکتورها، مانده و چک‌ها"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 401
+        
+    q = (request.args.get('query') or request.args.get('q') or '').strip()
+    customer_id = safe_int(request.args.get('customer_id'), None)
+    tenant_id = get_current_tenant_id()
+    
+    customer = None
+    if customer_id:
+        customer = Customer.query.get(customer_id)
+    elif q:
+        clean_q = to_english_digits(q).replace(' ', '').replace('-', '')
+        customer = Customer.query.filter_by(tenant_id=tenant_id).filter(
+            (Customer.phone.contains(clean_q)) | (Customer.name.contains(q))
+        ).first()
+        if not customer:
+            customer = Customer.query.filter(
+                (Customer.phone.contains(clean_q)) | (Customer.name.contains(q))
+            ).first()
+
+    if not customer:
+        return jsonify({'success': False, 'message': 'پرونده مشتری با مشخصات ارسالی یافت نشد.'}), 404
+
+    invoices = Invoice.query.filter(
+        (Invoice.customer_id == customer.id) |
+        (Invoice.customer_phone == customer.phone) |
+        (Invoice.customer_name == customer.name)
+    ).order_by(Invoice.id.desc()).all()
+
+    invoices_list = []
+    total_invoiced = 0
+    total_paid = 0
+    total_remaining = 0
+    for inv in invoices:
+        if inv.status == 'final':
+            total_invoiced += (inv.total_amount or 0)
+            total_paid += (inv.paid_amount or 0)
+            total_remaining += (inv.remaining_balance or 0)
+        invoices_list.append({
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'date': inv.shamsi_date_time,
+            'total_amount': inv.total_amount or 0,
+            'paid_amount': inv.paid_amount or 0,
+            'remaining_balance': inv.remaining_balance or 0,
+            'status': inv.status,
+            'invoice_type': inv.invoice_type,
+            'is_settled': inv.is_settled,
+            'items_desc': inv.items_desc or ''
+        })
+
+    # چک‌های مشتری
+    cheques = Cheque.query.filter(
+        (Cheque.customer_name == customer.name) | (Cheque.customer_phone == customer.phone)
+    ).order_by(Cheque.due_shamsi_date.asc()).all()
+
+    cheques_list = [{
+        'id': c.id,
+        'sayad_number': c.sayad_number,
+        'bank_name': c.bank_name,
+        'amount': c.amount or 0,
+        'due_date': c.due_shamsi_date,
+        'status': c.status,
+        'passed_date': c.passed_shamsi_date,
+        'payee_name': c.payee_name or ''
+    } for c in cheques]
+
+    credit_limit = customer.credit_limit or 50_000_000
+    current_balance = customer.outstanding_balance or total_remaining
+    available_credit = max(0, credit_limit - current_balance)
+
+    return jsonify({
+        'success': True,
+        'customer': {
+            'id': customer.id,
+            'name': customer.name,
+            'phone': customer.phone or '',
+            'address': customer.address or '',
+            'customer_type': customer.customer_type or 'regular',
+            'credit_limit': credit_limit,
+            'outstanding_balance': current_balance,
+            'available_credit': available_credit,
+            'ai_credit_score': customer.ai_credit_score or 100,
+            'ai_risk_tier': customer.ai_risk_tier or 'A',
+            'ai_risk_summary': customer.ai_risk_summary or ''
+        },
+        'summary': {
+            'total_purchased': total_invoiced,
+            'total_invoiced': total_invoiced,
+            'total_paid': total_paid,
+            'remaining_debt': total_remaining,
+            'total_remaining': total_remaining,
+            'total_cheques_amount': sum((c.amount or 0) for c in cheques),
+            'invoices_count': len(invoices_list),
+            'cheques_count': len(cheques_list),
+            'passed_cheques_count': sum(1 for c in cheques if c.status == 'passed'),
+            'pending_cheques_count': sum(1 for c in cheques if c.status == 'pending'),
+            'bounced_cheques_count': sum(1 for c in cheques if c.status == 'bounced')
+        },
+        'invoices': invoices_list,
+        'cheques': cheques_list
+    })
 
 @app.route('/admin/petty_deposit/add', methods=['POST'])
 def add_petty_deposit():

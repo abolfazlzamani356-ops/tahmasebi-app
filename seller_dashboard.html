@@ -13,6 +13,12 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
+        <!-- دکمه سوئیچ به صندوق لمسی POS v2 -->
+        <a href="{{ url_for('pos_v2_view') }}" 
+           onclick="setTahmasebiUiMode('pos_v2')" 
+           class="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:via-teal-400 hover:to-emerald-400 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-cyan-500/25 border border-cyan-300/30">
+            <span>📱</span> ورود به صندوق لمسی POS v2
+        </a>
         <button type="button" onclick="openDailyShiftModal()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-emerald-500/25">
             <span>📑</span> ثبت گزارش پایان روز و دخل
         </button>
@@ -132,7 +138,7 @@
         </div>
     </div>
     <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-        <a href="{{ url_for('pos_v2_view') }}" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-500/30 transition flex items-center gap-1.5 active:scale-95">
+        <a href="{{ url_for('pos_v2_view') }}" onclick="setTahmasebiUiMode('pos_v2')" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-500/30 transition flex items-center gap-1.5 active:scale-95">
             <span>🚀</span> ورود به صندوق لمسی POS v2
         </a>
     </div>
@@ -361,13 +367,14 @@
                             </span>
                             <span class="text-purple-400 font-mono">کسر خودکار موجودی انبار</span>
                         </div>
+                        <input type="hidden" name="item_catalog_id[]" class="item-cat-id" value="">
                         <!-- سطر ۱: انتخاب کالا (انبار شعبه یا نام کاتالوگ/دلخواه) -->
                         <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-center">
                             <div class="sm:col-span-5">
                                 <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-xs font-bold text-slate-100 focus:ring-1 focus:ring-indigo-500">
                                     <option value="">📦 انتخاب از انبار شعبه...</option>
                                     {% for item in inventory_items %}
-                                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}">
+                                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}" data-catalog-id="{{ item.catalog_id or '' }}">
                                         {{ item.name }} (موجودی: {{ item.stock_quantity }})
                                     </option>
                                     {% endfor %}
@@ -399,7 +406,7 @@
                                        onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
                                        class="currency-input item-price w-full h-9 px-2.5 border border-emerald-500/50 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono focus:ring-1 focus:ring-emerald-400" 
                                        dir="ltr" title="قیمت واحد هر قلم کالا (تومان)">
-                                <input type="hidden" name="item_original_price[]" class="item-orig-price" value="">
+                                <input type="hidden" name="item_original_price[]" class="item-orig-price currency-input" value="">
                             </div>
 
                             <!-- تخفیف ٪ اختیاری (عرض ۴ در موبایل، ۲ در دسکتاپ) -->
@@ -420,7 +427,7 @@
                             </div>
 
                             <!-- بهای خرید (فیلد پنهان) -->
-                            <input type="hidden" name="item_buy_price[]" class="item-buy-price" value="">
+                            <input type="hidden" name="item_buy_price[]" class="item-buy-price currency-input" value="">
 
                             <!-- دکمه حذف (عرض ۲ در موبایل، ۱ در دسکتاپ) -->
                             <div class="col-span-2 sm:col-span-1 flex justify-end">
@@ -434,7 +441,7 @@
 
                 <datalist id="catalogDatalist">
                     {% for p in catalog_products %}
-                    <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                    <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}" data-id="{{ p.id }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
                     {% endfor %}
                 </datalist>
 
@@ -1357,11 +1364,21 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         unformatOnSubmit(form);
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn) {
-            submitBtn.disabled = true;
             submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
             submitBtn.innerHTML = '<span>⏳</span> در حال ثبت و کسر از انبار...';
+            setTimeout(() => {
+                if (submitBtn) submitBtn.disabled = true;
+            }, 10);
         }
         isInvoiceSubmitting = true;
+        setTimeout(() => {
+            isInvoiceSubmitting = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                submitBtn.innerHTML = '<span>💾</span> ثبت نهایی فاکتور و کسر از انبار';
+            }
+        }, 8000);
         return true;
     }
 
@@ -1457,6 +1474,8 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         newRow.querySelector('.item-select').value = '';
         newRow.querySelector('.item-name').value = '';
         newRow.querySelector('.item-cat').value = '';
+        const catIdInp = newRow.querySelector('.item-cat-id');
+        if (catIdInp) catIdInp.value = '';
         newRow.querySelector('.item-qty').value = '1';
         newRow.querySelector('.item-orig-price').value = '';
         newRow.querySelector('.item-discount-pct').value = '';
@@ -2309,17 +2328,22 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             const buyPrice = selectedOpt.getAttribute('data-buy-price');
             const name = selectedOpt.getAttribute('data-name');
             const cat = selectedOpt.getAttribute('data-category');
+            const catId = selectedOpt.getAttribute('data-catalog-id');
             
             const origInput = row.querySelector('.item-orig-price');
             const finalInput = row.querySelector('.item-price');
             const pctInput = row.querySelector('.item-discount-pct');
             const buyInput = row.querySelector('.item-buy-price');
+            const catIdInput = row.querySelector('.item-cat-id');
             
             if (origInput) origInput.value = price ? Number(price).toLocaleString('en-US') : '';
             if (finalInput) finalInput.value = price ? Number(price).toLocaleString('en-US') : '';
             if (pctInput) pctInput.value = '';
             if (buyInput && buyPrice && Number(buyPrice) > 0) {
                 buyInput.value = Number(buyPrice).toLocaleString('en-US');
+            }
+            if (catIdInput && catId) {
+                catIdInput.value = catId;
             }
             row.querySelector('.item-name').value = name;
             row.querySelector('.item-cat').value = cat || 'عمومی';
@@ -2347,6 +2371,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                         opt.setAttribute('data-price', p.sell_price || 0);
                         opt.setAttribute('data-buy-price', p.buy_price || 0);
                         opt.setAttribute('data-category', p.category || '');
+                        opt.setAttribute('data-id', p.id || '');
                         opt.textContent = `${p.category || 'کالا'} | ${Number(p.sell_price || 0).toLocaleString('en-US')} ت`;
                         datalist.appendChild(opt);
                     });
@@ -2365,7 +2390,7 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
             for (let opt of options) {
                 if (opt.value === val) {
                     matched = true;
-                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'), opt.getAttribute('data-buy-price'));
+                    applyCatalogOptionToRow(inputElem, opt.getAttribute('data-price'), opt.getAttribute('data-category'), opt.getAttribute('data-buy-price'), opt.getAttribute('data-id'));
                     break;
                 }
             }
@@ -2375,21 +2400,25 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 .then(r => r.json())
                 .then(items => {
                     if (items && items.length > 0 && items[0].name === val) {
-                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category, items[0].buy_price);
+                        applyCatalogOptionToRow(inputElem, items[0].sell_price, items[0].category, items[0].buy_price, items[0].id);
                     }
                 })
                 .catch(() => {});
         }
     }
 
-    function applyCatalogOptionToRow(inputElem, price, cat, buyPrice) {
+    function applyCatalogOptionToRow(inputElem, price, cat, buyPrice, catId) {
         const row = inputElem.closest('.item-row') || inputElem.closest('.invoice-item-row');
         if (!row) return;
         const origInput = row.querySelector('.item-orig-price');
         const priceInput = row.querySelector('.item-price');
         const pctInput = row.querySelector('.item-discount-pct');
         const buyInput = row.querySelector('.item-buy-price');
+        const catIdInput = row.querySelector('.item-cat-id');
         
+        if (catIdInput && catId) {
+            catIdInput.value = catId;
+        }
         if (price && Number(price) > 0) {
             const formatted = Number(price).toLocaleString('en-US');
             if (priceInput) priceInput.value = formatted;

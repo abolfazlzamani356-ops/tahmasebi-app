@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
@@ -331,6 +332,7 @@ class Invoice(db.Model):
     
     # فروشندگان و تسهیم
     seller_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = synonym('seller_id')
     second_seller_id = db.Column(db.Integer, nullable=True)
     split_ratio = db.Column(db.Integer, default=100) # سهم فروشنده اصلی درصد
     customer_rating = db.Column(db.Integer, default=5)

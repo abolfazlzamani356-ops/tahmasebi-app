@@ -170,6 +170,7 @@
             if (m) {
                 m.classList.remove('hidden');
                 m.style.removeProperty('display');
+                m.style.display = 'flex';
                 m.style.zIndex = '999999';
             }
         };
@@ -177,6 +178,7 @@
             const m = document.getElementById('batchPriceModal');
             if (m) {
                 m.classList.add('hidden');
+                m.style.display = 'none';
             }
         };
         window.toggleBatchInputs = function(type) {
@@ -882,6 +884,8 @@
                 </div>
             </form>
         </div>
+    </div>
+
     <!-- Modal: Clear All Catalog Items (پاکسازی کل لیست یا دسته‌بندی خاص) -->
     <div id="clearAllModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
@@ -1470,7 +1474,7 @@
                 <button type="button" onclick="closeBatchPriceModal()" class="text-slate-400 hover:text-white text-2xl transition">✕</button>
             </div>
 
-            <form action="{{ url_for('batch_price_update') }}" method="POST" class="space-y-4 mt-4" onsubmit="return confirm('آیا از اعمال این تغییرات درصدی روی کالاهای انتخابی اطمینان دارید؟');">
+            <form id="batchPriceForm" action="{{ url_for('batch_price_update') }}" method="POST" class="space-y-4 mt-4" onsubmit="handleBatchPriceSubmit(event)">
                 <!-- انتخاب برند هدف -->
                 <div>
                     <label class="block text-xs font-bold text-slate-300 mb-1">🏷️ انتخاب برند هدف:</label>
@@ -1545,11 +1549,22 @@
                     </label>
                 </div>
 
+                <!-- نوار پیشرفت زنده و انیمیشن پردازش غیرمسدودکننده -->
+                <div id="batchProgressContainer" class="hidden space-y-2 p-3.5 bg-slate-900 rounded-2xl border border-cyan-500/40">
+                    <div class="flex items-center justify-between text-xs font-bold text-cyan-300">
+                        <span id="batchProgressStatus">در حال محاسبه و اعمال تغییرات درصدی روی پایگاه داده...</span>
+                        <span id="batchProgressPercent" class="font-mono">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-cyan-500/30">
+                        <div id="batchProgressBar" class="bg-gradient-to-r from-cyan-500 via-blue-500 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                    </div>
+                </div>
+
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
                     <button type="button" onclick="closeBatchPriceModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
                         انصراف
                     </button>
-                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+                    <button type="submit" id="batchSubmitBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
                         <span>⚡</span> اعمال آنی تغییرات قیمت
                     </button>
                 </div>
@@ -1563,6 +1578,7 @@
             if (m) {
                 m.classList.remove('hidden');
                 m.style.removeProperty('display');
+                m.style.display = 'flex';
                 m.style.zIndex = '999999';
             }
         }
@@ -1570,6 +1586,7 @@
             const m = document.getElementById('batchPriceModal');
             if (m) {
                 m.classList.add('hidden');
+                m.style.display = 'none';
             }
         }
         function toggleBatchInputs(type) {
@@ -1585,6 +1602,75 @@
                 discGroup.classList.remove('hidden');
                 sellGroup.classList.remove('hidden');
             }
+        }
+
+        function handleBatchPriceSubmit(e) {
+            e.preventDefault();
+            if (!confirm('آیا از اعمال این تغییرات درصدی روی کالاهای انتخابی اطمینان دارید؟')) return;
+            
+            const form = e.target;
+            const progressCont = document.getElementById('batchProgressContainer');
+            const progressBar = document.getElementById('batchProgressBar');
+            const progressStatus = document.getElementById('batchProgressStatus');
+            const progressPercent = document.getElementById('batchProgressPercent');
+            const submitBtn = document.getElementById('batchSubmitBtn');
+
+            if (progressCont) progressCont.classList.remove('hidden');
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('opacity-50'); }
+
+            let p = 15;
+            if (progressBar) progressBar.style.width = '15%';
+            if (progressPercent) progressPercent.innerText = '15%';
+
+            const timer = setInterval(() => {
+                if (p < 85) {
+                    p += Math.floor(Math.random() * 12) + 5;
+                    if (p > 85) p = 85;
+                    if (progressBar) progressBar.style.width = p + '%';
+                    if (progressPercent) progressPercent.innerText = p + '%';
+                }
+            }, 120);
+
+            const formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(async res => {
+                const data = await res.json().catch(() => null);
+                if (!res.ok || !data || !data.success) {
+                    const msg = (data && data.message) ? data.message : `خطا در پردازش سرور (کد ${res.status})`;
+                    throw new Error(msg);
+                }
+                return data;
+            })
+            .then(data => {
+                clearInterval(timer);
+                if (progressBar) progressBar.style.width = '100%';
+                if (progressPercent) progressPercent.innerText = '100%';
+                if (progressStatus) progressStatus.innerText = data.message || 'عملیات با موفقیت انجام شد.';
+
+                setTimeout(() => {
+                    alert(data.message || 'تغییرات با موفقیت اعمال شد.');
+                    window.location.reload();
+                }, 700);
+            })
+            .catch(err => {
+                clearInterval(timer);
+                if (progressBar) {
+                    progressBar.style.width = '100%';
+                    progressBar.classList.remove('from-cyan-500', 'via-blue-500', 'to-emerald-400');
+                    progressBar.classList.add('bg-rose-500');
+                }
+                if (progressStatus) progressStatus.innerText = '⚠️ ' + err.message;
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('opacity-50'); }
+                alert(err.message || 'خطا در اعمال تغییرات');
+            });
         }
     </script>
 </body>

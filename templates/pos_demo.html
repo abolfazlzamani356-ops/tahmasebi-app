@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>صندوق فروش لمسی طهماسبی • POS v2 Demo</title>
     <script src="{{ url_for('static', filename='libs/tailwind/tailwind.js') }}"></script>
     <script src="{{ url_for('static', filename='libs/vue/vue.global.prod.js') }}"></script>
@@ -62,31 +62,43 @@
         </div>
 
         <div class="flex items-center gap-2">
+            <!-- نشانگر وضعیت آفلاین و کش -->
+            <div v-if="isOffline" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold animate-pulse" title="استفاده از کاتالوگ آفلاین">
+                <span>⚠️</span>
+                <span class="hidden sm:inline font-bold">حالت آفلاین</span>
+                <button @click="loadCatalog()" type="button" class="underline text-[10px] mr-1 hover:text-white cursor-pointer font-bold">تلاش مجدد</button>
+            </div>
+
             <!-- سوئیچر صدا -->
-            <button @click="toggleSound()" type="button" class="px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold transition flex items-center gap-1.5" :class="soundEnabled ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/30' : 'bg-slate-800 text-slate-400'">
-                <span>[[ soundEnabled ? '🔊' : '🔇' ]]</span>
+            <button @click="toggleSound()" type="button" class="min-h-[44px] px-3.5 py-1.5 rounded-xl border border-white/10 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer touch-action-btn" :class="soundEnabled ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/30' : 'bg-slate-800 text-slate-400'">
+                <span class="text-base">[[ soundEnabled ? '🔊' : '🔇' ]]</span>
                 <span class="hidden sm:inline">[[ soundEnabled ? 'صدا روشن' : 'بی‌صدا' ]]</span>
             </button>
 
             <!-- دکمه PWA نصب اپ -->
-            <button @click="triggerPwaInstall()" type="button" class="px-3 py-1.5 rounded-xl bg-purple-900/50 hover:bg-purple-800/60 text-purple-300 border border-purple-500/30 text-xs font-bold transition flex items-center gap-1.5">
-                <span>📱</span>
+            <button @click="triggerPwaInstall()" type="button" class="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-purple-900/50 hover:bg-purple-800/60 text-purple-300 border border-purple-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer touch-action-btn">
+                <span class="text-base">📱</span>
                 <span class="hidden sm:inline">نصب اپلیکیشن</span>
             </button>
 
-            <!-- بازگشت به داشبورد قدیمی -->
-            <a href="/seller_dashboard" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1">
-                <span>↩️</span>
-                <span class="hidden sm:inline">داشبورد قبلی</span>
+            <!-- دکمه بازگشت به داشبورد کلاسیک ERP (Dual-Mode Two-Way Switcher) -->
+            {% set return_url = '/admin_dashboard' if session.get('role') == 'admin' else '/seller_dashboard' %}
+            <a href="{{ return_url }}" 
+               onclick="setTahmasebiUiMode('classic_erp')" 
+               class="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-700 hover:from-indigo-900/80 hover:to-slate-800 text-slate-200 hover:text-white border border-white/10 hover:border-indigo-400/40 text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-black/30 group cursor-pointer" 
+               title="بازگشت به پنل جامع کلاسیک ERP">
+                <span class="text-sm group-hover:-translate-x-0.5 transition-transform">💻</span>
+                <span class="hidden sm:inline font-bold">بازگشت به داشبورد کلاسیک ERP</span>
+                <span class="sm:hidden font-bold">ERP کلاسیک</span>
             </a>
         </div>
     </header>
 
     <!-- ==================== کانتینر اصلی سه ستونه (POS 3-Column Layout) ==================== -->
-    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 overflow-hidden">
+    <main class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 overflow-hidden">
 
         <!-- ==================== ستون ۱: کاتالوگ سریع و کارت‌های کالا (۵ ستون از ۱۲) ==================== -->
-        <section class="lg:col-span-5 flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+        <section class="lg:col-span-5 min-h-0 flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
             <!-- نوار جستجو و فیلتر -->
             <div class="p-3 bg-slate-900/80 border-b border-white/10 space-y-2.5 shrink-0">
                 <div class="relative">
@@ -94,81 +106,141 @@
                         type="text" 
                         v-model="searchQuery" 
                         placeholder="🔍 جستجوی سریع نام، برند، مدل یا کد کالا..."
-                        class="w-full bg-[#131b2e] border border-white/15 focus:border-cyan-400 rounded-2xl py-2.5 pr-10 pl-10 text-xs text-white placeholder-slate-400 outline-none transition font-medium"
+                        class="w-full bg-[#131b2e] border border-white/15 focus:border-cyan-400 rounded-2xl py-2.5 pr-10 pl-11 text-xs text-white placeholder-slate-400 outline-none transition font-medium"
                     >
                     <span class="absolute right-3.5 top-3 text-sm text-slate-400">🔍</span>
-                    <button v-if="searchQuery" @click="searchQuery = ''" class="absolute left-3 top-2.5 text-xs text-slate-400 hover:text-white bg-slate-700/50 w-5 h-5 rounded-full flex items-center justify-center">✕</button>
+                    <button v-if="searchQuery" @click="searchQuery = ''" class="absolute left-2.5 top-2 text-xs text-slate-400 hover:text-white bg-slate-700/60 hover:bg-slate-600 w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer" title="پاک کردن جستجو">✕</button>
                 </div>
 
-                <!-- نوار چیپ‌های دسته‌بندی با اسکرول افقی لمسی -->
+                <!-- نوار چیپ‌های دسته‌بندی با اسکرول افقی لمسی (Touch-friendly 48px) -->
                 <div class="flex items-center gap-1.5 overflow-x-auto pb-1 pos-grid-scroll">
                     <button 
                         v-for="cat in categories" 
                         :key="cat"
                         @click="selectedCategory = cat; playTone('chip')"
                         type="button"
-                        class="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition touch-action-btn flex items-center gap-1 shrink-0"
+                        class="min-h-[48px] px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition touch-action-btn flex items-center gap-1.5 shrink-0 cursor-pointer"
                         :class="selectedCategory === cat ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/30' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-white/5'"
                     >
-                        <span>[[ getCategoryIcon(cat) ]]</span>
+                        <span class="text-base">[[ getCategoryIcon(cat) ]]</span>
                         <span>[[ cat ]]</span>
                     </button>
                 </div>
             </div>
 
-            <!-- شبکه محصولات (Product Grid) -->
-            <div class="flex-1 overflow-y-auto p-3 pos-grid-scroll">
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    <div 
-                        v-for="item in filteredProducts" 
-                        :key="item.id"
-                        @click="addItemToCart(item)"
-                        class="group cursor-pointer bg-[#131b2e]/90 hover:bg-[#1a253f] border border-white/10 hover:border-cyan-500/50 rounded-2xl p-2.5 flex flex-col justify-between transition-all duration-150 touch-action-btn shadow-sm relative overflow-hidden"
-                    >
-                        <div class="space-y-1">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/10 px-1.5 py-0.5 rounded-md">[[ item.brand || 'طهماسبی' ]]</span>
-                                <span class="text-[10px] font-bold text-emerald-400">موجودی: [[ item.stock ]]</span>
+            <!-- شبکه محصولات بهینه‌شده با اسکرول مجازی (Virtual Scrolling Grid - 60 FPS) -->
+            <div 
+                ref="gridScrollContainer" 
+                @scroll.passive="onGridScroll" 
+                class="flex-1 min-h-0 overflow-y-auto p-3 pos-grid-scroll relative"
+            >
+                <!-- ۱. انیمیشن اسکلتی بارگذاری اولیه (Skeleton Loader) -->
+                <div v-if="isCatalogLoading" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 animate-pulse">
+                    <div v-for="n in 9" :key="n" class="bg-slate-800/50 rounded-2xl h-[140px] p-2.5 flex flex-col justify-between border border-white/5">
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <div class="w-12 h-3.5 bg-slate-700/80 rounded"></div>
+                                <div class="w-14 h-3.5 bg-slate-700/80 rounded"></div>
                             </div>
-                            <h3 class="text-xs font-black text-white line-clamp-2 leading-snug mt-1">[[ item.name ]]</h3>
-                            <span class="text-[10px] text-slate-400 block truncate">[[ item.category ]]</span>
+                            <div class="w-full h-4 bg-slate-700/60 rounded"></div>
+                            <div class="w-2/3 h-3 bg-slate-700/40 rounded"></div>
                         </div>
-
-                        <div class="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-black text-emerald-400 font-mono">[[ formatPrice(item.sell_price) ]]</span>
-                                <span class="text-[9px] text-slate-400 mr-0.5">ت</span>
-                            </div>
-                            <button 
-                                type="button"
-                                class="w-7 h-7 rounded-xl bg-cyan-600 group-hover:bg-cyan-500 text-white font-black text-sm flex items-center justify-center shadow-md transition"
-                            >
-                                ＋
-                            </button>
+                        <div class="flex justify-between items-center pt-2 border-t border-white/5">
+                            <div class="w-16 h-4 bg-slate-700/80 rounded"></div>
+                            <div class="w-7 h-7 bg-slate-700/80 rounded-xl"></div>
                         </div>
                     </div>
                 </div>
 
-                <div v-if="filteredProducts.length === 0" class="text-center py-16 text-slate-500 text-xs">
-                    <span>کالایی با عبارت «[[ searchQuery ]]» یافت نشد.</span>
+                <!-- ۲. وضعیت عدم تطابق جستجو یا نبود کالا -->
+                <div v-else-if="filteredProducts.length === 0" class="text-center py-20 text-slate-500 text-xs flex flex-col items-center justify-center space-y-2">
+                    <span class="text-3xl">🔍</span>
+                    <span class="font-bold">کالایی با عبارت «[[ searchQuery ]]» یافت نشد.</span>
+                    <span class="text-[11px] text-slate-400">املا یا پیشوند کلمه را تغییر دهید یا فیلتر دسته‌بندی را روی «همه» بگذارید.</span>
+                    <button v-if="isOffline" @click="loadCatalog()" type="button" class="mt-2 min-h-[44px] px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold hover:bg-amber-500/30 cursor-pointer">
+                        🔄 تلاش مجدد برای دریافت کاتالوگ آنلاین
+                    </button>
+                </div>
+
+                <!-- ۳. فضای فانتوم و کانتینر ترنسلیت اسکرول مجازی (GPU Accelerated Virtual Window) -->
+                <div 
+                    v-else 
+                    :style="{ height: virtualTotalHeight + 'px', position: 'relative', width: '100%' }"
+                >
+                    <div 
+                        :style="{ 
+                            transform: 'translateY(' + virtualOffsetY + 'px) translateZ(0)', 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            right: 0 
+                        }"
+                    >
+                        <div 
+                            class="grid gap-2.5" 
+                            :style="{ gridTemplateColumns: 'repeat(' + colCount + ', minmax(0, 1fr))' }"
+                        >
+                            <div 
+                                v-for="item in visibleCards" 
+                                :key="item.id"
+                                @click="addItemToCart(item)"
+                                class="group cursor-pointer bg-[#131b2e]/90 hover:bg-[#1a253f] border border-white/10 hover:border-cyan-500/50 rounded-2xl p-2.5 flex flex-col justify-between transition-all duration-150 touch-action-btn shadow-sm relative overflow-hidden h-[140px]"
+                            >
+                                <div class="space-y-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/10 px-1.5 py-0.5 rounded-md truncate max-w-[85px]">
+                                            [[ item.brand || 'طهماسبی' ]]
+                                        </span>
+                                        <span 
+                                            class="text-[10px] font-bold" 
+                                            :class="item.stock > 0 ? 'text-emerald-400' : 'text-rose-400'"
+                                        >
+                                            [[ item.stock > 0 ? 'موجودی: ' + item.stock : 'ناموجود' ]]
+                                        </span>
+                                    </div>
+                                    <h3 class="text-xs font-black text-white line-clamp-2 leading-snug mt-1" :title="item.name">
+                                        [[ item.name ]]
+                                    </h3>
+                                    <span class="text-[10px] text-slate-400 block truncate">
+                                        [[ item.category ]]
+                                    </span>
+                                </div>
+
+                                <div class="pt-1.5 border-t border-white/10 flex items-center justify-between">
+                                    <div>
+                                        <span class="text-xs font-black text-emerald-400 font-mono">
+                                            [[ formatPrice(item.sell_price) ]]
+                                        </span>
+                                        <span class="text-[9px] text-slate-400 mr-0.5">ت</span>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        class="w-8 h-8 rounded-xl bg-cyan-600 group-hover:bg-cyan-500 text-white font-black text-sm flex items-center justify-center shadow-md transition active:scale-90"
+                                    >
+                                        ＋
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- دکمه‌های اقدام سریع پایین پنل ۱ -->
+            <!-- دکمه‌های اقدام سریع پایین پنل ۱ (Touch Friendly >= 48px) -->
             <div class="p-2.5 bg-slate-900/90 border-t border-white/10 flex items-center justify-between gap-2 shrink-0">
-                <button @click="openComboPackageModal()" type="button" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs py-2 px-3 rounded-xl shadow-lg shadow-purple-600/20 transition flex items-center justify-center gap-1.5 touch-action-btn">
-                    <span>⚡</span>
+                <button @click="openComboPackageModal()" type="button" class="flex-1 min-h-[48px] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs py-2 px-3 rounded-2xl shadow-lg shadow-purple-600/20 transition flex items-center justify-center gap-1.5 touch-action-btn cursor-pointer">
+                    <span class="text-base">⚡</span>
                     <span>ساخت پکیج ترکیبی هوشمند</span>
                 </button>
-                <button @click="openCustomItemModal()" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-2 px-3 rounded-xl border border-white/10 transition touch-action-btn flex items-center gap-1">
-                    <span>➕</span>
+                <button @click="openCustomItemModal()" type="button" class="min-h-[48px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-2 px-3 rounded-2xl border border-white/10 transition touch-action-btn flex items-center gap-1 cursor-pointer">
+                    <span class="text-base">➕</span>
                     <span>کالای خارج لیست</span>
                 </button>
             </div>
         </section>
 
         <!-- ==================== ستون ۲: سبد اقلام فاکتور (۴ ستون از ۱۲) ==================== -->
-        <section class="lg:col-span-4 flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+        <section class="lg:col-span-4 min-h-0 flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
             <!-- سربرگ سبد فاکتور -->
             <div class="p-3 bg-slate-900/80 border-b border-white/10 flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2">
@@ -186,20 +258,46 @@
                 </button>
             </div>
 
-            <!-- مشخصات خریدار (سریع) -->
-            <div class="p-2.5 bg-[#0e1626] border-b border-white/10 grid grid-cols-2 gap-2 shrink-0">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-0.5">نام مشتری:</label>
-                    <input type="text" v-model="customer.name" placeholder="مثلاً: حاج رضا حسینی" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400">
+            <!-- مشخصات خریدار (سریع) و استعلام سوابق و مانده بدهی -->
+            <div class="p-2.5 bg-[#0e1626] border-b border-white/10 space-y-2 shrink-0">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-0.5">نام مشتری:</label>
+                        <input type="text" v-model="customer.name" placeholder="مثلاً: حاج رضا حسینی" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-0.5">شماره تماس:</label>
+                        <div class="relative">
+                            <input type="text" v-model="customer.phone" @input="onCustomerPhoneInput" placeholder="۰۹۱۲..." class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400 font-mono text-left dir-ltr" dir="ltr">
+                            <span v-if="isSearchingCustomer" class="absolute right-2 top-2 text-[10px] text-cyan-400 font-bold animate-pulse">در حال استعلام...</span>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-0.5">شماره تماس:</label>
-                    <input type="text" v-model="customer.phone" placeholder="۰۹۱۲..." class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400 font-mono text-left dir-ltr" dir="ltr">
+
+                <!-- استعلام آنی مانده بدهی و پرونده اعتباری مشتری -->
+                <div v-if="customerInfo" class="p-2 rounded-xl border text-[11px] flex items-center justify-between transition-all"
+                    :class="(customerInfo.outstanding_balance > 0) ? 'bg-amber-950/40 border-amber-500/40 text-amber-200' : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-sm">[[ (customerInfo.outstanding_balance > 0) ? '⚠️' : '🌟' ]]</span>
+                        <div>
+                            <span class="font-bold">مانده بدهی قبلی:</span>
+                            <span class="font-mono font-black mr-1" :class="(customerInfo.outstanding_balance > 0) ? 'text-amber-400' : 'text-emerald-400'">
+                                [[ formatPrice(customerInfo.outstanding_balance) ]] تومان
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold">اعتبار سنجی:</span>
+                        <span class="px-2 py-0.5 rounded-full font-mono font-black text-[10px] border"
+                            :class="customerInfo.ai_credit_score >= 80 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : (customerInfo.ai_credit_score >= 60 ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30')">
+                            [[ customerInfo.ai_credit_score ]] / ۱۰۰ (سطح [[ customerInfo.ai_risk_tier ]])
+                        </span>
+                    </div>
                 </div>
             </div>
 
             <!-- لیست اقلام فاکتور با رندر واکنش‌گرای واقعی -->
-            <div class="flex-1 overflow-y-auto p-2.5 space-y-2 pos-grid-scroll">
+            <div class="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2 pos-grid-scroll">
                 <div 
                     v-for="(item, idx) in cartItems" 
                     :key="item.uid" 
@@ -217,16 +315,16 @@
                                 </div>
                             </div>
                         </div>
-                        <button @click="removeItem(idx)" type="button" class="text-slate-500 hover:text-rose-400 text-xs p-1">✕</button>
+                        <button @click="removeItem(idx)" type="button" class="text-slate-500 hover:text-rose-400 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-rose-950/40 transition cursor-pointer" title="حذف ردیف">✕</button>
                     </div>
 
                     <!-- ردیف کنترل تعداد و قیمت واحد -->
                     <div class="grid grid-cols-12 gap-2 items-center bg-[#0d1422] p-1.5 rounded-xl border border-white/5">
-                        <!-- استپر تعداد تاچ -->
-                        <div class="col-span-5 flex items-center justify-between bg-slate-800 rounded-lg p-0.5 border border-white/10">
-                            <button @click="changeQty(item, -1)" type="button" class="w-6 h-6 rounded bg-slate-700 text-white font-black text-xs flex items-center justify-center active:scale-90">－</button>
+                        <!-- استپر تعداد تاچ (WCAG Touch Friendly) -->
+                        <div class="col-span-5 flex items-center justify-between bg-slate-800 rounded-xl p-1 border border-white/10">
+                            <button @click="changeQty(item, -1)" type="button" class="min-w-[40px] min-h-[40px] rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-black text-sm flex items-center justify-center active:scale-90 shadow-sm cursor-pointer" title="کاهش تعداد">－</button>
                             <input type="number" v-model.number="item.qty" min="1" class="w-10 bg-transparent text-center text-xs font-black text-white outline-none font-mono">
-                            <button @click="changeQty(item, 1)" type="button" class="w-6 h-6 rounded bg-slate-700 text-white font-black text-xs flex items-center justify-center active:scale-90">＋</button>
+                            <button @click="changeQty(item, 1)" type="button" class="min-w-[40px] min-h-[40px] rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-black text-sm flex items-center justify-center active:scale-90 shadow-sm cursor-pointer" title="افزایش تعداد">＋</button>
                         </div>
 
                         <!-- قیمت واحد -->
@@ -257,7 +355,7 @@
         </section>
 
         <!-- ==================== ستون ۳: میز تسویه، کیبورد تاچ و پرداخت (۳ ستون از ۱۲) ==================== -->
-        <section class="lg:col-span-3 flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+        <section class="lg:col-span-3 min-h-0 flex flex-col glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10">
             <!-- خلاصه ارقام مالی -->
             <div class="p-3 bg-gradient-to-b from-[#131d31] to-[#0c121e] border-b border-white/10 space-y-2 shrink-0">
                 <div class="flex items-center justify-between text-xs">
@@ -277,25 +375,25 @@
                 </div>
             </div>
 
-            <!-- تب‌های روش پرداخت -->
+            <!-- تب‌های روش پرداخت (Touch Friendly >= 48px) -->
             <div class="p-2 bg-[#0e1627] border-b border-white/10 shrink-0">
-                <div class="grid grid-cols-4 gap-1">
+                <div class="grid grid-cols-4 gap-1.5">
                     <button 
                         v-for="m in paymentMethods" 
                         :key="m.id"
                         @click="activePayMethod = m.id; playTone('tab')"
                         type="button"
-                        class="py-1.5 px-1 rounded-xl text-[11px] font-black transition flex flex-col items-center gap-0.5 border"
+                        class="min-h-[48px] py-2 px-1 rounded-xl text-[11px] font-black transition flex flex-col items-center justify-center gap-0.5 border cursor-pointer touch-action-btn"
                         :class="activePayMethod === m.id ? 'bg-cyan-600 text-white border-cyan-400 shadow-md shadow-cyan-600/30' : 'bg-slate-800 text-slate-400 border-white/5 hover:text-white'"
                     >
-                        <span>[[ m.icon ]]</span>
+                        <span class="text-base">[[ m.icon ]]</span>
                         <span>[[ m.label ]]</span>
                     </button>
                 </div>
             </div>
 
             <!-- اینپوت مبلغ فعال و کیبورد لمسی بزرگ (Virtual Numpad) -->
-            <div class="flex-1 p-3 flex flex-col justify-between overflow-y-auto pos-grid-scroll space-y-2">
+            <div class="flex-1 min-h-0 p-3 flex flex-col justify-between overflow-y-auto pos-grid-scroll space-y-2">
                 <!-- فیلد مبالغ دریافت شده -->
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between text-xs">
@@ -315,6 +413,28 @@
                         >
                         <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">تومان</span>
                     </div>
+
+                    <!-- فیلدهای ثبت مشخصات چک صیادی در صورت انتخاب چک -->
+                    <div v-if="activePayMethod === 'cheque' || payments.cheque > 0" class="p-2.5 bg-slate-900/90 border border-cyan-500/30 rounded-2xl space-y-2">
+                        <div class="text-[11px] font-black text-cyan-300 flex items-center gap-1">
+                            <span>📜</span>
+                            <span>اطلاعات چک صیادی:</span>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-0.5">شناسه ۱۶ رقمی صیادی:</label>
+                            <input type="text" v-model="chequeForm.sayad" placeholder="۱۶ رقم صیادی..." maxlength="16" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono text-left dir-ltr outline-none focus:border-cyan-400" dir="ltr">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-0.5">بانک صادرکننده:</label>
+                                <input type="text" v-model="chequeForm.bank" placeholder="مثلاً: ملت، صادرات" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-0.5">تاریخ سررسید شمسی:</label>
+                                <input type="text" v-model="chequeForm.dueDate" placeholder="۱۴۰۳/۰۸/۱۵" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono text-left dir-ltr outline-none focus:border-cyan-400" dir="ltr">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- وضعیت مانده و تسویه -->
@@ -324,9 +444,9 @@
                     <span v-else>در انتظار ثبت اقلام فاکتور</span>
                 </div>
 
-                <!-- کیبورد تاچ Numpad (مخصوص لمس سریع با شست) -->
+                <!-- کیبورد تاچ Numpad (مخصوص لمس سریع با شست - WCAG 48px) -->
                 <div class="grid grid-cols-3 gap-1.5 pt-1">
-                    <button v-for="n in ['1','2','3','4','5','6','7','8','9','000','0','⌫']" :key="n" @click="handleNumpad(n)" type="button" class="h-10 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-cyan-600 active:text-white border border-white/10 text-white font-mono font-black text-sm flex items-center justify-center transition touch-action-btn shadow-sm">
+                    <button v-for="n in ['1','2','3','4','5','6','7','8','9','000','0','⌫']" :key="n" @click="handleNumpad(n)" type="button" class="min-h-[48px] h-12 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-cyan-600 active:text-white border border-white/10 text-white font-mono font-black text-base flex items-center justify-center transition touch-action-btn shadow-sm cursor-pointer">
                         [[ n ]]
                     </button>
                 </div>
@@ -336,12 +456,13 @@
             <div class="p-3 bg-slate-900 border-t border-white/10 shrink-0">
                 <button 
                     @click="submitInvoice()" 
-                    :disabled="cartItems.length === 0"
+                    :disabled="cartItems.length === 0 || isSubmitting"
                     type="button" 
-                    class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2 touch-action-btn"
+                    class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2 touch-action-btn cursor-pointer"
                 >
-                    <span>💾</span>
-                    <span>ثبت نهایی و چاپ فاکتور</span>
+                    <span v-if="!isSubmitting">💾</span>
+                    <span v-else class="animate-spin text-base">⏳</span>
+                    <span>[[ isSubmitting ? 'در حال ثبت در دیتابیس...' : 'ثبت نهایی و چاپ فاکتور' ]]</span>
                 </button>
             </div>
         </section>
@@ -388,8 +509,8 @@
                     <div class="flex-1">
                         <div class="flex items-center justify-between mb-1">
                             <label class="block text-[11px] font-bold text-purple-200">قیمت کل توافقی پکیج:</label>
-                            <button @click="comboAgreedPrice = comboCatalogSum" type="button" class="text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded">
-                                🔄 جمع مصوب کالاها
+                            <button @click="comboAgreedPrice = comboCatalogSum" type="button" class="text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded hover:bg-cyan-900/60 transition cursor-pointer">
+                                🔄 بازنشانی به جمع مصوب اقلام
                             </button>
                         </div>
                         <input type="text" :value="formatPrice(comboAgreedPrice)" @input="comboAgreedPrice = parseNum($event.target.value)" class="w-full bg-[#18233c] border border-purple-500/50 rounded-xl px-3 py-2 text-xs font-mono font-black text-emerald-300 outline-none dir-ltr text-left" dir="ltr">
@@ -398,9 +519,43 @@
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-                <button @click="showComboModal = false" type="button" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold">انصراف</button>
-                <button @click="confirmAddCombo()" type="button" class="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-600/30">
+                <button @click="showComboModal = false" type="button" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold cursor-pointer">انصراف</button>
+                <button @click="confirmAddCombo()" type="button" class="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-600/30 cursor-pointer">
                     ✅ درج پکیج در فاکتور
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== مودال پیش‌نمایش و چاپ فاکتور ==================== -->
+    <div v-if="showPrintModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-[#121929] border border-cyan-500/40 max-w-md w-full rounded-3xl p-6 space-y-5 shadow-2xl text-center">
+            <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-emerald-500/20">
+                ✅
+            </div>
+            <div>
+                <h3 class="text-base font-black text-white">فاکتور با موفقیت در سامانه ثبت شد</h3>
+                <p class="text-xs text-slate-400 mt-1">شماره سند: <span class="font-mono font-black text-cyan-300">[[ submittedInvoiceNumber ]]</span></p>
+                <p class="text-xs text-slate-400 mt-0.5">مبلغ کل: <span class="font-mono font-black text-white">[[ formatPrice(submittedTotalAmount) ]] تومان</span></p>
+            </div>
+
+            <div class="space-y-2.5 pt-2">
+                <!-- دکمه چاپ حرارتی ۸۰ میلی‌متری -->
+                <a :href="'/print_pos/' + submittedInvoiceId" target="_blank" class="w-full min-h-[48px] py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-white/10 transition flex items-center justify-center gap-2 shadow cursor-pointer">
+                    <span class="text-base">🖨️</span>
+                    <span>چاپ فیش حرارتی ۸۰ میلی‌متری</span>
+                </a>
+
+                <!-- دکمه چاپ رسمی A4 -->
+                <a :href="'/invoice/print_a4/' + submittedInvoiceId" target="_blank" class="w-full min-h-[48px] py-3 px-4 rounded-2xl bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 font-bold text-xs border border-indigo-500/30 transition flex items-center justify-center gap-2 shadow cursor-pointer">
+                    <span class="text-base">📄</span>
+                    <span>چاپ فاکتور رسمی A4</span>
+                </a>
+
+                <!-- دکمه فاکتور جدید -->
+                <button @click="startNewInvoice()" type="button" class="w-full min-h-[48px] py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
+                    <span class="text-base">➕</span>
+                    <span>فاکتور جدید</span>
                 </button>
             </div>
         </div>
@@ -408,19 +563,143 @@
 
 </div>
 
-<!-- اسکریپت اپلیکیشن Vue 3 -->
+<!-- اسکریپت اپلیکیشن Vue 3 و منطق کاتالوگ سریع طهماسبی -->
 <script>
-const { createApp, ref, computed, onMounted } = Vue;
+// ==================== Dual-Mode Two-Way Switcher Persistence ====================
+function setTahmasebiUiMode(mode) {
+    try {
+        localStorage.setItem('tahmasebi_ui_mode', mode);
+        document.cookie = "tahmasebi_ui_mode=" + encodeURIComponent(mode) + ";path=/;max-age=31536000;SameSite=Lax";
+    } catch (e) {
+        console.warn("Tahmasebi UI mode storage error:", e);
+    }
+}
+
+function getTahmasebiUiMode() {
+    try {
+        return localStorage.getItem('tahmasebi_ui_mode') || 'pos_v2';
+    } catch (e) {
+        return 'pos_v2';
+    }
+}
+
+// ==================== ۱. نرمال‌سازی پیشرفته و فوق‌سریع متن فارسی ====================
+const PERSIAN_CHAR_MAP = {
+    '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+    '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+    'ي':'ی', 'ك':'ک', 'ى':'ی', 'ة':'ه', 'ۀ':'ه', 'آ':'ا', 'أ':'ا', 'إ':'ا'
+};
+const PERSIAN_DIACRITICS_REGEX = /[\u064b-\u065f\u0670\u200c\u200e\u200f\ufeff]/g;
+
+function normalizePersianText(str) {
+    if (!str) return '';
+    let s = str.toString().toLowerCase();
+    s = s.replace(/[۰-۹٠-٩يكىةۀآأإ]/g, function(w) { return PERSIAN_CHAR_MAP[w] || w; });
+    s = s.replace(PERSIAN_DIACRITICS_REGEX, ' ');
+    return s.replace(/\s+/g, ' ').trim();
+}
+
+// ==================== ۲. مدیریت کش کلاینت با IndexedDB (آفلاین ۱۰۰٪) ====================
+const DB_NAME = 'TahmasebiPosDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'catalog_cache';
+
+function openPosDatabase() {
+    return new Promise(function(resolve) {
+        if (!window.indexedDB) {
+            resolve(null);
+            return;
+        }
+        try {
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = function(e) {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                }
+            };
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() {
+                console.warn('IndexedDB open error:', req.error);
+                resolve(null);
+            };
+        } catch (e) {
+            console.warn('IndexedDB not supported or blocked:', e);
+            resolve(null);
+        }
+    });
+}
+
+function getCachedCatalog() {
+    return new Promise(function(resolve) {
+        openPosDatabase().then(function(db) {
+            if (!db) return resolve(null);
+            try {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.get('catalog_items');
+                req.onsuccess = function() { resolve(req.result ? req.result.data : null); };
+                req.onerror = function() { resolve(null); };
+            } catch (e) {
+                console.warn('IDB read failed:', e);
+                resolve(null);
+            }
+        }).catch(function() { resolve(null); });
+    });
+}
+
+function setCachedCatalog(data) {
+    return new Promise(function(resolve) {
+        openPosDatabase().then(function(db) {
+            if (!db) return resolve(false);
+            try {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put({
+                    key: 'catalog_items',
+                    timestamp: Date.now(),
+                    count: data.length,
+                    data: data
+                });
+                tx.oncomplete = function() { resolve(true); };
+                tx.onerror = function() { resolve(false); };
+            } catch (e) {
+                console.warn('IDB write failed:', e);
+                resolve(false);
+            }
+        }).catch(function() { resolve(false); });
+    });
+}
+
+const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
 
 createApp({
     delimiters: ['[[', ']]'],
     setup() {
-        const soundEnabled = ref(true);
+        const soundEnabled = ref(localStorage.getItem('tahmasebi_pos_sound') !== 'false');
         const searchQuery = ref('');
         const selectedCategory = ref('همه');
+        const activeShopId = ref(1);
         const activeShopName = ref('شعبه مرکزی طهماسبی');
         const nextInvoiceNumber = ref('INV-1403-1089');
         const showComboModal = ref(false);
+        const showPrintModal = ref(false);
+        const submittedInvoiceId = ref(null);
+        const submittedInvoiceNumber = ref('');
+        const submittedTotalAmount = ref(0);
+        const isSubmitting = ref(false);
+
+        // وضعیت کش کاتالوگ و شبکه
+        const catalogProducts = ref([]);
+        const isCatalogLoading = ref(true);
+        const isOffline = ref(false);
+
+        // استعلام مشتری و مانده اعتباری
+        const isSearchingCustomer = ref(false);
+        const customerInfo = ref(null);
+
+        // اطلاعات چک صیادی
+        const chequeForm = ref({ sayad: '', bank: '', dueDate: '' });
 
         // روش‌های پرداخت
         const paymentMethods = [
@@ -435,52 +714,199 @@ createApp({
         const customer = ref({ name: '', phone: '' });
         const cartItems = ref([]);
 
-        // داده‌های نمونه محصولات کاتالوگ فروشگاه طهماسبی
-        const catalogProducts = ref([
-            { id: 1, name: 'روشویی کابینتی ضدآب فول‌ست الگانس', category: 'روشویی کابینتی', brand: 'الگانس', sell_price: 6800000, buy_price: 4200000, stock: 8 },
-            { id: 2, name: 'شیرآلات اهرمی ست ۴ تکه کروم قهرمان', category: 'شیرآلات', brand: 'قهرمان', sell_price: 7900000, buy_price: 5800000, stock: 12 },
-            { id: 3, name: 'گاز ۵ شعله شیشه‌ای اخوان مدل GI-135', category: 'گاز و هود', brand: 'اخوان', sell_price: 9800000, buy_price: 7840000, stock: 5 },
-            { id: 4, name: 'هود مخفی داتیس مدل 522 لمسی', category: 'گاز و هود', brand: 'داتیس', sell_price: 8900000, buy_price: 6500000, stock: 7 },
-            { id: 5, name: 'سینک گرانیتی فونیکس دو لگن ترک', category: 'سینک گرانیتی', brand: 'فونیکس', sell_price: 7500000, buy_price: 5400000, stock: 6 },
-            { id: 6, name: 'توالت فرنگی دو زمانه بیده دار مروارید', category: 'توالت فرنگی', brand: 'مروارید', sell_price: 6500000, buy_price: 4800000, stock: 9 },
-            { id: 7, name: 'علم دوش دوکاره یونیورست طلایی کسری', category: 'علم دوش', brand: 'کسری', sell_price: 4600000, buy_price: 3400000, stock: 14 },
-            { id: 8, name: 'فلاش تانک توکار اولترااسلیم ایران نوید', category: 'توالت فرنگی', brand: 'ایران نوید', sell_price: 3950000, buy_price: 2900000, stock: 11 },
-            { id: 9, name: 'شیر دوش آس مدل مینیمال کروم', category: 'شیرآلات', brand: 'آس (ABS)', sell_price: 5640000, buy_price: 4624800, stock: 15 },
-            { id: 10, name: 'شیر توالت آس مدل مینیمال کروم', category: 'شیرآلات', brand: 'آس (ABS)', sell_price: 5320000, buy_price: 4362400, stock: 18 }
-        ]);
+        // اسکرول مجازی
+        const gridScrollContainer = ref(null);
+        const scrollTop = ref(0);
+        const colCount = ref(3);
+        const viewportHeight = ref(600);
+        const ROW_HEIGHT = 150;
+        const BUFFER_ROWS = 2;
 
-        const categories = computed(() => {
+        // پیش‌نمایه‌سازی برای جستجوی زیر ۱۰ میلی‌ثانیه
+        function preIndexItems(items, shopId) {
+            if (!Array.isArray(items)) return [];
+            return items.map(function(p) {
+                const stock = (shopId === 2) ? (p.stock_2 || 0) : (p.stock_1 != null ? p.stock_1 : (p.stock || 0));
+                const textToNorm = (p.name || '') + ' ' + (p.category || '') + ' ' + (p.brand || '') + ' ' + (p.code || '') + ' ' + (p.barcode || '');
+                const norm = normalizePersianText(textToNorm);
+                return {
+                    id: p.id,
+                    name: p.name,
+                    category: p.category || 'متفرقه',
+                    brand: p.brand || '',
+                    code: p.code || '',
+                    barcode: p.barcode || '',
+                    buy_price: p.buy_price || 0,
+                    sell_price: p.sell_price || 0,
+                    stock: stock,
+                    stock_1: p.stock_1,
+                    stock_2: p.stock_2,
+                    _normSearch: norm,
+                    _normSearchCompact: norm.replace(/\s+/g, '')
+                };
+            });
+        }
+
+        // بارگذاری داده‌ها با الگوی SWR
+        async function loadCatalog() {
+            if (catalogProducts.value.length === 0) {
+                isCatalogLoading.value = true;
+            }
+
+            // ۱. بررسی کش رم سریع
+            if (window.__TAHMASEBI_CATALOG_CACHE__ && window.__TAHMASEBI_CATALOG_CACHE__.length > 0) {
+                catalogProducts.value = preIndexItems(window.__TAHMASEBI_CATALOG_CACHE__, activeShopId.value);
+                isCatalogLoading.value = false;
+            } else {
+                // ۲. بررسی کش آفلاین IndexedDB
+                try {
+                    const cached = await getCachedCatalog();
+                    if (cached && Array.isArray(cached) && cached.length > 0) {
+                        window.__TAHMASEBI_CATALOG_CACHE__ = cached;
+                        catalogProducts.value = preIndexItems(cached, activeShopId.value);
+                        isCatalogLoading.value = false;
+                    }
+                } catch (e) {
+                    console.warn('IDB read fallback error:', e);
+                }
+            }
+
+            // ۳. فراخوانی سرور در پس‌زمینه (SWR) جهت دریافت کاتالوگ زنده و به‌روزرسانی تغییرات انبار
+            try {
+                const res = await fetch('/api/inventory/catalog-stock');
+                if (res.ok) {
+                    const freshData = await res.json();
+                    if (Array.isArray(freshData) && freshData.length > 0) {
+                        window.__TAHMASEBI_CATALOG_CACHE__ = freshData;
+                        catalogProducts.value = preIndexItems(freshData, activeShopId.value);
+                        setCachedCatalog(freshData); // ذخیره بدون مسدودسازی در پس‌زمینه
+                        isOffline.value = false;
+                    }
+                } else {
+                    if (catalogProducts.value.length > 0) {
+                        isOffline.value = true;
+                    }
+                }
+            } catch (err) {
+                console.warn('Network offline or fetch error, using cached catalog:', err);
+                if (catalogProducts.value.length > 0) {
+                    isOffline.value = true;
+                }
+            } finally {
+                isCatalogLoading.value = false;
+            }
+        }
+
+        const categories = computed(function() {
             const set = new Set(['همه']);
-            catalogProducts.value.forEach(p => set.add(p.category));
+            catalogProducts.value.forEach(function(p) {
+                if (p.category) set.add(p.category);
+            });
             return Array.from(set);
         });
 
-        const filteredProducts = computed(() => {
-            return catalogProducts.value.filter(p => {
-                const matchCat = (selectedCategory.value === 'همه' || p.category === selectedCategory.value);
-                const q = searchQuery.value.trim().toLowerCase();
-                const matchQuery = !q || p.name.toLowerCase().includes(q) || (p.brand && p.brand.toLowerCase().includes(q));
-                return matchCat && matchQuery;
+        // فیلتر و جستجوی با ایندکس پیش‌توکنیزاسیون (< 15ms)
+        const filteredProducts = computed(function() {
+            const cat = selectedCategory.value;
+            const qRaw = (searchQuery.value || '').trim();
+            const normQ = normalizePersianText(qRaw);
+            const tokens = normQ ? normQ.split(' ').filter(Boolean) : [];
+            const isAllCat = (!cat || cat === 'همه');
+
+            if (isAllCat && tokens.length === 0) {
+                return catalogProducts.value;
+            }
+
+            return catalogProducts.value.filter(function(p) {
+                if (!isAllCat && p.category !== cat) return false;
+                if (tokens.length === 0) return true;
+                return tokens.every(function(tok) {
+                    return p._normSearch.indexOf(tok) !== -1 || p._normSearchCompact.indexOf(tok) !== -1;
+                });
             });
         });
 
-        // محاسبات مالی زنده
-        const grossTotal = computed(() => {
-            return cartItems.value.reduce((acc, it) => acc + (it.qty * it.unit_price), 0);
+        // بازنشانی اسکرول به بالا هنگام تغییر جستجو یا دسته‌بندی
+        watch([function() { return searchQuery.value; }, function() { return selectedCategory.value; }], function() {
+            if (gridScrollContainer.value) {
+                gridScrollContainer.value.scrollTop = 0;
+                scrollTop.value = 0;
+            }
         });
 
-        const totalProfit = computed(() => {
-            return cartItems.value.reduce((acc, it) => {
+        // محاسبات اسکرول مجازی چندستونه
+        const virtualTotalRows = computed(function() {
+            return Math.ceil(filteredProducts.value.length / colCount.value);
+        });
+        const virtualTotalHeight = computed(function() {
+            return virtualTotalRows.value * ROW_HEIGHT;
+        });
+        const virtualStartRow = computed(function() {
+            return Math.max(0, Math.floor(scrollTop.value / ROW_HEIGHT) - BUFFER_ROWS);
+        });
+        const virtualVisibleRowCount = computed(function() {
+            const effectiveHeight = Math.min(viewportHeight.value || 450, 480);
+            return Math.ceil(effectiveHeight / ROW_HEIGHT) + (BUFFER_ROWS * 2);
+        });
+        const virtualEndRow = computed(function() {
+            return Math.min(virtualTotalRows.value, virtualStartRow.value + virtualVisibleRowCount.value);
+        });
+        const virtualOffsetY = computed(function() {
+            return virtualStartRow.value * ROW_HEIGHT;
+        });
+
+        const visibleCards = computed(function() {
+            const start = virtualStartRow.value * colCount.value;
+            const end = Math.min(filteredProducts.value.length, virtualEndRow.value * colCount.value);
+            return filteredProducts.value.slice(start, end);
+        });
+
+        // کنترل رویداد اسکرول با requestAnimationFrame جهت ۶۰ فریم بر ثانیه
+        let ticking = false;
+        function onGridScroll(e) {
+            if (!ticking) {
+                window.requestAnimationFrame(function() {
+                    if (e && e.target) {
+                        scrollTop.value = e.target.scrollTop;
+                    }
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }
+
+        // تشخیص عرض و ارتفاع ستون‌ها به شکل واکنش‌گرا
+        function updateLayoutDimensions() {
+            if (!gridScrollContainer.value) return;
+            const width = gridScrollContainer.value.clientWidth;
+            const cHeight = gridScrollContainer.value.clientHeight;
+            viewportHeight.value = (cHeight > 0 && cHeight < (window.innerHeight || 900)) ? cHeight : Math.min(window.innerHeight || 800, 650);
+            if (width < 380) {
+                colCount.value = 2;
+            } else if (width < 680) {
+                colCount.value = 3;
+            } else {
+                colCount.value = 4;
+            }
+        }
+
+        // محاسبات مالی زنده
+        const grossTotal = computed(function() {
+            return cartItems.value.reduce(function(acc, it) { return acc + (it.qty * it.unit_price); }, 0);
+        });
+
+        const totalProfit = computed(function() {
+            return cartItems.value.reduce(function(acc, it) {
                 const profitPerUnit = it.unit_price - (it.buy_price || 0);
                 return acc + (profitPerUnit * it.qty);
             }, 0);
         });
 
-        const totalPaid = computed(() => {
+        const totalPaid = computed(function() {
             return (payments.value.pos || 0) + (payments.value.card || 0) + (payments.value.cash || 0) + (payments.value.cheque || 0);
         });
 
-        const remainingBalance = computed(() => {
+        const remainingBalance = computed(function() {
             return Math.max(0, grossTotal.value - totalPaid.value);
         });
 
@@ -488,7 +914,7 @@ createApp({
         function addItemToCart(product) {
             playTone('add');
             vibrate(20);
-            const existing = cartItems.value.find(i => i.id === product.id && !i.isCombo);
+            const existing = cartItems.value.find(function(i) { return i.id === product.id && !i.isCombo; });
             if (existing) {
                 existing.qty++;
             } else {
@@ -498,10 +924,10 @@ createApp({
                     name: product.name,
                     category: product.category,
                     unit_price: product.sell_price,
-                    buy_price: product.buy_price,
+                    buy_price: product.buy_price || 0,
                     qty: 1,
                     isCombo: false,
-                    profit: product.sell_price - product.buy_price
+                    profit: (product.sell_price || 0) - (product.buy_price || 0)
                 });
             }
         }
@@ -512,8 +938,41 @@ createApp({
         }
 
         function removeItem(idx) {
+            playTone('delete');
+            vibrate([30, 20]);
             cartItems.value.splice(idx, 1);
-            vibrate(25);
+        }
+
+        // استعلام آنی سوابق مشتری با Debounce
+        let customerLookupTimeout = null;
+        function onCustomerPhoneInput() {
+            const rawPhone = customer.value.phone ? customer.value.phone.trim() : '';
+            if (!rawPhone || rawPhone.length < 4) {
+                customerInfo.value = null;
+                return;
+            }
+            clearTimeout(customerLookupTimeout);
+            customerLookupTimeout = setTimeout(async function() {
+                isSearchingCustomer.value = true;
+                try {
+                    const res = await fetch(`/api/customer/lookup?q=${encodeURIComponent(rawPhone)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.found) {
+                            customerInfo.value = data;
+                            if (!customer.value.name || customer.value.name === 'مشتری محترم') {
+                                customer.value.name = data.name;
+                            }
+                        } else {
+                            customerInfo.value = null;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Customer lookup error:', e);
+                } finally {
+                    isSearchingCustomer.value = false;
+                }
+            }, 350);
         }
 
         function clearCart() {
@@ -525,19 +984,27 @@ createApp({
 
         // پکیج ترکیبی
         const comboDraftItems = ref([
-            { productId: 1, qty: 1 },
-            { productId: 2, qty: 1 }
+            { productId: '', qty: 1 }
         ]);
         const comboAgreedPrice = ref(0);
 
-        const comboCatalogSum = computed(() => {
-            return comboDraftItems.value.reduce((acc, row) => {
-                const prod = catalogProducts.value.find(p => p.id === row.productId);
+        const comboCatalogSum = computed(function() {
+            return comboDraftItems.value.reduce(function(acc, row) {
+                if (!row.productId) return acc;
+                const prod = catalogProducts.value.find(function(p) { return p.id === row.productId; });
                 return acc + (prod ? prod.sell_price * row.qty : 0);
             }, 0);
         });
 
         function openComboPackageModal() {
+            if (comboDraftItems.value.length === 0 || (comboDraftItems.value.length === 1 && !comboDraftItems.value[0].productId)) {
+                if (catalogProducts.value.length >= 2) {
+                    comboDraftItems.value = [
+                        { productId: catalogProducts.value[0].id, qty: 1 },
+                        { productId: catalogProducts.value[1].id, qty: 1 }
+                    ];
+                }
+            }
             comboAgreedPrice.value = comboCatalogSum.value;
             showComboModal.value = true;
         }
@@ -546,45 +1013,84 @@ createApp({
             comboAgreedPrice.value = comboCatalogSum.value;
         }
 
+        // سازنده پکیج ترکیبی با تسهیم متناسب و گردکردن دقیق تومانی بدون کسر/اضافه
         function confirmAddCombo() {
-            const validRows = comboDraftItems.value.filter(r => r.productId);
+            const validRows = comboDraftItems.value.filter(function(r) { return r.productId; });
             if (validRows.length === 0) return alert('حداقل ۱ قلم انتخاب کنید.');
             
             const agreed = comboAgreedPrice.value || comboCatalogSum.value;
+            const catSum = comboCatalogSum.value;
             let allocatedSum = 0;
             
-            validRows.forEach((r, idx) => {
-                const prod = catalogProducts.value.find(p => p.id === r.productId);
+            validRows.forEach(function(r, idx) {
+                const prod = catalogProducts.value.find(function(p) { return p.id === r.productId; });
+                if (!prod) return;
+                const q = Math.max(1, parseInt(r.qty) || 1);
                 let rowAlloc = 0;
                 if (idx === validRows.length - 1) {
+                    // آخرین ردیف مابه‌التفاوت دقیق را دریافت می‌کند تا مجموع اقلام دقیقاً برابر قیمت پکیج باشد
                     rowAlloc = Math.max(0, agreed - allocatedSum);
                 } else {
-                    const ratio = comboCatalogSum.value > 0 ? (prod.sell_price * r.qty / comboCatalogSum.value) : (1 / validRows.length);
+                    const ratio = catSum > 0 ? ((prod.sell_price * q) / catSum) : (1 / validRows.length);
                     rowAlloc = Math.round(agreed * ratio);
                     allocatedSum += rowAlloc;
                 }
 
-                cartItems.value.push({
-                    uid: Date.now() + Math.random(),
-                    id: prod.id,
-                    name: prod.name,
-                    category: prod.category,
-                    unit_price: Math.round(rowAlloc / r.qty),
-                    buy_price: prod.buy_price,
-                    qty: r.qty,
-                    isCombo: true,
-                    profit: Math.round(rowAlloc / r.qty) - prod.buy_price
-                });
+                // محاسبه قیمت واحد صحیح با گردکردن عدد صحیح
+                const baseUnit = Math.floor(rowAlloc / q);
+                const remainder = rowAlloc - (baseUnit * q);
+
+                if (remainder === 0 || q === 1) {
+                    cartItems.value.push({
+                        uid: Date.now() + Math.random(),
+                        id: prod.id,
+                        name: prod.name, // رعایت اینواریانت نام تمیز بدون هیچ پسوند
+                        category: prod.category,
+                        unit_price: Math.round(rowAlloc / q),
+                        original_price: prod.sell_price,
+                        buy_price: prod.buy_price || 0,
+                        qty: q,
+                        isCombo: true,
+                        profit: Math.round(rowAlloc / q) - (prod.buy_price || 0)
+                    });
+                } else {
+                    if (q > 1) {
+                        cartItems.value.push({
+                            uid: Date.now() + Math.random(),
+                            id: prod.id,
+                            name: prod.name,
+                            category: prod.category,
+                            unit_price: baseUnit,
+                            original_price: prod.sell_price,
+                            buy_price: prod.buy_price || 0,
+                            qty: q - 1,
+                            isCombo: true,
+                            profit: baseUnit - (prod.buy_price || 0)
+                        });
+                    }
+                    cartItems.value.push({
+                        uid: Date.now() + Math.random(),
+                        id: prod.id,
+                        name: prod.name,
+                        category: prod.category,
+                        unit_price: baseUnit + remainder,
+                        original_price: prod.sell_price,
+                        buy_price: prod.buy_price || 0,
+                        qty: 1,
+                        isCombo: true,
+                        profit: (baseUnit + remainder) - (prod.buy_price || 0)
+                    });
+                }
             });
 
             showComboModal.value = false;
             playTone('combo');
-            vibrate([20, 40, 20]);
+            vibrate([30, 40, 30]);
         }
 
         // کیبورد Numpad لمسی
         function handleNumpad(val) {
-            vibrate(10);
+            vibrate(12);
             playTone('key');
             let current = payments.value[activePayMethod.value] || 0;
             let str = current === 0 ? '' : current.toString();
@@ -600,24 +1106,100 @@ createApp({
         }
 
         function payInFullActive() {
-            payments.value[activePayMethod.value] = grossTotal.value;
-            playTone('chip');
+            const curMethod = activePayMethod.value;
+            const curVal = payments.value[curMethod] || 0;
+            const otherPaid = totalPaid.value - curVal;
+            payments.value[curMethod] = Math.max(0, grossTotal.value - otherPaid);
+            playTone('key');
             vibrate(25);
         }
 
-        function submitInvoice() {
-            playTone('success');
-            vibrate([50, 80, 50]);
-            alert(`🎉 فاکتور ${nextInvoiceNumber.value} با موفقیت ثبت گردید!\nمبلغ کل: ${formatPrice(grossTotal.value)} تومان\nدریافتی: ${formatPrice(totalPaid.value)} تومان\nمانده نسیه: ${formatPrice(remainingBalance.value)} تومان`);
-            cartItems.value = [];
-            payments.value = { pos: 0, card: 0, cash: 0, cheque: 0 };
+        // ثبت واقعی فاکتور در پایگاه داده با POST به /invoice/add
+        async function submitInvoice() {
+            if (cartItems.value.length === 0) {
+                alert('سبد فاکتور خالی است. لطفاً حداقل یک کالا اضافه فرمایید.');
+                return;
+            }
+            if (isSubmitting.value) return;
+
+            isSubmitting.value = true;
+            try {
+                const payload = {
+                    shop_id: activeShopId.value || 1,
+                    invoice_type: 'final',
+                    customer_name: (customer.value.name || '').trim() || 'مشتری محترم',
+                    customer_phone: (customer.value.phone || '').trim(),
+                    total_amount: grossTotal.value,
+                    paid_pos: payments.value.pos || 0,
+                    paid_card: payments.value.card || 0,
+                    paid_cash: payments.value.cash || 0,
+                    paid_cheque: payments.value.cheque || 0,
+                    remaining_balance: remainingBalance.value,
+                    items: cartItems.value.map(function(item) {
+                        return {
+                            catalog_id: item.id || null,
+                            name: item.name, // رعایت اینواریانت نام تمیز
+                            category: item.category || 'عمومی',
+                            quantity: item.qty,
+                            unit_price: item.unit_price,
+                            original_price: item.original_price || item.unit_price,
+                            buy_price: item.buy_price || 0,
+                            discount: 0
+                        };
+                    }),
+                    cheques: (payments.value.cheque > 0) ? [{
+                        sayad: (chequeForm.value.sayad || '').trim() || 'ثبت در صندوق',
+                        bank: (chequeForm.value.bank || '').trim() || 'بانک نامشخص',
+                        amount: payments.value.cheque,
+                        due_date: (chequeForm.value.dueDate || '').trim()
+                    }] : []
+                };
+
+                const res = await fetch('/invoice/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    playTone('success');
+                    vibrate([50, 80, 50, 80, 100]);
+                    submittedInvoiceId.value = data.invoice_id;
+                    submittedInvoiceNumber.value = data.invoice_number || `INV-${data.invoice_id}`;
+                    submittedTotalAmount.value = grossTotal.value;
+                    showPrintModal.value = true;
+                } else {
+                    alert('خطا در ثبت فاکتور: ' + (data.error || 'خطای سرور'));
+                }
+            } catch (err) {
+                console.error('Invoice submission error:', err);
+                alert('خطای ارتباط با سرور: ' + err.message);
+            } finally {
+                isSubmitting.value = false;
+            }
         }
 
-        // کمک‌کننده‌های صوتی و حسی
+        function startNewInvoice() {
+            cartItems.value = [];
+            payments.value = { pos: 0, card: 0, cash: 0, cheque: 0 };
+            customer.value = { name: '', phone: '' };
+            customerInfo.value = null;
+            chequeForm.value = { sayad: '', bank: '', dueDate: '' };
+            showPrintModal.value = false;
+            playTone('key');
+        }
+
+        // بازخورد صوتی و لرزشی
         function playTone(type) {
             if (!soundEnabled.value) return;
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.connect(gain);
@@ -625,6 +1207,7 @@ createApp({
 
                 const now = ctx.currentTime;
                 if (type === 'add') {
+                    osc.type = 'sine';
                     osc.frequency.setValueAtTime(587.33, now); // D5
                     osc.frequency.exponentialRampToValueAtTime(880, now + 0.1); // A5
                     gain.gain.setValueAtTime(0.12, now);
@@ -632,13 +1215,15 @@ createApp({
                     osc.start(now);
                     osc.stop(now + 0.12);
                 } else if (type === 'combo') {
-                    osc.frequency.setValueAtTime(523.25, now);
-                    osc.frequency.linearRampToValueAtTime(783.99, now + 0.15);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.linearRampToValueAtTime(783.99, now + 0.15); // G5
                     gain.gain.setValueAtTime(0.15, now);
                     gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
                     osc.start(now);
                     osc.stop(now + 0.2);
                 } else if (type === 'success') {
+                    osc.type = 'sine';
                     osc.frequency.setValueAtTime(523.25, now);
                     osc.frequency.setValueAtTime(659.25, now + 0.08);
                     osc.frequency.setValueAtTime(783.99, now + 0.16);
@@ -646,22 +1231,38 @@ createApp({
                     gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
                     osc.start(now);
                     osc.stop(now + 0.35);
-                } else {
-                    osc.frequency.setValueAtTime(440, now);
-                    gain.gain.setValueAtTime(0.05, now);
-                    gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                } else if (type === 'delete') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(360, now);
+                    osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
                     osc.start(now);
-                    osc.stop(now + 0.05);
+                    osc.stop(now + 0.08);
+                } else { // key / click
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.04);
+                    osc.start(now);
+                    osc.stop(now + 0.04);
                 }
             } catch (e) {}
         }
 
         function vibrate(pattern) {
-            if (navigator.vibrate) navigator.vibrate(pattern);
+            try {
+                if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                }
+            } catch (e) {}
         }
 
         function toggleSound() {
             soundEnabled.value = !soundEnabled.value;
+            try {
+                localStorage.setItem('tahmasebi_pos_sound', soundEnabled.value ? 'true' : 'false');
+            } catch (e) {}
         }
 
         function triggerPwaInstall() {
@@ -678,11 +1279,11 @@ createApp({
 
         function onPriceInput(item, e) {
             item.unit_price = parseNum(e.target.value);
-            item.profit = item.unit_price - item.buy_price;
+            item.profit = item.unit_price - (item.buy_price || 0);
         }
 
         function getActivePayLabel() {
-            const m = paymentMethods.find(x => x.id === activePayMethod.value);
+            const m = paymentMethods.find(function(x) { return x.id === activePayMethod.value; });
             return m ? m.label : 'روش پرداخت';
         }
 
@@ -717,13 +1318,60 @@ createApp({
             playTone('add');
         }
 
+        // چرخه حیات
+        let resizeObserver = null;
+
+        function handleOnline() {
+            isOffline.value = false;
+            loadCatalog();
+        }
+
+        function handleOffline() {
+            isOffline.value = true;
+        }
+
+        onMounted(function() {
+            setTahmasebiUiMode('pos_v2');
+            loadCatalog();
+            updateLayoutDimensions();
+
+            if (window.ResizeObserver && gridScrollContainer.value) {
+                resizeObserver = new ResizeObserver(function() {
+                    updateLayoutDimensions();
+                });
+                resizeObserver.observe(gridScrollContainer.value);
+            }
+            window.addEventListener('resize', updateLayoutDimensions, { passive: true });
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+        });
+
+        onUnmounted(function() {
+            if (resizeObserver) resizeObserver.disconnect();
+            window.removeEventListener('resize', updateLayoutDimensions);
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        });
+
         return {
             soundEnabled,
             searchQuery,
             selectedCategory,
+            activeShopId,
             activeShopName,
             nextInvoiceNumber,
             showComboModal,
+            showPrintModal,
+            submittedInvoiceId,
+            submittedInvoiceNumber,
+            submittedTotalAmount,
+            isSubmitting,
+            isCatalogLoading,
+            isOffline,
+            isSearchingCustomer,
+            customerInfo,
+            onCustomerPhoneInput,
+            chequeForm,
             paymentMethods,
             activePayMethod,
             payments,
@@ -732,6 +1380,13 @@ createApp({
             catalogProducts,
             categories,
             filteredProducts,
+            gridScrollContainer,
+            colCount,
+            virtualTotalHeight,
+            virtualOffsetY,
+            visibleCards,
+            onGridScroll,
+            loadCatalog,
             grossTotal,
             totalProfit,
             totalPaid,
@@ -749,6 +1404,7 @@ createApp({
             handleNumpad,
             payInFullActive,
             submitInvoice,
+            startNewInvoice,
             playTone,
             toggleSound,
             triggerPwaInstall,

@@ -14,10 +14,10 @@
                 </div>
                 <div>
                     <h2 class="font-black text-white text-lg flex items-center gap-2">
-                        <span>میز مدیریت هوشمند چک‌های صیادی</span>
+                        <span>میز مدیریت هوشمند چک‌های صیادی و پرونده مشتریان</span>
                         <span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold">سامانه صیاد بنفش</span>
                     </h2>
-                    <p class="text-xs text-slate-400 font-medium mt-0.5">تقویم سررسید، وصول مطالبات، کنترل چک‌های برگشتی و مدیریت اسناد واگذاری</p>
+                    <p class="text-xs text-slate-400 font-medium mt-0.5">تقویم سررسید ماهیانه، چرخه حیات اسناد، کاردکس و پرونده اعتباری مشتریان</p>
                 </div>
             </div>
 
@@ -62,144 +62,445 @@
                 <span class="text-2xl p-2.5 bg-purple-500/10 rounded-xl text-purple-300">🔄</span>
             </div>
         </div>
+
+        <!-- تب‌های انتخاب نمای بخش چک‌ها -->
+        <div class="flex flex-wrap items-center gap-3 pt-5 border-t border-white/5 mt-5">
+            <button id="tabBtnCalendar" onclick="switchChequeTab('calendar')"
+                class="px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/30">
+                <span>🗓️</span> تقویم سررسید ماهیانه (تقویم شمسی)
+            </button>
+            <button id="tabBtnTable" onclick="switchChequeTab('table')"
+                class="px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700">
+                <span>📋</span> کارتابل و جدول کلی چک‌ها ({{ total_count }})
+            </button>
+            <button id="tabBtnLedger" onclick="switchChequeTab('ledger')"
+                class="px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700">
+                <span>👤</span> استعلام پرونده اعتباری و کاردکس مشتریان
+            </button>
+        </div>
     </div>
 
-    <!-- Search & Status Filter Bar -->
-    <div class="glass-card p-4">
-        <form method="GET" action="{{ url_for('cheques_view') }}" class="flex flex-col md:flex-row gap-3 items-center justify-between">
-            <div class="relative w-full md:w-80">
-                <input type="text" name="q" value="{{ search_q or '' }}" placeholder="🔍 جستجوی شناسه ۱۶ رقمی صیاد، مشتری یا بانک..."
-                    class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-amber-500">
-                {% if search_q %}
-                <a href="{{ url_for('cheques_view', status=status_filter) }}" class="absolute left-2.5 top-2 text-slate-400 hover:text-white font-black text-xs">✕</a>
-                {% endif %}
+    <!-- ==================== تب ۱: تقویم سررسید ماهیانه شمسی ==================== -->
+    <div id="tabContentCalendar" class="space-y-4">
+        <div class="glass-card p-6">
+            <!-- نوار راهبر تقویم ماهیانه -->
+            <div class="flex flex-col sm:flex-row justify-between items-center pb-5 mb-5 border-b border-white/10 gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl p-2 bg-amber-500/20 text-amber-300 rounded-2xl">📅</span>
+                    <div>
+                        <h3 class="text-base font-black text-white">
+                            تقویم سررسید چک‌های صیادی • <span class="text-amber-400">{{ calendar_month_name }} {{ cal_year_fa if cal_year_fa else cal_year }}</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">مشاهده و مدیریت اسناد تجاری بر روی روزهای ماه با برچسب‌های رنگی</p>
+                    </div>
+                </div>
+
+                <!-- کنترل تعویض ماه و سال -->
+                <div class="flex items-center gap-2 bg-slate-900/90 border border-white/10 p-1.5 rounded-2xl">
+                    {% set prev_m = 12 if cal_month == 1 else cal_month - 1 %}
+                    {% set prev_y = cal_year - 1 if cal_month == 1 else cal_year %}
+                    {% set next_m = 1 if cal_month == 12 else cal_month + 1 %}
+                    {% set next_y = cal_year + 1 if cal_month == 12 else cal_year %}
+                    
+                    <a href="{{ url_for('cheques_view', cal_year=prev_y, cal_month=prev_m) }}" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                        <span>◀</span> ماه قبل
+                    </a>
+                    <span class="px-4 py-1.5 text-xs font-black text-amber-300 font-mono">{{ calendar_month_name }} {{ cal_year_fa if cal_year_fa else cal_year }}</span>
+                    <a href="{{ url_for('cheques_view', cal_year=next_y, cal_month=next_m) }}" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                        ماه بعد <span>▶</span>
+                    </a>
+                </div>
             </div>
 
-            <!-- Filter Pills -->
-            <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                <a href="{{ url_for('cheques_view', q=search_q, status='all') }}"
-                   class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if not status_filter or status_filter == 'all' %}bg-indigo-600 text-white shadow-md{% else %}bg-slate-800 text-slate-400 hover:text-white{% endif %}">
-                    همه چک‌ها ({{ total_count }})
-                </a>
-                <a href="{{ url_for('cheques_view', q=search_q, status='pending') }}"
-                   class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'pending' %}bg-amber-600 text-white shadow-md{% else %}bg-slate-800 text-amber-300 hover:text-white{% endif %}">
-                    ⏳ در انتظار وصول
-                </a>
-                <a href="{{ url_for('cheques_view', q=search_q, status='passed') }}"
-                   class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'passed' %}bg-emerald-600 text-white shadow-md{% else %}bg-slate-800 text-emerald-300 hover:text-white{% endif %}">
-                    ✅ وصول‌شده
-                </a>
-                <a href="{{ url_for('cheques_view', q=search_q, status='bounced') }}"
-                   class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'bounced' %}bg-rose-600 text-white shadow-md{% else %}bg-slate-800 text-rose-300 hover:text-white{% endif %}">
-                    ❌ برگشتی
-                </a>
-                <a href="{{ url_for('cheques_view', q=search_q, status='assigned') }}"
-                   class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'assigned' %}bg-purple-600 text-white shadow-md{% else %}bg-slate-800 text-purple-300 hover:text-white{% endif %}">
-                    🔄 واگذار شده
-                </a>
+            <!-- راهنمای رنگ‌های وضعیت چک در تقویم -->
+            <div class="flex flex-wrap items-center gap-3 mb-4 text-xs pb-3 border-b border-white/5">
+                <span class="text-slate-400 text-[11px] font-bold">راهنمای وضعیت:</span>
+                <span class="flex items-center gap-1 bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                    <span>⏳</span> در انتظار وصول
+                </span>
+                <span class="flex items-center gap-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                    <span>✅</span> وصول‌شده
+                </span>
+                <span class="flex items-center gap-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                    <span>❌</span> برگشتی
+                </span>
+                <span class="flex items-center gap-1 bg-purple-500/15 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-lg text-[10px] font-bold">
+                    <span>🔄</span> واگذار شده
+                </span>
             </div>
-        </form>
-    </div>
 
-    <!-- Cheques Data Table -->
-    <div class="glass-card p-6 overflow-x-auto">
-        <table class="w-full text-right text-xs">
-            <thead>
-                <tr class="text-slate-400 border-b border-white/10 pb-3">
-                    <th class="py-3 px-2">شناسه صیادی (۱۶ رقم)</th>
-                    <th class="py-3 px-2">نام بانک</th>
-                    <th class="py-3 px-2">مبلغ چک (تومان)</th>
-                    <th class="py-3 px-2">تاریخ سررسید</th>
-                    <th class="py-3 px-2">صاحب چک / مشتری</th>
-                    <th class="py-3 px-2">فاکتور مربوطه</th>
-                    <th class="py-3 px-2">وضعیت فعلی</th>
-                    <th class="py-3 px-2 text-center">عملیات</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-white/5">
-                {% for chk in cheques %}
-                <tr class="hover:bg-white/[0.03] transition">
-                    <td class="py-3.5 px-2 font-mono font-bold text-white text-xs" dir="ltr">
-                        {{ chk.sayad_number }}
-                    </td>
-                    <td class="py-3.5 px-2 text-slate-200 font-bold">
-                        {{ chk.bank_name }}
-                    </td>
-                    <td class="py-3.5 px-2 font-black font-mono text-amber-300 text-xs">
-                        {{ "{:,}".format(chk.amount or 0) }} ت
-                    </td>
-                    <td class="py-3.5 px-2 font-mono font-bold text-slate-200" dir="ltr">
-                        {{ chk.due_shamsi_date or '-' }}
-                        {% if chk.status == 'pending' and chk.due_shamsi_date and today_shamsi and chk.due_shamsi_date <= today_shamsi %}
-                        <span class="text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 py-0.5 rounded font-sans block mt-0.5">⚠️ موعد گذشته یا امروز</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-3.5 px-2">
-                        <div class="font-bold text-white">{{ chk.customer_name }}</div>
-                        {% if chk.customer_phone %}
-                        <div class="text-[10px] text-slate-400 font-mono" dir="ltr">{{ chk.customer_phone }}</div>
-                        {% endif %}
-                    </td>
-                    <td class="py-3.5 px-2">
-                        {% if chk.invoice %}
-                        <a href="{{ url_for('print_invoice_a4', invoice_id=chk.invoice_id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-mono font-bold text-[11px] flex items-center gap-1">
-                            <span>📄</span> {{ chk.invoice.invoice_number }}
-                        </a>
-                        {% else %}
-                        <span class="text-slate-500 text-[10px]">ثبت دستی آزاد</span>
-                        {% endif %}
-                    </td>
-                    <td class="py-3.5 px-2">
-                        {% if chk.status == 'passed' %}
-                        <span class="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
-                            ✅ وصول شده ({{ chk.passed_shamsi_date or 'تایید' }})
-                        </span>
-                        {% elif chk.status == 'bounced' %}
-                        <span class="bg-rose-500/15 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
-                            ❌ برگشت خورده
-                        </span>
-                        {% elif chk.status == 'assigned' %}
-                        <span class="bg-purple-500/15 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
-                            🔄 واگذار: {{ chk.payee_name or 'شخص ثالث' }}
-                        </span>
-                        {% else %}
-                        <span class="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
-                            ⏳ در انتظار سررسید
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="py-3.5 px-2 text-center">
-                        <div class="flex items-center justify-center gap-1.5">
-                            <!-- Change Status Form -->
-                            <form method="POST" action="{{ url_for('update_cheque_status', cheque_id=chk.id) }}" class="inline-flex items-center gap-1">
-                                <select name="status" onchange="this.form.submit()" class="bg-slate-800 border border-white/10 rounded-lg p-1 text-[11px] text-slate-200 font-bold cursor-pointer">
-                                    <option value="pending" {% if chk.status == 'pending' %}selected{% endif %}>در انتظار</option>
-                                    <option value="passed" {% if chk.status == 'passed' %}selected{% endif %}>وصول شد ✅</option>
-                                    <option value="bounced" {% if chk.status == 'bounced' %}selected{% endif %}>برگشت خورد ❌</option>
-                                    <option value="assigned" {% if chk.status == 'assigned' %}selected{% endif %}>واگذاری 🔄</option>
-                                </select>
-                            </form>
+            <!-- سربرگ روزهای هفته (شنبه تا جمعه) -->
+            <div class="grid grid-cols-7 gap-2 text-center text-xs font-black text-slate-300 mb-2">
+                <div class="bg-slate-800/80 py-2.5 rounded-xl border border-white/5">شنبه</div>
+                <div class="bg-slate-800/80 py-2.5 rounded-xl border border-white/5">یکشنبه</div>
+                <div class="bg-slate-800/80 py-2.5 rounded-xl border border-white/5">دوشنبه</div>
+                <div class="bg-slate-800/80 py-2.5 rounded-xl border border-white/5">سه‌شنبه</div>
+                <div class="bg-slate-800/80 py-2.5 rounded-xl border border-white/5">چهارشنبه</div>
+                <div class="bg-slate-800/80 py-2.5 rounded-xl border border-white/5">پنج‌شنبه</div>
+                <div class="bg-rose-950/40 text-rose-300 py-2.5 rounded-xl border border-rose-500/30">جمعه</div>
+            </div>
 
-                            <form method="POST" action="{{ url_for('delete_cheque', cheque_id=chk.id) }}" onsubmit="return confirm('آیا از حذف این رکورد چک صیادی اطمینان دارید؟');" class="inline">
-                                <button type="submit" class="w-7 h-7 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg flex items-center justify-center transition" title="حذف چک">
-                                    ✕
-                                </button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8" class="text-center py-12 text-slate-400">
-                        <span class="text-3xl block mb-2">🗓️</span>
-                        هیچ چک صیادی با شرایط انتخابی یافت نشد.
-                    </td>
-                </tr>
+            <!-- شبکه روزهای ماه -->
+            <div class="grid grid-cols-7 gap-2">
+                <!-- خانه‌های خالی روزهای قبل از روز اول ماه -->
+                {% for _ in range(first_day_weekday) %}
+                <div class="min-h-[110px] bg-slate-900/30 rounded-2xl border border-white/5 opacity-30"></div>
                 {% endfor %}
-            </tbody>
-        </table>
+
+                <!-- خانه‌های روزهای ۱ تا آخر ماه -->
+                {% for day in range(1, month_days_count + 1) %}
+                {% set day_cheques = calendar_cheques_by_day.get(day, []) %}
+                {% set day_str = "%02d"|format(day) %}
+                {% set month_str = "%02d"|format(cal_month) %}
+                {% set full_date_str = "{}/{}/{}".format(cal_year, month_str, day_str) %}
+                {% set is_today = (full_date_str == today_shamsi) %}
+
+                <div class="min-h-[110px] bg-slate-900/70 hover:bg-slate-900 border {% if is_today %}border-amber-400 ring-2 ring-amber-400/40 shadow-lg shadow-amber-500/20{% else %}border-white/10{% endif %} rounded-2xl p-2.5 flex flex-col justify-between transition group">
+                    <div class="flex items-center justify-between pb-1 mb-1 border-b border-white/5">
+                        <span class="text-xs font-black font-mono {% if is_today %}text-amber-300{% else %}text-slate-400{% endif %}">
+                            {{ day }}
+                        </span>
+                        {% if is_today %}
+                        <span class="bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-md">امروز</span>
+                        {% elif day_cheques|length > 0 %}
+                        <span class="bg-slate-800 text-slate-300 text-[9px] font-bold px-1.5 py-0.2 rounded-md font-mono">{{ day_cheques|length }} فقره</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- لیست چک‌های این روز -->
+                    <div class="space-y-1.5 flex-1 overflow-y-auto max-h-24 custom-scrollbar">
+                        {% for chk in day_cheques %}
+                        <div onclick="openChequeActionModal({{ chk.id }}, '{{ chk.sayad_number }}', '{{ chk.customer_name }}', {{ chk.amount }}, '{{ chk.status }}', '{{ chk.bank_name }}', '{{ chk.due_shamsi_date }}')"
+                             class="p-1.5 rounded-xl cursor-pointer transition text-[10px] font-bold border truncate {% if chk.status == 'passed' %}bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30{% elif chk.status == 'bounced' %}bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30{% elif chk.status == 'assigned' %}bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30{% else %}bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30{% endif %}"
+                             title="{{ chk.customer_name }} • {{ "{:,}".format(chk.amount) }} تومان • بانک {{ chk.bank_name }}">
+                            <div class="flex items-center justify-between">
+                                <span class="truncate font-bold">{{ chk.customer_name }}</span>
+                                <span class="font-mono font-black text-[9px]">{{ "{:,}".format(chk.amount // 1000000) }}م</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
+    <!-- ==================== تب ۲: جدول و کارتابل کلی چک‌ها ==================== -->
+    <div id="tabContentTable" class="space-y-6 hidden">
+        <!-- Search & Status Filter Bar -->
+        <div class="glass-card p-4">
+            <form method="GET" action="{{ url_for('cheques_view') }}" class="flex flex-col md:flex-row gap-3 items-center justify-between">
+                <div class="relative w-full md:w-80">
+                    <input type="text" name="q" value="{{ search_q or '' }}" placeholder="🔍 جستجوی شناسه ۱۶ رقمی صیاد، مشتری یا بانک..."
+                        class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-amber-500">
+                    {% if search_q %}
+                    <a href="{{ url_for('cheques_view', status=status_filter) }}" class="absolute left-2.5 top-2 text-slate-400 hover:text-white font-black text-xs">✕</a>
+                    {% endif %}
+                </div>
+
+                <!-- Filter Pills -->
+                <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                    <a href="{{ url_for('cheques_view', q=search_q, status='all') }}"
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if not status_filter or status_filter == 'all' %}bg-indigo-600 text-white shadow-md{% else %}bg-slate-800 text-slate-400 hover:text-white{% endif %}">
+                        همه چک‌ها ({{ total_count }})
+                    </a>
+                    <a href="{{ url_for('cheques_view', q=search_q, status='pending') }}"
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'pending' %}bg-amber-600 text-white shadow-md{% else %}bg-slate-800 text-amber-300 hover:text-white{% endif %}">
+                        ⏳ در انتظار وصول
+                    </a>
+                    <a href="{{ url_for('cheques_view', q=search_q, status='passed') }}"
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'passed' %}bg-emerald-600 text-white shadow-md{% else %}bg-slate-800 text-emerald-300 hover:text-white{% endif %}">
+                        ✅ وصول‌شده
+                    </a>
+                    <a href="{{ url_for('cheques_view', q=search_q, status='bounced') }}"
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'bounced' %}bg-rose-600 text-white shadow-md{% else %}bg-slate-800 text-rose-300 hover:text-white{% endif %}">
+                        ❌ برگشتی
+                    </a>
+                    <a href="{{ url_for('cheques_view', q=search_q, status='assigned') }}"
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'assigned' %}bg-purple-600 text-white shadow-md{% else %}bg-slate-800 text-purple-300 hover:text-white{% endif %}">
+                        🔄 واگذار شده
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Cheques Data Table -->
+        <div class="glass-card p-6 overflow-x-auto">
+            <table class="w-full text-right text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-white/10 pb-3">
+                        <th class="py-3 px-2">شناسه صیادی (۱۶ رقم)</th>
+                        <th class="py-3 px-2">نام بانک</th>
+                        <th class="py-3 px-2">مبلغ چک (تومان)</th>
+                        <th class="py-3 px-2">تاریخ سررسید</th>
+                        <th class="py-3 px-2">صاحب چک / مشتری</th>
+                        <th class="py-3 px-2">فاکتور مربوطه</th>
+                        <th class="py-3 px-2">وضعیت فعلی</th>
+                        <th class="py-3 px-2 text-center">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for chk in cheques %}
+                    <tr class="hover:bg-white/[0.03] transition" id="cheque_row_{{ chk.id }}">
+                        <td class="py-3.5 px-2 font-mono font-bold text-white text-xs" dir="ltr">
+                            {{ chk.sayad_number }}
+                        </td>
+                        <td class="py-3.5 px-2 text-slate-200 font-bold">
+                            {{ chk.bank_name }}
+                        </td>
+                        <td class="py-3.5 px-2 font-black font-mono text-amber-300 text-xs">
+                            {{ "{:,}".format(chk.amount or 0) }} ت
+                        </td>
+                        <td class="py-3.5 px-2 font-mono font-bold text-slate-200" dir="ltr">
+                            {{ chk.due_shamsi_date or '-' }}
+                            {% if chk.status == 'pending' and chk.due_shamsi_date and today_shamsi and chk.due_shamsi_date <= today_shamsi %}
+                            <span class="text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 py-0.5 rounded font-sans block mt-0.5">⚠️ موعد گذشته یا امروز</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-2">
+                            <div class="font-bold text-white">{{ chk.customer_name }}</div>
+                            {% if chk.customer_phone %}
+                            <div class="text-[10px] text-slate-400 font-mono" dir="ltr">{{ chk.customer_phone }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-2">
+                            {% if chk.invoice %}
+                            <a href="{{ url_for('print_invoice_a4', invoice_id=chk.invoice_id) }}" target="_blank" class="text-indigo-400 hover:text-indigo-300 font-mono font-bold text-[11px] flex items-center gap-1">
+                                <span>📄</span> {{ chk.invoice.invoice_number }}
+                            </a>
+                            {% else %}
+                            <span class="text-slate-500 text-[10px]">ثبت دستی آزاد</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-2" id="cheque_status_cell_{{ chk.id }}">
+                            {% if chk.status == 'passed' %}
+                            <span class="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                                ✅ وصول شده ({{ chk.passed_shamsi_date or 'تایید' }})
+                            </span>
+                            {% elif chk.status == 'bounced' %}
+                            <span class="bg-rose-500/15 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                                ❌ برگشت خورده
+                            </span>
+                            {% elif chk.status == 'assigned' %}
+                            <span class="bg-purple-500/15 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                                🔄 واگذار: {{ chk.payee_name or 'شخص ثالث' }}
+                            </span>
+                            {% else %}
+                            <span class="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                                ⏳ در انتظار سررسید
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3.5 px-2 text-center">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <button type="button" onclick="openChequeActionModal({{ chk.id }}, '{{ chk.sayad_number }}', '{{ chk.customer_name }}', {{ chk.amount }}, '{{ chk.status }}', '{{ chk.bank_name }}', '{{ chk.due_shamsi_date }}')"
+                                    class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1">
+                                    <span>⚙️</span> عملیات
+                                </button>
+                                <form method="POST" action="{{ url_for('delete_cheque', cheque_id=chk.id) }}" onsubmit="return confirm('آیا از حذف این رکورد چک صیادی اطمینان دارید؟');" class="inline">
+                                    <button type="submit" class="w-7 h-7 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg flex items-center justify-center transition" title="حذف چک">
+                                        ✕
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-12 text-slate-400">
+                            <span class="text-3xl block mb-2">🗓️</span>
+                            هیچ چک صیادی با شرایط انتخابی یافت نشد.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== تب ۳: استعلام پرونده اعتباری و کاردکس مشتریان ==================== -->
+    <div id="tabContentLedger" class="space-y-6 hidden">
+        <!-- باکس جستجوی مشتری -->
+        <div class="glass-card p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="text-3xl p-2 bg-indigo-500/20 text-indigo-300 rounded-2xl">👤</span>
+                <div>
+                    <h3 class="text-base font-black text-white">استعلام فوری پرونده اعتباری و کاردکس مالی مشتری</h3>
+                    <p class="text-xs text-slate-400">جستجوی بلادرنگ تاریخچه خرید، بدهی‌های معوق، وضعیت تسویه و سوابق چک‌های صیادی</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <input type="text" id="customerLedgerSearchInput" placeholder="نام مشتری یا شماره تماس (مثلاً احمدی یا 0912...)"
+                        class="w-full bg-slate-900 border border-indigo-500/40 rounded-2xl p-3 pr-10 text-xs font-bold text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-indigo-500"
+                        onkeydown="if(event.key==='Enter') searchCustomerLedger()">
+                    <span class="absolute right-3.5 top-3 text-sm text-slate-400 pointer-events-none">🔍</span>
+                </div>
+                <button type="button" onclick="searchCustomerLedger()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-6 py-3 rounded-2xl text-xs transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+                    <span id="ledgerSearchSpinner" class="hidden animate-spin">⏳</span>
+                    <span>استعلام پرونده مشتری</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- پیام اولیه قبل از جستجو -->
+        <div id="ledgerEmptyState" class="glass-card p-12 text-center text-slate-400 space-y-3">
+            <span class="text-4xl block">📋</span>
+            <h4 class="font-black text-sm text-white">نام یا شماره تماس مشتری را جستجو کنید</h4>
+            <p class="text-xs">اطلاعات فاکتورها، مانده بدهی دفتری و کارنامه اعتباری چک‌های صیادی نمایش داده خواهد شد.</p>
+        </div>
+
+        <!-- کانتینر نمایش نتایج پرونده اعتباری مشتری -->
+        <div id="ledgerResultContainer" class="hidden space-y-6">
+            <!-- کارت مشخصات و شاخص‌های کلیدی اعتباری مشتری -->
+            <div class="glass-card p-6 border-r-4 border-r-indigo-500 bg-gradient-to-br from-[#0c1626] via-[#0f172a] to-[#121c35]">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-5 border-b border-white/10 gap-3">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-2xl font-black">
+                            👤
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 id="ledgerCustomerName" class="text-lg font-black text-white"></h3>
+                                <span id="ledgerRiskBadge" class="text-[10px] font-black px-2.5 py-0.5 rounded-full"></span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5">شماره تماس: <span id="ledgerCustomerPhone" class="font-mono text-slate-200" dir="ltr"></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ۴ کارت آماری پرونده اعتباری -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-5 text-xs">
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10">
+                        <span class="text-slate-400 block font-bold">مجموع خرید تا امروز:</span>
+                        <span id="ledgerTotalPurchased" class="text-base font-black text-white font-mono mt-1 block">۰ ت</span>
+                        <span id="ledgerInvoicesCount" class="text-[10px] text-slate-400 mt-0.5 block">۰ فاکتور</span>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10">
+                        <span class="text-slate-400 block font-bold">مجموع مبالغ پرداخت‌شده:</span>
+                        <span id="ledgerTotalPaid" class="text-base font-black text-emerald-400 font-mono mt-1 block">۰ ت</span>
+                        <span class="text-[10px] text-emerald-400 mt-0.5 block">پوز، نقد و کارت</span>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-rose-500/30">
+                        <span class="text-rose-400 block font-bold">مانده بدهی معوقه (نسیه):</span>
+                        <span id="ledgerRemainingDebt" class="text-base font-black text-rose-300 font-mono mt-1 block">۰ ت</span>
+                        <span class="text-[10px] text-rose-400 mt-0.5 block">مطالبات دفتری باز</span>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-amber-500/30">
+                        <span class="text-amber-400 block font-bold">مجموع اسناد چک صیادی:</span>
+                        <span id="ledgerChequesTotal" class="text-base font-black text-amber-300 font-mono mt-1 block">۰ ت</span>
+                        <span id="ledgerChequesBreakdown" class="text-[10px] text-slate-400 mt-0.5 block">۰ وصول / ۰ در انتظار / ۰ برگشتی</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- جدول‌های فاکتورها و چک‌های خریدار -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- جدول فاکتورهای مشتری -->
+                <div class="glass-card p-5">
+                    <h4 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+                        <span>🧾</span> آخرین فاکتورهای این مشتری
+                    </h4>
+                    <div class="overflow-x-auto max-h-80 custom-scrollbar">
+                        <table class="w-full text-right text-xs">
+                            <thead>
+                                <tr class="text-slate-400 border-b border-white/10 pb-2">
+                                    <th class="py-2 px-1">شماره</th>
+                                    <th class="py-2 px-1">شعبه</th>
+                                    <th class="py-2 px-1">مبلغ (تومان)</th>
+                                    <th class="py-2 px-1">مانده</th>
+                                    <th class="py-2 px-1 text-center">مشاهده</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerInvoicesTbody" class="divide-y divide-white/5"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- جدول چک‌های صیادی مشتری -->
+                <div class="glass-card p-5">
+                    <h4 class="text-sm font-black text-white mb-3 flex items-center gap-2">
+                        <span>🗓️</span> چک‌های صیادی ثبت‌شده مشتری
+                    </h4>
+                    <div class="overflow-x-auto max-h-80 custom-scrollbar">
+                        <table class="w-full text-right text-xs">
+                            <thead>
+                                <tr class="text-slate-400 border-b border-white/10 pb-2">
+                                    <th class="py-2 px-1">بانک</th>
+                                    <th class="py-2 px-1">مبلغ (تومان)</th>
+                                    <th class="py-2 px-1">سررسید</th>
+                                    <th class="py-2 px-1">وضعیت</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerChequesTbody" class="divide-y divide-white/5"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ==================== مودال عملیات و چرخه حیات چک صیادی (Lifecycle Actions) ==================== -->
+<div id="chequeActionModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50" onclick="if(event.target===this)closeChequeActionModal()">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+            <div class="flex items-center gap-2.5">
+                <span class="text-2xl p-2 bg-amber-500/20 text-amber-300 rounded-2xl">⚙️</span>
+                <div>
+                    <h3 class="text-sm font-black text-white">مدیریت چرخه حیات چک صیادی</h3>
+                    <span id="modalChequeSayad" class="text-[11px] font-mono text-slate-400"></span>
+                </div>
+            </div>
+            <button onclick="closeChequeActionModal()" class="text-slate-400 hover:text-white font-black text-lg">✕</button>
+        </div>
+
+        <!-- خلاصه مشخصات چک -->
+        <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-white/5 space-y-2 text-xs">
+            <div class="flex justify-between">
+                <span class="text-slate-400">مشتری صادرکننده:</span>
+                <strong id="modalChequeCustomer" class="text-white"></strong>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-slate-400">مبلغ سند:</span>
+                <strong id="modalChequeAmount" class="text-amber-300 font-mono"></strong>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-slate-400">بانک و تاریخ سررسید:</span>
+                <span id="modalChequeBankDate" class="text-slate-200 font-mono"></span>
+            </div>
+        </div>
+
+        <input type="hidden" id="modalChequeId">
+
+        <!-- فیلد نام واگذار شونده (نمایش در صورت انتخاب واگذاری) -->
+        <div id="modalPayeeGroup" class="hidden space-y-1">
+            <label class="block text-xs font-bold text-purple-300">نام شخص یا تأمین‌کننده تحویل‌گیرنده چک:</label>
+            <input type="text" id="modalPayeeInput" placeholder="مثلاً: شرکت شیرآلات آس یا آقای علوی" class="w-full bg-slate-800 border border-purple-500/40 rounded-xl p-2.5 text-xs text-white outline-none">
+        </div>
+
+        <!-- دکمه‌های اقدام سریع -->
+        <div class="space-y-2 pt-2">
+            <button type="button" onclick="submitChequeStatusChange('passed')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow">
+                <span>✅</span> ثبت وصول قطعی نقد
+            </button>
+            <button type="button" onclick="submitChequeStatusChange('bounced')" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow">
+                <span>❌</span> ثبت برگشت چک
+            </button>
+            <button type="button" onclick="toggleAssignInput()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow">
+                <span>🔄</span> واگذاری به شخص ثالث / تأمین‌کننده
+            </button>
+            <button type="button" onclick="submitChequeStatusChange('pending')" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 border border-white/5">
+                <span>⏳</span> بازگشت به وضعیت در انتظار سررسید
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- Modal: Add Manual Cheque -->
@@ -273,5 +574,212 @@
     function closeAddChequeModal() {
         document.getElementById('addChequeModal').classList.add('hidden');
     }
+
+    // ==================== سوئیچ بین تب‌های تقویم، جدول و کاردکس ====================
+    window.switchChequeTab = function(tabName) {
+        const calContent = document.getElementById('tabContentCalendar');
+        const tblContent = document.getElementById('tabContentTable');
+        const ledContent = document.getElementById('tabContentLedger');
+        const calBtn = document.getElementById('tabBtnCalendar');
+        const tblBtn = document.getElementById('tabBtnTable');
+        const ledBtn = document.getElementById('tabBtnLedger');
+
+        const activeCls = 'px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/30';
+        const inactiveCls = 'px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700';
+
+        if (calContent) calContent.classList.add('hidden');
+        if (tblContent) tblContent.classList.add('hidden');
+        if (ledContent) ledContent.classList.add('hidden');
+        if (calBtn) calBtn.className = inactiveCls;
+        if (tblBtn) tblBtn.className = inactiveCls;
+        if (ledBtn) ledBtn.className = inactiveCls;
+
+        if (tabName === 'calendar') {
+            if (calContent) calContent.classList.remove('hidden');
+            if (calBtn) calBtn.className = activeCls;
+        } else if (tabName === 'table') {
+            if (tblContent) tblContent.classList.remove('hidden');
+            if (tblBtn) tblBtn.className = activeCls;
+        } else if (tabName === 'ledger') {
+            if (ledContent) ledContent.classList.remove('hidden');
+            if (ledBtn) ledBtn.className = activeCls;
+            const inp = document.getElementById('customerLedgerSearchInput');
+            if (inp) inp.focus();
+        }
+    };
+
+    // ==================== مدیریت اکشن‌های چرخه حیات چک ====================
+    let activeChequeId = null;
+
+    window.openChequeActionModal = function(id, sayad, customer, amount, status, bank, due) {
+        activeChequeId = id;
+        document.getElementById('modalChequeId').value = id;
+        document.getElementById('modalChequeSayad').innerText = 'شناسه صیاد: ' + sayad;
+        document.getElementById('modalChequeCustomer').innerText = customer || 'نامشخص';
+        document.getElementById('modalChequeAmount').innerText = Number(amount).toLocaleString('fa-IR') + ' تومان';
+        document.getElementById('modalChequeBankDate').innerText = (bank || '-') + ' • سررسید: ' + (due || '-');
+        document.getElementById('modalPayeeGroup').classList.add('hidden');
+        document.getElementById('modalPayeeInput').value = '';
+
+        const m = document.getElementById('chequeActionModal');
+        if (m) m.classList.remove('hidden');
+    };
+
+    window.closeChequeActionModal = function() {
+        const m = document.getElementById('chequeActionModal');
+        if (m) m.classList.add('hidden');
+    };
+
+    window.toggleAssignInput = function() {
+        const grp = document.getElementById('modalPayeeGroup');
+        if (grp.classList.contains('hidden')) {
+            grp.classList.remove('hidden');
+            const inp = document.getElementById('modalPayeeInput');
+            if (inp) inp.focus();
+        } else {
+            submitChequeStatusChange('assigned');
+        }
+    };
+
+    window.submitChequeStatusChange = function(status) {
+        if (!activeChequeId) return;
+        const payee = (status === 'assigned') ? document.getElementById('modalPayeeInput').value.trim() : '';
+        if (status === 'assigned' && !payee) {
+            alert('لطفاً نام شخص یا تأمین‌کننده تحویل‌گیرنده چک را وارد نمایید.');
+            return;
+        }
+
+        fetch('/api/cheque/update_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cheque_id: activeChequeId,
+                status: status,
+                payee_name: payee
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                closeChequeActionModal();
+                alert(data.message || 'وضعیت چک با موفقیت به‌روزرسانی شد.');
+                window.location.reload();
+            } else {
+                alert(data.message || 'خطا در ثبت تغییر وضعیت');
+            }
+        })
+        .catch(err => alert('خطای اتصال به سرور: ' + err));
+    };
+
+    // ==================== استعلام کاردکس و پرونده اعتباری مشتری ====================
+    window.searchCustomerLedger = function() {
+        const inp = document.getElementById('customerLedgerSearchInput');
+        const query = (inp ? inp.value : '').trim();
+        if (!query) {
+            alert('لطفاً نام یا شماره همراه مشتری را وارد فرمایید.');
+            return;
+        }
+
+        const spinner = document.getElementById('ledgerSearchSpinner');
+        const emptyState = document.getElementById('ledgerEmptyState');
+        const resultCont = document.getElementById('ledgerResultContainer');
+
+        if (spinner) spinner.classList.remove('hidden');
+
+        fetch(`/api/customer/ledger?query=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (spinner) spinner.classList.add('hidden');
+            if (data.success) {
+                if (emptyState) emptyState.classList.add('hidden');
+                if (resultCont) resultCont.classList.remove('hidden');
+
+                const cust = data.customer || {};
+                const sum = data.summary || {};
+
+                document.getElementById('ledgerCustomerName').innerText = cust.name || query;
+                document.getElementById('ledgerCustomerPhone').innerText = cust.phone || 'ثبت نشده';
+
+                // نشان ریسک
+                const riskBadge = document.getElementById('ledgerRiskBadge');
+                if (riskBadge) {
+                    if (sum.bounced_cheques_count > 0) {
+                        riskBadge.innerText = '🔴 پرخطر (دارای چک برگشتی)';
+                        riskBadge.className = 'text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                    } else if (sum.remaining_debt > 50000000) {
+                        riskBadge.innerText = '🟡 دارای مانده بدهی بالا';
+                        riskBadge.className = 'text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                    } else {
+                        riskBadge.innerText = '🟢 مشتری خوش‌حساب و معتبر';
+                        riskBadge.className = 'text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                    }
+                }
+
+                document.getElementById('ledgerTotalPurchased').innerText = Number(sum.total_purchased || 0).toLocaleString('fa-IR') + ' ت';
+                document.getElementById('ledgerInvoicesCount').innerText = `${sum.invoices_count || 0} فاکتور ثبت‌شده`;
+                document.getElementById('ledgerTotalPaid').innerText = Number(sum.total_paid || 0).toLocaleString('fa-IR') + ' ت';
+                document.getElementById('ledgerRemainingDebt').innerText = Number(sum.remaining_debt || 0).toLocaleString('fa-IR') + ' ت';
+                document.getElementById('ledgerChequesTotal').innerText = Number(sum.total_cheques_amount || 0).toLocaleString('fa-IR') + ' ت';
+                document.getElementById('ledgerChequesBreakdown').innerText = `${sum.passed_cheques_count || 0} وصول / ${sum.pending_cheques_count || 0} در انتظار / ${sum.bounced_cheques_count || 0} برگشتی`;
+
+                // فاکتورها
+                const invTbody = document.getElementById('ledgerInvoicesTbody');
+                if (invTbody) {
+                    invTbody.innerHTML = '';
+                    if (data.invoices && data.invoices.length > 0) {
+                        data.invoices.forEach(inv => {
+                            const tr = document.createElement('tr');
+                            tr.className = 'hover:bg-white/5 transition';
+                            tr.innerHTML = `
+                                <td class="py-2 px-1 font-mono font-bold text-white">${inv.invoice_number}</td>
+                                <td class="py-2 px-1 text-slate-300">${inv.shop_name}</td>
+                                <td class="py-2 px-1 font-mono text-emerald-400 font-bold">${Number(inv.total_amount).toLocaleString('fa-IR')} ت</td>
+                                <td class="py-2 px-1 font-mono ${inv.remaining_balance > 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}">${Number(inv.remaining_balance).toLocaleString('fa-IR')} ت</td>
+                                <td class="py-2 px-1 text-center">
+                                    <a href="/print/a4/${inv.id}" target="_blank" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-bold">📄 چاپ</a>
+                                </td>
+                            `;
+                            invTbody.appendChild(tr);
+                        });
+                    } else {
+                        invTbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-500">فاکتوری برای این خریدار ثبت نشده است.</td></tr>`;
+                    }
+                }
+
+                // چک‌ها
+                const chkTbody = document.getElementById('ledgerChequesTbody');
+                if (chkTbody) {
+                    chkTbody.innerHTML = '';
+                    if (data.cheques && data.cheques.length > 0) {
+                        data.cheques.forEach(c => {
+                            let statusBadge = '';
+                            if (c.status === 'passed') statusBadge = '<span class="text-emerald-400 font-bold">وصول شد ✅</span>';
+                            else if (c.status === 'bounced') statusBadge = '<span class="text-rose-400 font-bold">برگشت خورد ❌</span>';
+                            else if (c.status === 'assigned') statusBadge = `<span class="text-purple-400 font-bold">واگذار به ${c.payee_name || 'ثالث'}</span>`;
+                            else statusBadge = '<span class="text-amber-400 font-bold">در انتظار ⏳</span>';
+
+                            const tr = document.createElement('tr');
+                            tr.className = 'hover:bg-white/5 transition';
+                            tr.innerHTML = `
+                                <td class="py-2 px-1 text-slate-200">${c.bank_name}</td>
+                                <td class="py-2 px-1 font-mono text-amber-300 font-bold">${Number(c.amount).toLocaleString('fa-IR')} ت</td>
+                                <td class="py-2 px-1 font-mono text-slate-300" dir="ltr">${c.due_shamsi_date || '-'}</td>
+                                <td class="py-2 px-1 text-[10px]">${statusBadge}</td>
+                            `;
+                            chkTbody.appendChild(tr);
+                        });
+                    } else {
+                        chkTbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-slate-500">چک صیادی ثبت‌شده‌ای برای این خریدار یافت نشد.</td></tr>`;
+                    }
+                }
+            } else {
+                alert(data.message || 'خریدار مورد نظر یافت نشد.');
+            }
+        })
+        .catch(err => {
+            if (spinner) spinner.classList.add('hidden');
+            alert('خطای اتصال به سرور: ' + err);
+        });
+    };
 </script>
 {% endblock %}

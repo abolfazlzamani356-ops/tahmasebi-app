@@ -257,15 +257,8 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Cropper.js Script (Local with CDN fallback) -->
+<!-- Cropper.js Script (100% Local offline asset) -->
 <script src="{{ url_for('static', filename='libs/cropper/cropper.min.js') }}"></script>
-<script>
-if (typeof Cropper === 'undefined') {
-    const s = document.createElement('script');
-    s.src = "https://cdn.jsdelivr.net/npm/cropperjs@1.6.1/dist/cropper.min.js";
-    document.head.appendChild(s);
-}
-</script>
 
 <script>
     let cropper = null;

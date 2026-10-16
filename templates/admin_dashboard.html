@@ -479,6 +479,119 @@
     </div>
 </div>
 
+<!-- ==================== ترازنامه مالی و حساب سود و زیان رسمی طهماسبی ==================== -->
+<div class="glass-card p-6 mb-8 border-r-4 border-r-emerald-500 bg-gradient-to-br from-[#0c1626] via-[#0f172a] to-[#121c35] shadow-2xl">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-white/10 gap-3">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl p-2.5 bg-emerald-500/20 text-emerald-300 rounded-2xl shadow">⚖️</span>
+            <div>
+                <h3 class="text-base font-black text-white flex items-center gap-2">
+                    <span>ترازنامه مالی و صورت سود و زیان رسمی طهماسبی</span>
+                    <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full">ماه {{ selected_month_name }}</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">فرمول حسابداری: فروش خالص منهای بهای خرید (COGS)، اجاره شعب، حقوق و هزینه‌های جاری</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-300">حاشیه سود خالص:</span>
+            <span class="px-3 py-1 rounded-xl font-mono font-black text-xs {% if store_balance_sheet.net_profit < 0 %}bg-rose-500/20 text-rose-300 border border-rose-500/30{% else %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{% endif %}">
+                {{ store_balance_sheet.net_margin_percent }}%
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-5 text-xs">
+        <!-- فروش خالص -->
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10 flex flex-col justify-between">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+                <span class="font-bold">۱. فروش کل خالص (Net Sales):</span>
+                <span>🛒</span>
+            </div>
+            <div class="text-lg font-black text-white font-mono" dir="ltr">+ {{ "{:,}".format(store_balance_sheet.net_sales) }} ت</div>
+            <span class="text-[10px] text-slate-400 mt-1">مجموع گردش فاکتورهای قطعی ماه</span>
+        </div>
+
+        <!-- بهای تمام شده کالاها -->
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10 flex flex-col justify-between">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+                <span class="font-bold">۲. بهای خرید کالاها (COGS):</span>
+                <span>🏷️</span>
+            </div>
+            <div class="text-lg font-black text-blue-400 font-mono" dir="ltr">- {{ "{:,}".format(store_balance_sheet.cogs) }} ت</div>
+            <span class="text-[10px] text-slate-400 mt-1">بهای خرید مرجع و فاکتورها</span>
+        </div>
+
+        <!-- سود ناخالص عملیاتی -->
+        <div class="bg-indigo-950/40 p-4 rounded-2xl border border-indigo-500/30 flex flex-col justify-between">
+            <div class="flex justify-between items-center text-indigo-300 mb-2">
+                <span class="font-bold">۳. سود ناخالص (Gross Profit):</span>
+                <span>💰</span>
+            </div>
+            <div class="text-lg font-black text-indigo-300 font-mono" dir="ltr">= {{ "{:,}".format(store_balance_sheet.gross_profit) }} ت</div>
+            <span class="text-[10px] text-indigo-400 mt-1">حاشیه ناخالص: {{ store_balance_sheet.gross_margin_percent }}%</span>
+        </div>
+
+        <!-- سود خالص نهایی مدیریت -->
+        <div class="{% if store_balance_sheet.net_profit < 0 %}bg-rose-950/40 border-rose-500/40{% else %}bg-emerald-950/40 border-emerald-500/40{% endif %} p-4 rounded-2xl border flex flex-col justify-between shadow-lg">
+            <div class="flex justify-between items-center {% if store_balance_sheet.net_profit < 0 %}text-rose-300{% else %}text-emerald-300{% endif %} mb-2">
+                <span class="font-bold">۴. سود خالص نهایی (Net Profit):</span>
+                <span>💎</span>
+            </div>
+            <div class="text-xl font-black {% if store_balance_sheet.net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} font-mono" dir="ltr">
+                {{ "{:,}".format(store_balance_sheet.net_profit) }} ت
+            </div>
+            <span class="text-[10px] text-slate-300 mt-1">پس از کسر اجاره، حقوق و هزینه‌ها</span>
+        </div>
+    </div>
+
+    <!-- تفکیک کسورات -->
+    <div class="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span>کسر حقوق و پورسانت پرسنل: <strong class="text-rose-300 font-mono">-{{ "{:,}".format(store_balance_sheet.payroll) }} ت</strong></span>
+            <span>•</span>
+            <span>کسر اجاره شعب ۱ و ۲: <strong class="text-amber-300 font-mono">-{{ "{:,}".format(store_balance_sheet.rent) }} ت</strong></span>
+            <span>•</span>
+            <span>کسر هزینه‌های تنخواه: <strong class="text-orange-300 font-mono">-{{ "{:,}".format(store_balance_sheet.operating_expenses) }} ت</strong></span>
+        </div>
+        <span class="text-[10px] text-slate-400">تراز رسمی منطبق با اصول حسابداری فروشگاهی</span>
+    </div>
+</div>
+
+<!-- ==================== داشبورد تحلیلی هوشمند BI طهماسبی ==================== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- نمودار مقایسه روند روزانه شعب ۱ و ۲ -->
+    <div class="glass-card p-5 border border-white/10 shadow-xl">
+        <div class="flex items-center justify-between mb-3 border-b border-white/10 pb-3">
+            <div>
+                <h3 class="text-sm font-black text-white flex items-center gap-2">
+                    <span>📈</span> مقایسه روند روزانه فروش: فروشگاه ۱ در برابر فروشگاه ۲
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">تحلیل ۳۱ روزه فروش و سود ناخالص روزانه دو شعبه مرکزی و دوم</p>
+            </div>
+            <span class="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-xl font-bold font-mono">
+                ش۱: {{ "{:,}".format(shop1_total) }} | ش۲: {{ "{:,}".format(shop2_total) }}
+            </span>
+        </div>
+        <div class="h-72"><canvas id="branchComparisonChart"></canvas></div>
+    </div>
+
+    <!-- نمودار تحلیل برندهای برتر -->
+    <div class="glass-card p-5 border border-white/10 shadow-xl">
+        <div class="flex items-center justify-between mb-3 border-b border-white/10 pb-3">
+            <div>
+                <h3 class="text-sm font-black text-white flex items-center gap-2">
+                    <span>🏆</span> تحلیل فروش و سودآوری برندهای برتر کاتالوگ
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">رتبه‌بندی سود ناخالص و گردش ریالی برندها (آس، اخوان، استیل البرز...)</p>
+            </div>
+            <span class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-xl font-bold">
+                تحلیل سودآوری
+            </span>
+        </div>
+        <div class="h-72"><canvas id="brandProfitChart"></canvas></div>
+    </div>
+</div>
+
 <!-- Charts Section -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <div class="glass-card p-5">
@@ -528,6 +641,88 @@
         {% else %}
         <div class="col-span-1 sm:col-span-2 lg:col-span-4 text-center py-10 text-slate-300 text-sm font-bold bg-[#161f33]/60 rounded-2xl border border-white/10">
             📦 هنوز فاکتور قطعی برای استخراج اقلام پرفروش در این ماه ثبت نشده است.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ==================== کارنامه‌ها و کارت‌های عملکرد فروشندگان (Scorecards) ==================== -->
+<div class="glass-card p-6 mb-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-4 mb-5 gap-3">
+        <div>
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+                <span>🎯</span> کارنامه و کارت‌های عملکرد فروشندگان طهماسبی (Sales Scorecards)
+            </h3>
+            <p class="text-xs text-slate-300 mt-1">شاخص‌های کلیدی عملکرد (KPI)، وضعیت تحقق تارگت، میانگین فاکتور و پورسانت استحقاقی</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+            <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-xl font-bold">
+                مجموع پورسانت پرسنل: {{ "{:,}".format(total_commissions) }} تومان
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {% for item in sellers_data %}
+        <div class="bg-gradient-to-b from-[#161f33] to-[#0f172a] border border-white/10 hover:border-indigo-500/50 rounded-2xl p-4 shadow-xl transition flex flex-col justify-between">
+            <div>
+                <!-- هدر کارت فروشنده -->
+                <div class="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div class="flex items-center gap-2.5">
+                        {% if item.user.avatar_data or item.user.avatar %}
+                        <img src="{{ item.user.avatar_data if item.user.avatar_data else url_for('serve_avatar', filename=item.user.avatar) }}" class="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-500">
+                        {% else %}
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-slate-700 to-indigo-900 text-indigo-200 flex items-center justify-center font-black text-sm">
+                            {{ item.user.full_name[0] }}
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h4 class="font-black text-white text-xs">{{ item.user.full_name }}</h4>
+                            <span class="text-[10px] text-slate-400 block">{{ item.user.shop.name if item.user.shop else 'شعبه نامشخص' }}</span>
+                        </div>
+                    </div>
+                    <!-- نشان تارگت -->
+                    {% if item.stats.net_sales >= settings.tier2_min %}
+                    <span class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg shadow animate-pulse">👑 پله طلایی</span>
+                    {% elif item.stats.net_sales >= settings.tier1_min %}
+                    <span class="bg-indigo-500 text-white font-bold text-[10px] px-2 py-0.5 rounded-lg shadow">⭐ پله ۱</span>
+                    {% else %}
+                    <span class="bg-slate-800 text-slate-400 font-bold text-[10px] px-2 py-0.5 rounded-lg border border-white/5">در حال تلاش</span>
+                    {% endif %}
+                </div>
+
+                <!-- آمار فروش و فاکتورها -->
+                <div class="space-y-2.5 py-3 text-xs">
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>حجم فروش خالص:</span>
+                        <strong class="text-cyan-300 font-mono font-black text-sm">{{ "{:,}".format(item.stats.net_sales) }} ت</strong>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-400 text-[11px]">
+                        <span>تعداد فاکتورهای قطعی:</span>
+                        <strong class="text-white font-mono font-bold">{{ item.stats.sales_count }} عدد</strong>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-400 text-[11px]">
+                        <span>درصد پورسانت مؤثر:</span>
+                        <strong class="text-amber-300 font-mono font-bold">{{ item.stats.effective_rate }}%</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- بخش پایین کارت: پورسانت و دریافتی -->
+            <div class="pt-3 border-t border-white/10 bg-black/20 -mx-4 -mb-4 p-4 rounded-b-2xl space-y-1 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-300 font-bold text-[11px]">پورسانت متعلقه:</span>
+                    <strong class="text-emerald-400 font-mono font-black">{{ "{:,}".format(item.stats.settled_commission) }} ت</strong>
+                </div>
+                <div class="flex justify-between items-center text-[10px] text-slate-400">
+                    <span>حقوق ثابت ماه:</span>
+                    <span class="font-mono">{{ "{:,}".format(item.user.base_salary or 0) }} ت</span>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t border-white/5 font-black text-xs text-white">
+                    <span>جمع کل پرداختی:</span>
+                    <span class="text-emerald-300 font-mono">{{ "{:,}".format((item.user.base_salary or 0) + item.stats.settled_commission) }} ت</span>
+                </div>
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -1801,6 +1996,112 @@
         document.getElementById('adminSettleAmountInput').value = remaining;
         setAdminSettleMethod('pos');
         document.getElementById('adminSettleModal').classList.remove('hidden');
+    }
+
+    // ==================== نمودار BI ۱: مقایسه روزانه فروش و سود شعب ۱ و ۲ ====================
+    const branchCompEl = document.getElementById('branchComparisonChart');
+    if (branchCompEl) {
+        const dailyData = {{ daily_comparison_31|tojson }};
+        const dayLabels = dailyData.map(d => d.day);
+        const shop1Sales = dailyData.map(d => d.shop1_sales);
+        const shop2Sales = dailyData.map(d => d.shop2_sales);
+        const shop1Profit = dailyData.map(d => d.shop1_profit);
+        const shop2Profit = dailyData.map(d => d.shop2_profit);
+
+        new Chart(branchCompEl.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: dayLabels,
+                datasets: [
+                    {
+                        label: 'فروش شعبه ۱ (تومان)',
+                        data: shop1Sales,
+                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'فروش شعبه ۲ (تومان)',
+                        data: shop2Sales,
+                        backgroundColor: 'rgba(6, 182, 212, 0.85)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'سود ناخالص شعبه ۱',
+                        data: shop1Profit,
+                        type: 'line',
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        fill: false
+                    },
+                    {
+                        label: 'سود ناخالص شعبه ۲',
+                        data: shop2Profit,
+                        type: 'line',
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#cbd5e1', font: { family: 'Vazirmatn, sans-serif', size: 10 } } }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+    }
+
+    // ==================== نمودار BI ۲: سودآوری و گردش برندهای اصلی ====================
+    const brandProfitEl = document.getElementById('brandProfitChart');
+    if (brandProfitEl) {
+        const biBrands = {{ bi_brands_data|tojson }};
+        const brandNames = biBrands.map(b => b.brand);
+        const brandSales = biBrands.map(b => b.sales);
+        const brandProfit = biBrands.map(b => b.profit);
+
+        new Chart(brandProfitEl.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: brandNames,
+                datasets: [
+                    {
+                        label: 'فروش کل (تومان)',
+                        data: brandSales,
+                        backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'سود ناخالص (تومان)',
+                        data: brandProfit,
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#cbd5e1', font: { family: 'Vazirmatn, sans-serif', size: 10 } } }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#e2e8f0', font: { family: 'Vazirmatn, sans-serif', weight: 'bold', size: 10 } }, grid: { display: false } }
+                }
+            }
+        });
     }
 
     const sellerCtx = document.getElementById('sellerSalesChart').getContext('2d');

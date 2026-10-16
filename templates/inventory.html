@@ -219,15 +219,25 @@
                             </td>
                             <td class="p-4 text-slate-400">{{ item.brand or '—' }}</td>
                             {% if is_admin %}
-                            <td class="p-4 font-black text-blue-400 text-sm">{{ "{:,}".format(item.buy_price) }} تومان</td>
+                            <td class="p-4 font-black text-blue-400 text-sm">
+                                <div id="catalog_buy_{{ item.id }}" class="flex items-center gap-1.5 group cursor-pointer hover:text-blue-300" onclick="editCatalogPriceInline({{ item.id }}, 'buy', {{ item.buy_price }}, this)" title="کلیک جهت ویرایش سریع قیمت خرید">
+                                    <span class="price-val">{{ "{:,}".format(item.buy_price) }}</span> تومان
+                                    <span class="opacity-0 group-hover:opacity-100 text-[10px] text-blue-300 transition">✏️</span>
+                                </div>
+                            </td>
                             {% endif %}
-                            <td class="p-4 font-black text-emerald-400 text-sm">{{ "{:,}".format(item.sell_price) }} تومان</td>
+                            <td class="p-4 font-black text-emerald-400 text-sm">
+                                <div id="catalog_sell_{{ item.id }}" class="flex items-center gap-1.5 group cursor-pointer hover:text-emerald-300" onclick="editCatalogPriceInline({{ item.id }}, 'sell', {{ item.sell_price }}, this)" title="کلیک جهت ویرایش سریع قیمت فروش">
+                                    <span class="price-val">{{ "{:,}".format(item.sell_price) }}</span> تومان
+                                    <span class="opacity-0 group-hover:opacity-100 text-[10px] text-emerald-300 transition">✏️</span>
+                                </div>
+                            </td>
                             {% if is_admin %}
-                            <td class="p-4 font-black text-purple-400">
+                            <td class="p-4 font-black text-purple-400" id="catalog_margin_{{ item.id }}">
                                 {% set margin = item.sell_price - item.buy_price %}
-                                {{ "{:,}".format(margin) }} تومان
+                                <span class="margin-amount">{{ "{:,}".format(margin) }}</span> تومان
                                 {% if item.sell_price > 0 %}
-                                <span class="text-[10px] text-slate-400 block font-normal">({{ "%.1f"|format(margin / item.sell_price * 100) }}%)</span>
+                                <span class="text-[10px] text-slate-400 block font-normal margin-percent">({{ "%.1f"|format(margin / item.sell_price * 100) }}%)</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -354,44 +364,67 @@
     <div class="glass-card p-6">
         <div class="flex justify-between items-center mb-4 border-b pb-3">
             <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
-                <span>🔄</span> انتقال کالا بین دو شعبه طهماسبی
+                <span>🔄</span> حواله جابجایی و انتقال کالا بین شعب و کارگاه طهماسبی
             </h3>
-            <span class="text-xs text-indigo-600 font-bold">جابجایی بین فروشگاه ۱ و ۲ با کسر و افزایش خودکار</span>
+            <span class="text-xs text-indigo-400 font-bold">جابجایی هوشمند بین فروشگاه ۱، فروشگاه ۲ و کارگاه با ثبت لاگ</span>
         </div>
         
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in-up">
-            <div class="bg-slate-50 p-4 rounded-2xl border">
-                <h4 class="text-xs font-bold text-indigo-800 mb-3">ثبت حواله انتقال کالا:</h4>
-                <form method="POST" action="{{ url_for('request_transfer') }}">
-                    <div class="mb-2">
-                        <label class="block text-[11px] text-slate-600 mb-1">کالا از کدام شعبه منتقل شود؟</label>
-                        <select name="from_shop_id" class="w-full p-2 border rounded-xl text-xs bg-white font-bold">
-                            {% for s in shops %}
-                            <option value="{{ s.id }}">{{ s.name }}</option>
-                            {% endfor %}
-                        </select>
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10 text-white">
+                <h4 class="text-xs font-bold text-indigo-300 mb-3 flex items-center gap-1.5">
+                    <span>📝</span> صدور حواله انتقال کالا:
+                </h4>
+                <form method="POST" action="{{ url_for('request_transfer') }}" id="stockTransferForm">
+                    <div class="grid grid-cols-2 gap-2 mb-2.5">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1 font-bold">از مبدأ:</label>
+                            <select name="from_shop_id" class="w-full p-2 border border-slate-700 rounded-xl text-xs bg-slate-800 text-white font-bold">
+                                {% for s in shops %}
+                                <option value="{{ s.id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1 font-bold">به مقصد:</label>
+                            <select name="to_shop_id" class="w-full p-2 border border-slate-700 rounded-xl text-xs bg-slate-800 text-white font-bold">
+                                {% for s in shops %}
+                                <option value="{{ s.id }}" {% if s.id == 2 %}selected{% endif %}>{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <label class="block text-[11px] text-slate-600 mb-1">کدام کالا؟</label>
-                        <input type="text" name="item_name" required placeholder="نام کامل کالا یا مدل..." class="w-full p-2 border rounded-xl text-xs bg-white">
+                    <div class="mb-2.5">
+                        <label class="block text-[11px] text-slate-400 mb-1 font-bold">نام یا کد کالا:</label>
+                        <input type="text" name="item_name" required placeholder="نام کامل کالا یا مدل..." class="w-full p-2 border border-slate-700 rounded-xl text-xs bg-slate-800 text-white font-bold placeholder-slate-500">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-[11px] text-slate-600 mb-1">تعداد انتقال:</label>
-                        <input type="number" name="quantity" min="1" value="1" required class="w-full p-2 border rounded-xl text-xs bg-white text-center font-bold">
+                        <label class="block text-[11px] text-slate-400 mb-1 font-bold">تعداد انتقال:</label>
+                        <input type="number" name="quantity" min="1" value="1" required class="w-full p-2 border border-slate-700 rounded-xl text-xs bg-slate-800 text-amber-300 text-center font-black">
                     </div>
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl text-xs font-bold transition shadow">
-                        ارسال حواله انتقال
+                    {% if is_admin or can_manage_stock %}
+                    <div class="mb-3.5 bg-slate-800/80 p-2 rounded-xl border border-white/5">
+                        <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-300 font-bold">
+                            <input type="checkbox" name="auto_approve" value="1" class="rounded text-indigo-500">
+                            <span>⚡ اعمال و تایید خودکار فوری (انتقال آنی موجودی)</span>
+                        </label>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-black transition shadow-lg shadow-indigo-600/30">
+                        🚀 ارسال حواله انتقال
                     </button>
                 </form>
             </div>
 
             <div class="lg:col-span-2 overflow-x-auto">
-                <h4 class="text-xs font-bold text-slate-700 mb-3">آخرین حواله‌های انتقال:</h4>
+                <h4 class="text-xs font-bold text-slate-300 mb-3 flex items-center gap-1.5">
+                    <span>📑</span> آخرین حواله‌های انتقال ثبت‌شده:
+                </h4>
                 <table class="table-glass w-full text-right border-collapse text-xs">
                     <thead>
-                        <tr class="bg-slate-100 text-slate-600">
+                        <tr class="bg-slate-900/80 text-slate-300 border-b border-white/10">
                             <th class="p-2.5">نام کالا</th>
-                            <th class="p-2.5">تعداد</th>
+                            <th class="p-2.5 text-center">مسیر انتقال</th>
+                            <th class="p-2.5 text-center">تعداد</th>
                             <th class="p-2.5">درخواست‌کننده</th>
                             <th class="p-2.5">زمان</th>
                             <th class="p-2.5">وضعیت</th>
@@ -402,11 +435,16 @@
                     </thead>
                     <tbody>
                         {% for t in transfers %}
-                        <tr class="border-b">
-                            <td class="p-2.5 font-bold">{{ t.item_name }}</td>
-                            <td class="p-2.5 font-black text-indigo-700">{{ t.quantity }}</td>
-                            <td class="p-2.5">{{ t.requested_by }}</td>
-                            <td class="p-2.5 text-[10px] text-slate-400">{{ t.shamsi_date_time }}</td>
+                        <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                            <td class="p-2.5 font-bold text-white">{{ t.item_name }}</td>
+                            <td class="p-2.5 text-center text-[10px]">
+                                <span class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">{{ t.from_shop.name if t.from_shop else 'ش ۱' }}</span>
+                                <span class="text-indigo-400 font-bold mx-1">➔</span>
+                                <span class="bg-indigo-950 px-2 py-0.5 rounded text-indigo-300 border border-indigo-500/30">{{ t.to_shop.name if t.to_shop else 'ش ۲' }}</span>
+                            </td>
+                            <td class="p-2.5 font-black text-amber-300 text-center font-mono text-xs">{{ t.quantity }}</td>
+                            <td class="p-2.5 text-slate-300">{{ t.requested_by }}</td>
+                            <td class="p-2.5 text-[10px] text-slate-400 font-mono" dir="ltr">{{ t.shamsi_date_time }}</td>
                             <td class="p-2.5">
                                 {% if t.status == 'accepted' %}
                                 <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">✓ تایید شد</span>
@@ -469,6 +507,10 @@
                 <button type="button" id="stockShopBtn2" onclick="switchStockShop(2)"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200">
                     <span>🏬</span> فروشگاه ۲
+                </button>
+                <button type="button" id="stockShopBtn3" onclick="switchStockShop(3)"
+                    class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200">
+                    <span>🔨</span> کارگاه ساخت و خدمات
                 </button>
             </div>
         </div>
@@ -537,7 +579,8 @@
                 <select id="catalogStockStatus" onchange="onStockFilterChange()" class="p-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white text-slate-700">
                     <option value="all">🔘 وضعیت: همه اقلام</option>
                     <option value="available">🟢 فقط موجودها (> ۰)</option>
-                    <option value="low">🟡 رو به اتمام / زیر سقف هشدار</option>
+                    <option value="critical_3">⚠️ هشدار نقطه سفارش (کسری ۳ یا کمتر)</option>
+                    <option value="low">🟡 رو به اتمام / زیر سقف حداقل</option>
                     <option value="out">🔴 ناموجودها (۰ عدد)</option>
                 </select>
             </div>
@@ -955,6 +998,7 @@
             </div>
         </form>
     </div>
+</div>
 <!-- Modal: Faucet Set Wizard (سازنده سریع ست شیرآلات با محاسبه خودکار تخفیف) -->
 <div id="faucetWizardModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
     <div class="bg-white rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
@@ -1088,6 +1132,7 @@
             </div>
         </form>
     </div>
+</div>
 <!-- Modal: Clear All Catalog Items (پاکسازی کل لیست یا دسته‌بندی خاص) -->
 <div id="clearAllModal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
@@ -1412,13 +1457,14 @@
         currentStockShop = shopId;
         const btn1 = document.getElementById('stockShopBtn1');
         const btn2 = document.getElementById('stockShopBtn2');
-        if (shopId === 1) {
-            btn1.className = 'px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
-            btn2.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200';
-        } else {
-            btn2.className = 'px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
-            btn1.className = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200';
-        }
+        const btn3 = document.getElementById('stockShopBtn3');
+        const activeCls = 'px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md';
+        const inactiveCls = 'px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 hover:bg-slate-200';
+        
+        if (btn1) btn1.className = (shopId === 1) ? activeCls : inactiveCls;
+        if (btn2) btn2.className = (shopId === 2) ? activeCls : inactiveCls;
+        if (btn3) btn3.className = (shopId === 3) ? activeCls : inactiveCls;
+
         updateShopStats();
         onStockFilterChange();
     }
@@ -1431,12 +1477,12 @@
         let totalUnits = 0;
 
         rawCatalogStockData.forEach(item => {
-            const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
-            const min = currentStockShop === 1 ? item.min_1 : item.min_2;
+            const stock = currentStockShop === 1 ? (item.stock_1 || 0) : (currentStockShop === 2 ? (item.stock_2 || 0) : (item.stock_3 || 0));
+            const min = currentStockShop === 1 ? (item.min_1 || 2) : (currentStockShop === 2 ? (item.min_2 || 2) : (item.min_3 || 2));
 
             if (stock <= 0) {
                 outCount++;
-            } else if (stock <= min) {
+            } else if (stock <= min || stock <= 3) {
                 lowCount++;
                 if (isAdmin) totalBuyVal += (stock * item.buy_price);
                 totalUnits += stock;
@@ -1492,11 +1538,13 @@
                 if (!allTokensMatch) return false;
             }
 
-            const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
-            const min = currentStockShop === 1 ? item.min_1 : item.min_2;
+            const stock = currentStockShop === 1 ? (item.stock_1 || 0) : (currentStockShop === 2 ? (item.stock_2 || 0) : (item.stock_3 || 0));
+            const min = currentStockShop === 1 ? (item.min_1 || 2) : (currentStockShop === 2 ? (item.min_2 || 2) : (item.min_3 || 2));
 
             if (status === 'available') {
                 if (stock <= 0 || stock <= min) return false;
+            } else if (status === 'critical_3') {
+                if (stock <= 0 || stock > 3) return false;
             } else if (status === 'low') {
                 if (stock <= 0 || stock > min) return false;
             } else if (status === 'out') {
@@ -1556,12 +1604,14 @@
 
         pageItems.forEach((item, index) => {
             const rowNumber = startIdx + index + 1;
-            const stock = currentStockShop === 1 ? item.stock_1 : item.stock_2;
-            const min = currentStockShop === 1 ? item.min_1 : item.min_2;
+            const stock = currentStockShop === 1 ? (item.stock_1 || 0) : (currentStockShop === 2 ? (item.stock_2 || 0) : (item.stock_3 || 0));
+            const min = currentStockShop === 1 ? (item.min_1 || 2) : (currentStockShop === 2 ? (item.min_2 || 2) : (item.min_3 || 2));
 
             let badgeHtml = '';
             if (stock <= 0) {
                 badgeHtml = `<span id="badge_${item.id}" class="bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🔴 ناموجود</span>`;
+            } else if (stock <= 3) {
+                badgeHtml = `<span id="badge_${item.id}" class="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-black animate-pulse">🟡 هشدار نقطه سفارش (${stock})</span>`;
             } else if (stock <= min) {
                 badgeHtml = `<span id="badge_${item.id}" class="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟡 کسری (${stock})</span>`;
             } else {
@@ -1677,9 +1727,12 @@
                 if (currentStockShop === 1) {
                     item.stock_1 = newStock;
                     item.min_1 = newMin;
-                } else {
+                } else if (currentStockShop === 2) {
                     item.stock_2 = newStock;
                     item.min_2 = newMin;
+                } else {
+                    item.stock_3 = newStock;
+                    item.min_3 = newMin;
                 }
 
                 btn.className = 'bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-black text-xs shadow transition flex items-center justify-center gap-1 mx-auto';
@@ -1694,6 +1747,8 @@
                 if (badgeTd) {
                     if (newStock <= 0) {
                         badgeTd.innerHTML = `<span id="badge_${item.id}" class="bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🔴 ناموجود</span>`;
+                    } else if (newStock <= 3) {
+                        badgeTd.innerHTML = `<span id="badge_${item.id}" class="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-black animate-pulse">🟡 هشدار نقطه سفارش (${newStock})</span>`;
                     } else if (newStock <= newMin) {
                         badgeTd.innerHTML = `<span id="badge_${item.id}" class="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-lg text-[10px] font-black">🟡 کسری (${newStock})</span>`;
                     } else {
@@ -1761,9 +1816,12 @@
                         if (currentStockShop === 1) {
                             item.stock_1 = b.stock_quantity;
                             item.min_1 = b.min_alert_stock;
-                        } else {
+                        } else if (currentStockShop === 2) {
                             item.stock_2 = b.stock_quantity;
                             item.min_2 = b.min_alert_stock;
+                        } else {
+                            item.stock_3 = b.stock_quantity;
+                            item.min_3 = b.min_alert_stock;
                         }
                     }
                 });
@@ -1776,6 +1834,92 @@
         })
         .catch(err => alert('خطای اتصال: ' + err));
     }
+
+    // ==================== ویرایش مستقیم و درخط (Inline) قیمت‌های کاتالوگ ====================
+    window.editCatalogPriceInline = function(itemId, priceType, currentVal, containerEl) {
+        if (!containerEl || containerEl.querySelector('input')) return;
+        const origContent = containerEl.innerHTML;
+        const inputId = `inline_input_${itemId}_${priceType}`;
+        
+        containerEl.innerHTML = `
+            <div class="inline-flex items-center gap-1" onclick="event.stopPropagation()">
+                <input type="number" id="${inputId}" value="${currentVal}" min="0" step="1000"
+                    class="w-24 px-2 py-1 rounded-lg bg-slate-900 border border-indigo-400 text-white font-mono text-xs text-left outline-none" dir="ltr">
+                <button type="button" id="save_${inputId}" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded-lg text-[10px] font-bold">✓</button>
+                <button type="button" id="cancel_${inputId}" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-1.5 py-1 rounded-lg text-[10px]">✕</button>
+            </div>
+        `;
+        
+        const inp = document.getElementById(inputId);
+        const saveBtn = document.getElementById(`save_${inputId}`);
+        const cancelBtn = document.getElementById(`cancel_${inputId}`);
+        if (inp) { inp.focus(); inp.select(); }
+
+        const cancelEdit = () => { containerEl.innerHTML = origContent; };
+
+        const saveEdit = () => {
+            const newVal = parseInt(inp.value) || 0;
+            saveBtn.disabled = true;
+            saveBtn.innerText = '⏳';
+            
+            const payload = { item_id: itemId };
+            if (priceType === 'buy') payload.buy_price = newVal;
+            if (priceType === 'sell') payload.sell_price = newVal;
+
+            fetch('/api/catalog/quick_price', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.success) {
+                    const priceFormatted = newVal.toLocaleString('fa-IR');
+                    const colorCls = priceType === 'buy' ? 'text-blue-300' : 'text-emerald-300';
+                    containerEl.innerHTML = `
+                        <span class="price-val">${priceFormatted}</span> تومان
+                        <span class="opacity-0 group-hover:opacity-100 text-[10px] ${colorCls} transition">✏️</span>
+                    `;
+                    containerEl.setAttribute('onclick', `editCatalogPriceInline(${itemId}, '${priceType}', ${newVal}, this)`);
+                    
+                    // Flash effect
+                    containerEl.classList.add('bg-emerald-500/20', 'rounded-lg', 'px-1');
+                    setTimeout(() => containerEl.classList.remove('bg-emerald-500/20', 'rounded-lg', 'px-1'), 1500);
+
+                    // Recalculate margin cell if exists
+                    const marginEl = document.getElementById(`catalog_margin_${itemId}`);
+                    if (marginEl) {
+                        const buyEl = document.getElementById(`catalog_buy_${itemId}`);
+                        const sellEl = document.getElementById(`catalog_sell_${itemId}`);
+                        const currentBuy = (priceType === 'buy') ? newVal : (parseInt(buyEl?.innerText?.replace(/[^0-9]/g, '')) || 0);
+                        const currentSell = (priceType === 'sell') ? newVal : (parseInt(sellEl?.innerText?.replace(/[^0-9]/g, '')) || 0);
+                        const newMargin = currentSell - currentBuy;
+                        const pct = currentSell > 0 ? (newMargin / currentSell * 100).toFixed(1) : 0;
+                        marginEl.innerHTML = `
+                            <span class="margin-amount">${newMargin.toLocaleString('fa-IR')}</span> تومان
+                            ${currentSell > 0 ? `<span class="text-[10px] text-slate-400 block font-normal margin-percent">(${pct}%)</span>` : ''}
+                        `;
+                    }
+                } else {
+                    alert(resData.message || 'خطا در ذخیره قیمت');
+                    cancelEdit();
+                }
+            })
+            .catch(err => {
+                alert('خطا در ارتباط با سرور: ' + err);
+                cancelEdit();
+            });
+        };
+
+        if (saveBtn) saveBtn.onclick = saveEdit;
+        if (cancelBtn) cancelBtn.onclick = cancelEdit;
+        if (inp) {
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') saveEdit();
+                if (e.key === 'Escape') cancelEdit();
+            });
+        }
+    };
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -2104,7 +2248,7 @@
             <button type="button" onclick="closeBatchPriceModal()" class="text-slate-400 hover:text-white text-2xl transition">✕</button>
         </div>
 
-        <form action="{{ url_for('batch_price_update') }}" method="POST" class="space-y-4 mt-4" onsubmit="return confirm('آیا از اعمال این تغییرات درصدی روی کالاهای انتخابی اطمینان دارید؟');">
+        <form id="batchPriceForm" action="{{ url_for('batch_price_update') }}" method="POST" class="space-y-4 mt-4" onsubmit="handleBatchPriceSubmit(event)">
             <!-- انتخاب برند هدف -->
             <div>
                 <label class="block text-xs font-bold text-slate-300 mb-1">🏷️ انتخاب برند هدف:</label>
@@ -2179,16 +2323,98 @@
                 </label>
             </div>
 
+            <!-- نوار پیشرفت زنده و انیمیشن پردازش غیرمسدودکننده -->
+            <div id="batchProgressContainer" class="hidden space-y-2 p-3.5 bg-slate-900 rounded-2xl border border-cyan-500/40">
+                <div class="flex items-center justify-between text-xs font-bold text-cyan-300">
+                    <span id="batchProgressStatus">در حال محاسبه و اعمال تغییرات درصدی روی پایگاه داده...</span>
+                    <span id="batchProgressPercent" class="font-mono">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-cyan-500/30">
+                    <div id="batchProgressBar" class="bg-gradient-to-r from-cyan-500 via-blue-500 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                </div>
+            </div>
+
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
                 <button type="button" onclick="closeBatchPriceModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
                     انصراف
                 </button>
-                <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+                <button type="submit" id="batchSubmitBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
                     <span>⚡</span> اعمال آنی تغییرات قیمت
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+function handleBatchPriceSubmit(e) {
+    e.preventDefault();
+    if (!confirm('آیا از اعمال این تغییرات درصدی روی کالاهای انتخابی اطمینان دارید؟')) return;
+    
+    const form = e.target;
+    const progressCont = document.getElementById('batchProgressContainer');
+    const progressBar = document.getElementById('batchProgressBar');
+    const progressStatus = document.getElementById('batchProgressStatus');
+    const progressPercent = document.getElementById('batchProgressPercent');
+    const submitBtn = document.getElementById('batchSubmitBtn');
+
+    if (progressCont) progressCont.classList.remove('hidden');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('opacity-50'); }
+
+    let p = 15;
+    if (progressBar) progressBar.style.width = '15%';
+    if (progressPercent) progressPercent.innerText = '15%';
+
+    const timer = setInterval(() => {
+        if (p < 85) {
+            p += Math.floor(Math.random() * 12) + 5;
+            if (p > 85) p = 85;
+            if (progressBar) progressBar.style.width = p + '%';
+            if (progressPercent) progressPercent.innerText = p + '%';
+        }
+    }, 120);
+
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(async res => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success) {
+            const msg = (data && data.message) ? data.message : `خطا در پردازش سرور (کد ${res.status})`;
+            throw new Error(msg);
+        }
+        return data;
+    })
+    .then(data => {
+        clearInterval(timer);
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressPercent) progressPercent.innerText = '100%';
+        if (progressStatus) progressStatus.innerText = data.message || 'عملیات با موفقیت انجام شد.';
+
+        setTimeout(() => {
+            alert(data.message || 'تغییرات با موفقیت اعمال شد.');
+            window.location.reload();
+        }, 700);
+    })
+    .catch(err => {
+        clearInterval(timer);
+        if (progressBar) {
+            progressBar.style.width = '100%';
+            progressBar.classList.remove('from-cyan-500', 'via-blue-500', 'to-emerald-400');
+            progressBar.classList.add('bg-rose-500');
+        }
+        if (progressStatus) progressStatus.innerText = '⚠️ ' + err.message;
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('opacity-50'); }
+        alert(err.message || 'خطا در اعمال تغییرات');
+    });
+}
+</script>
 {% endblock %}
 

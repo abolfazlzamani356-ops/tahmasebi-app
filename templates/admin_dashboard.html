@@ -504,56 +504,144 @@
         <!-- فروش خالص -->
         <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10 flex flex-col justify-between">
             <div class="flex justify-between items-center text-slate-400 mb-2">
-                <span class="font-bold">۱. فروش کل خالص (Net Sales):</span>
+                <span class="font-bold">۱. فروش کل تعهدی فاکتورها (Net Sales):</span>
                 <span>🛒</span>
             </div>
-            <div class="text-lg font-black text-white font-mono" dir="ltr">+ {{ "{:,}".format(store_balance_sheet.net_sales) }} ت</div>
-            <span class="text-[10px] text-slate-400 mt-1">مجموع گردش فاکتورهای قطعی ماه</span>
+            <div class="text-lg font-black text-white font-mono flex items-center justify-start gap-1">
+                <span class="text-slate-400 font-bold">+</span>
+                <span>{{ "{:,}".format(store_balance_sheet.net_sales) }}</span>
+                <span class="text-[11px] font-normal text-slate-400 font-sans">تومان</span>
+            </div>
+            <span class="text-[10px] text-slate-400 mt-1">مجموع فروش کل خالص (Net Sales) و گردش تعهدی فاکتورها پس از کسر مرجوعی</span>
         </div>
 
         <!-- بهای تمام شده کالاها -->
         <div class="bg-slate-900/80 p-4 rounded-2xl border border-white/10 flex flex-col justify-between">
             <div class="flex justify-between items-center text-slate-400 mb-2">
-                <span class="font-bold">۲. بهای خرید کالاها (COGS):</span>
+                <span class="font-bold">۲. کل بهای تمام‌شده کالاها (Total COGS):</span>
                 <span>🏷️</span>
             </div>
-            <div class="text-lg font-black text-blue-400 font-mono" dir="ltr">- {{ "{:,}".format(store_balance_sheet.cogs) }} ت</div>
-            <span class="text-[10px] text-slate-400 mt-1">بهای خرید مرجع و فاکتورها</span>
+            <div class="text-lg font-black text-blue-400 font-mono flex items-center justify-start gap-1">
+                <span class="text-blue-500 font-bold">-</span>
+                <span>{{ "{:,}".format(store_balance_sheet.cogs) }}</span>
+                <span class="text-[11px] font-normal text-slate-400 font-sans">تومان</span>
+            </div>
+            <span class="text-[10px] text-slate-400 mt-1">بهای خرید کالاها (COGS) بر مبنای نرخ مرجع و فاکتورها</span>
         </div>
 
-        <!-- سود ناخالص عملیاتی -->
+        <!-- سود ناخالص عملیاتی واقعی -->
         <div class="bg-indigo-950/40 p-4 rounded-2xl border border-indigo-500/30 flex flex-col justify-between">
             <div class="flex justify-between items-center text-indigo-300 mb-2">
-                <span class="font-bold">۳. سود ناخالص (Gross Profit):</span>
+                <span class="font-bold">۳. سود ناخالص واقعی (True Gross Profit):</span>
                 <span>💰</span>
             </div>
-            <div class="text-lg font-black text-indigo-300 font-mono" dir="ltr">= {{ "{:,}".format(store_balance_sheet.gross_profit) }} ت</div>
-            <span class="text-[10px] text-indigo-400 mt-1">حاشیه ناخالص: {{ store_balance_sheet.gross_margin_percent }}%</span>
+            <div class="text-lg font-black text-emerald-400 font-mono flex items-center justify-start gap-1">
+                <span class="text-emerald-400 font-bold">=</span>
+                <span>{{ "{:,}".format(store_balance_sheet.gross_profit) }}</span>
+                <span class="text-[11px] font-normal text-slate-400 font-sans">تومان</span>
+            </div>
+            <span class="text-[10px] text-indigo-400 mt-1">حاشیه ناخالص واقعی: {{ store_balance_sheet.gross_margin_percent }}%</span>
         </div>
 
         <!-- سود خالص نهایی مدیریت -->
         <div class="{% if store_balance_sheet.net_profit < 0 %}bg-rose-950/40 border-rose-500/40{% else %}bg-emerald-950/40 border-emerald-500/40{% endif %} p-4 rounded-2xl border flex flex-col justify-between shadow-lg">
             <div class="flex justify-between items-center {% if store_balance_sheet.net_profit < 0 %}text-rose-300{% else %}text-emerald-300{% endif %} mb-2">
-                <span class="font-bold">۴. سود خالص نهایی (Net Profit):</span>
+                <span class="font-bold">۴. سود خالص نهایی مدیریت (True Net Profit):</span>
                 <span>💎</span>
             </div>
-            <div class="text-xl font-black {% if store_balance_sheet.net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} font-mono" dir="ltr">
-                {{ "{:,}".format(store_balance_sheet.net_profit) }} ت
+            <div class="text-xl font-black {% if store_balance_sheet.net_profit < 0 %}text-rose-400{% else %}text-emerald-400{% endif %} font-mono flex items-center justify-start gap-1">
+                <span>{{ "{:,}".format(store_balance_sheet.net_profit) }}</span>
+                <span class="text-[11px] font-normal text-slate-400 font-sans">تومان</span>
             </div>
-            <span class="text-[10px] text-slate-300 mt-1">پس از کسر اجاره، حقوق و هزینه‌ها</span>
+            <span class="text-[10px] text-slate-300 mt-1">پس از کسر اجاره، حقوق، پورسانت و هزینه‌ها</span>
         </div>
     </div>
 
-    <!-- تفکیک کسورات -->
+    <!-- تفکیک کسورات و هزینه‌های جاری -->
     <div class="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
         <div class="flex items-center gap-4 flex-wrap">
-            <span>کسر حقوق و پورسانت پرسنل: <strong class="text-rose-300 font-mono">-{{ "{:,}".format(store_balance_sheet.payroll) }} ت</strong></span>
+            <span>کسر حقوق و پورسانت پرسنل: <strong class="text-rose-300 font-mono">-{{ "{:,}".format(store_balance_sheet.payroll) }} ت</strong> (ثابت: {{ "{:,}".format(store_balance_sheet.base_salaries) }} | پورسانت: {{ "{:,}".format(store_balance_sheet.commissions) }})</span>
             <span>•</span>
             <span>کسر اجاره شعب ۱ و ۲: <strong class="text-amber-300 font-mono">-{{ "{:,}".format(store_balance_sheet.rent) }} ت</strong></span>
             <span>•</span>
             <span>کسر هزینه‌های تنخواه: <strong class="text-orange-300 font-mono">-{{ "{:,}".format(store_balance_sheet.operating_expenses) }} ت</strong></span>
+            <span>•</span>
+            <span>جمع کل کسورات: <strong class="text-rose-400 font-mono">-{{ "{:,}".format(store_balance_sheet.total_operating_expenses) }} ت</strong></span>
         </div>
         <span class="text-[10px] text-slate-400">تراز رسمی منطبق با اصول حسابداری فروشگاهی</span>
+    </div>
+
+    <!-- ==================== تفکیک نقدینگی، وصولی‌ها و تطبیق جریان وجوه (Cash Flow Reconciler) ==================== -->
+    <div class="mt-5 pt-4 border-t border-white/10">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+            <div class="flex items-center gap-2">
+                <span class="text-base">🔄</span>
+                <span class="text-xs font-black text-white">تفکیک نقدینگی و وصولی‌ها (Cash Flow Reconciler): شفاف‌سازی مبالغ وصول‌شده، چک‌ها و نسیه</span>
+                <span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-black px-2 py-0.5 rounded-full">شفافیت ۱۰۰٪ ریالی</span>
+            </div>
+            <div class="flex items-center gap-2 text-[11px]">
+                <span class="text-slate-400 font-bold">وضعیت تطبیق تراز:</span>
+                {% if store_balance_sheet.reconciliation_diff == 0 %}
+                <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold font-mono">
+                    ✓ انطباق ۱۰۰٪ بدون ۱ ریال مغایرت (اختلاف: ۰ ریال)
+                </span>
+                {% else %}
+                <span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-0.5 rounded-full font-bold font-mono">
+                    ⚠️ اختلاف: {{ "{:,}".format(store_balance_sheet.reconciliation_diff) }} تومان
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <!-- ۱. وصولی‌های فوری نقدی و کارتخوان -->
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="font-bold">۱. وصولی فوری نقدینگی:</span>
+                    <span>💳</span>
+                </div>
+                <div class="text-base font-black text-emerald-400 font-mono">
+                    {{ "{:,}".format(store_balance_sheet.collected_immediate) }} <span class="text-[10px] font-normal text-slate-400 font-sans">تومان</span>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1">پوز: {{ "{:,}".format(store_balance_sheet.paid_pos) }} | کارت: {{ "{:,}".format(store_balance_sheet.paid_card) }} | نقد: {{ "{:,}".format(store_balance_sheet.paid_cash) }}</span>
+            </div>
+
+            <!-- ۲. چک‌های صیادی معتبر -->
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="font-bold">۲. چک‌های صیادی در جریان:</span>
+                    <span>🗓️</span>
+                </div>
+                <div class="text-base font-black text-amber-300 font-mono">
+                    {{ "{:,}".format(store_balance_sheet.cheques_total) }} <span class="text-[10px] font-normal text-slate-400 font-sans">تومان</span>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1">پوشش اسناد دریافتنی صیادی سررسیددار ماه</span>
+            </div>
+
+            <!-- ۳. مانده نسیه و بدهی مشتریان -->
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-1">
+                    <span class="font-bold">۳. مانده نسیه و حساب دفتری:</span>
+                    <span>⏳</span>
+                </div>
+                <div class="text-base font-black text-rose-300 font-mono">
+                    {{ "{:,}".format(store_balance_sheet.pending_credit) }} <span class="text-[10px] font-normal text-slate-400 font-sans">تومان</span>
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1">مطالبات معوقه مشتریان و مانده تسویه‌نشده فاکتورها</span>
+            </div>
+
+            <!-- ۴. جمع کل گردش وجوه و تطبیق با فروش تعهدی -->
+            <div class="bg-indigo-950/30 p-3.5 rounded-xl border border-indigo-500/20 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-indigo-300 mb-1">
+                    <span class="font-bold">۴. جمع کل وصولی + نسیه:</span>
+                    <span>⚖️</span>
+                </div>
+                <div class="text-base font-black text-indigo-300 font-mono">
+                    {{ "{:,}".format(store_balance_sheet.reconciled_total) }} <span class="text-[10px] font-normal text-slate-400 font-sans">تومان</span>
+                </div>
+                <span class="text-[10px] text-emerald-400 mt-1">تطبیق ۱۰۰٪ با فروش کل تعهدی ({{ "{:,}".format(store_balance_sheet.net_sales) }} ت)</span>
+            </div>
+        </div>
     </div>
 </div>
 

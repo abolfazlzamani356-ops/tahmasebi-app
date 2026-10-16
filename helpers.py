@@ -410,6 +410,7 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
     pending_commission_amount = 0 if is_admin else int((pending_commission_sales * effective_rate) / 100)
 
     tier_bonus_amount = 0 if is_admin else int((net_sales * bonus) / 100)
+    base_commission_amount = 0 if is_admin else max(0, settled_commission_amount - tier_bonus_amount)
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 5.0
 
     return {
@@ -424,10 +425,11 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         'bonus_rate': bonus,
         'tier_achieved': tier_achieved,
         'effective_rate': effective_rate,
+        'base_commission': base_commission_amount,
+        'tier_bonus_amount': tier_bonus_amount,
         'commission_amount': total_commission_calculated,
         'settled_commission': settled_commission_amount,
         'pending_commission': pending_commission_amount,
-        'tier_bonus_amount': tier_bonus_amount,
         'avg_rating': avg_rating
     }
 
@@ -586,7 +588,7 @@ def calculate_store_financial_summary(year, month, settings=None):
     total_commissions = 0
     for s in sellers:
         s_stats = calculate_seller_exact_stats(s.id, year_int, month_int, s.commission_rate, settings, user=s)
-        total_commissions += s_stats['settled_commission'] + s_stats.get('tier_bonus_amount', 0)
+        total_commissions += s_stats['settled_commission']
 
     all_staff = User.query.filter_by(is_active=True).all()
     total_base_salaries = sum(u.base_salary or 0 for u in all_staff if u.role != 'admin')
@@ -607,10 +609,47 @@ def calculate_store_financial_summary(year, month, settings=None):
     ).all()
     total_petty_deposits = sum(p.amount for p in petty_deposits)
 
-    store_net_profit = estimated_gross_profit - (total_payroll + total_rent + total_expenses)
-    base_sales = net_sales if net_sales > 0 else total_sales_all
-    profit_margin_percent = round((store_net_profit / base_sales * 100), 1) if base_sales > 0 else 0
-    gross_margin_percent = round((estimated_gross_profit / base_sales * 100), 1) if base_sales > 0 else 0
+    operating_expenses = total_expenses
+    total_operating_expenses = operating_expenses + total_rent + total_payroll
+    gross_profit = net_sales - total_actual_cost
+    estimated_gross_profit = gross_profit
+    store_net_profit = gross_profit - total_operating_expenses
+
+    profit_margin_percent = round((store_net_profit / net_sales * 100), 1) if net_sales > 0 else 0
+    gross_margin_percent = round((gross_profit / net_sales * 100), 1) if net_sales > 0 else 0
+
+    # گردش وجوه نقد و وصولی‌ها (Cash Flow Reconciler)
+    imm_collected = paid_pos + paid_card + paid_cash
+    cheques_collected = paid_cheque
+    pending_credit = remaining_balance
+    reconciled_total = imm_collected + cheques_collected + pending_credit
+    reconciliation_diff = net_sales - reconciled_total
+
+    store_balance_sheet = {
+        'gross_sales': gross_sales,
+        'returns_amount': returns_amount,
+        'net_sales': net_sales,
+        'cogs': total_actual_cost,
+        'gross_profit': gross_profit,
+        'gross_margin_percent': gross_margin_percent,
+        'operating_expenses': operating_expenses,
+        'expenses': operating_expenses,
+        'rent': total_rent,
+        'base_salaries': total_base_salaries,
+        'commissions': total_commissions,
+        'payroll': total_payroll,
+        'total_operating_expenses': total_operating_expenses,
+        'net_profit': store_net_profit,
+        'net_margin_percent': profit_margin_percent,
+        'collected_immediate': imm_collected,
+        'paid_pos': paid_pos,
+        'paid_card': paid_card,
+        'paid_cash': paid_cash,
+        'cheques_total': cheques_collected,
+        'pending_credit': pending_credit,
+        'reconciled_total': reconciled_total,
+        'reconciliation_diff': reconciliation_diff
+    }
 
     return {
         'year': year_int,
@@ -624,8 +663,10 @@ def calculate_store_financial_summary(year, month, settings=None):
         'total_discounts': total_discounts,
         'actual_buy_cost': total_actual_cost,
         'total_actual_cost': total_actual_cost,
-        'real_profit': estimated_gross_profit,
-        'estimated_gross_profit': estimated_gross_profit,
+        'cogs': total_actual_cost,
+        'real_profit': gross_profit,
+        'estimated_gross_profit': gross_profit,
+        'gross_profit': gross_profit,
         'paid_pos': paid_pos,
         'paid_card': paid_card,
         'paid_cash': paid_cash,
@@ -634,15 +675,20 @@ def calculate_store_financial_summary(year, month, settings=None):
         'shop1_total': shop1_total,
         'shop2_total': shop2_total,
         'total_expenses': total_expenses,
+        'operating_expenses': operating_expenses,
         'total_petty_deposits': total_petty_deposits,
         'total_rent': total_rent,
         'total_commissions': total_commissions,
         'total_base_salaries': total_base_salaries,
         'total_payroll': total_payroll,
+        'total_operating_expenses': total_operating_expenses,
         'store_net_profit': store_net_profit,
         'net_store_profit': store_net_profit,
+        'net_profit': store_net_profit,
         'profit_margin_percent': profit_margin_percent,
-        'gross_margin_percent': gross_margin_percent
+        'gross_margin_percent': gross_margin_percent,
+        'store_balance_sheet': store_balance_sheet,
+        'balance_sheet': store_balance_sheet
     }
 
 # ==================== موتور هوش مصنوعی و تحلیل هوشمند ====================

@@ -2760,30 +2760,27 @@ def admin_dashboard():
         Invoice.status == 'final'
     ).all()
     
-    shop1_total = 0
-    shop2_total = 0
-    total_sales_all = 0
-    estimated_gross_profit = 0
-    
-    for inv in month_invoices:
-        valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
-        settled_amt = (inv.paid_amount or 0) + valid_cheques
-        profit_amt = inv.real_profit or 0
-        
-        if inv.invoice_type == 'sale':
-            total_sales_all += settled_amt
-            estimated_gross_profit += profit_amt
-            if inv.shop_id == 2:
-                shop2_total += settled_amt
-            else:
-                shop1_total += settled_amt
-        elif inv.invoice_type == 'return':
-            total_sales_all -= settled_amt
-            estimated_gross_profit -= profit_amt
-            if inv.shop_id == 2:
-                shop2_total -= settled_amt
-            else:
-                shop1_total -= settled_amt
+    # ۱. محاسبه جامع فروش کل تعهدی فاکتورها، فروش شعب، بهای تمام‌شده و سود ناخالص واقعی
+    gross_sales = sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    returns_amount = sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    net_sales = max(0, gross_sales - returns_amount)
+    total_sales_all = net_sales
+
+    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    total_cogs = max(0, cogs_sales - cogs_returns)
+
+    gross_profit = net_sales - total_cogs
+    estimated_gross_profit = gross_profit
+
+    # فروش کل و سود ناخالص به تفکیک شعب ۱ و ۲ (کاملاً همگام و منطبق با تراز رسمی کل)
+    shop1_sales = sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return' and inv.status == 'final')
+    shop2_sales = sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return' and inv.status == 'final')
+    shop1_total = max(0, shop1_sales)
+    shop2_total = max(0, shop2_sales)
+
+    shop1_profit = sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return' and inv.status == 'final')
+    shop2_profit = sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return' and inv.status == 'final')
 
     # ۲. محاسبه آمار عملکرد و پورسانت پرسنل فروشنده متعلق به این فروشگاه
     sellers = User.query.filter(User.tenant_id == tenant_id, User.role.in_(['seller', 'cashier']), User.is_active == True).all()
@@ -3077,7 +3074,9 @@ def admin_dashboard():
     total_rent = sum(s.rent_amount or 0 for s in shops)
     
     # ۴. سود خالص نهایی = سود ناخالص - (حقوق و پورسانت + اجاره شعب + سایر هزینه‌ها)
-    store_net_profit = estimated_gross_profit - (total_payroll + total_rent + total_expenses)
+    operating_expenses = total_expenses
+    total_operating_expenses = total_payroll + total_rent + operating_expenses
+    store_net_profit = estimated_gross_profit - total_operating_expenses
     profit_margin_percent = round((store_net_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
     gross_margin_percent = round((estimated_gross_profit / total_sales_all * 100), 1) if total_sales_all > 0 else 0
 
@@ -3149,33 +3148,68 @@ def admin_dashboard():
     brand_chart_sales = [b['sales'] for b in top_brands_list[:8]]
     brand_chart_profits = [b['profit'] for b in top_brands_list[:8]]
 
-    # ۸. ساختار ترازنامه مالی رسمی
-    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
-    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
-    total_cogs = max(0, cogs_sales - cogs_returns)
-    net_invoiced_sales = total_sales_all
-    gross_profit_balanced = net_invoiced_sales - total_cogs
-    operating_expenses = total_expenses
-    store_net_profit_balanced = gross_profit_balanced - (operating_expenses + total_rent + total_payroll)
-    gross_margin_percent_balanced = round((gross_profit_balanced / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
-    profit_margin_percent_balanced = round((store_net_profit_balanced / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
+    # ۸. ساختار ترازنامه مالی رسمی و تطبیق جریان وجوه نقد (Cash Flow Reconciler)
+    paid_pos_total = sum((inv.paid_pos or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.paid_pos or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    paid_card_total = sum((inv.paid_card or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.paid_card or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    paid_cash_total = sum((inv.paid_cash or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.paid_cash or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+
+    def get_inv_cheques(inv):
+        chk_sum = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+        if chk_sum == 0 and (inv.paid_cheque or 0) > 0:
+            return inv.paid_cheque or 0
+        return chk_sum
+
+    cheques_sales = sum(get_inv_cheques(inv) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    cheques_returns = sum(get_inv_cheques(inv) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    cheques_total = max(0, cheques_sales - cheques_returns)
+
+    def get_inv_immediate(inv):
+        parts = (inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)
+        return max(parts, inv.paid_amount or 0)
+
+    imm_sales = sum(get_inv_immediate(inv) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    imm_returns = sum(get_inv_immediate(inv) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    collected_immediate = max(0, imm_sales - imm_returns)
+
+    def get_inv_credit(inv):
+        imm = get_inv_immediate(inv)
+        chk = get_inv_cheques(inv)
+        rem = inv.remaining_balance or 0
+        if rem > 0:
+            return rem
+        return max(0, (inv.total_amount or 0) - (imm + chk))
+
+    credit_sales = sum(get_inv_credit(inv) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    credit_returns = sum(get_inv_credit(inv) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    pending_credit = max(0, credit_sales - credit_returns)
+
+    reconciled_total = collected_immediate + cheques_total + pending_credit
+    reconciliation_diff = net_sales - reconciled_total
 
     store_balance_sheet = {
-        'gross_sales': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final'),
-        'returns_amount': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final'),
-        'net_sales': net_invoiced_sales,
+        'gross_sales': gross_sales,
+        'returns_amount': returns_amount,
+        'net_sales': net_sales,
         'cogs': total_cogs,
-        'gross_profit': gross_profit_balanced,
-        'gross_margin_percent': gross_margin_percent_balanced,
+        'gross_profit': gross_profit,
+        'gross_margin_percent': gross_margin_percent,
         'expenses': operating_expenses,
         'operating_expenses': operating_expenses,
         'rent': total_rent,
         'base_salaries': total_base_salaries,
         'commissions': total_commissions,
         'payroll': total_payroll,
-        'total_operating_expenses': operating_expenses + total_rent + total_payroll,
-        'net_profit': store_net_profit_balanced,
-        'net_margin_percent': profit_margin_percent_balanced
+        'total_operating_expenses': total_operating_expenses,
+        'net_profit': store_net_profit,
+        'net_margin_percent': profit_margin_percent,
+        'collected_immediate': collected_immediate,
+        'paid_pos': max(0, paid_pos_total),
+        'paid_card': max(0, paid_card_total),
+        'paid_cash': max(0, paid_cash_total),
+        'cheques_total': cheques_total,
+        'pending_credit': pending_credit,
+        'reconciled_total': reconciled_total,
+        'reconciliation_diff': reconciliation_diff
     }
 
     daily_comparison_31 = [
@@ -3315,26 +3349,18 @@ def api_admin_bi_analytics():
     known_brand_keys = ['آس', 'اخوان', 'استیل البرز', 'قهرمان', 'فونیکس', 'داتیس', 'بیمکث', 'ایلیا استیل', 'کسری', 'زرشام', 'گاتریا', 'نگین الماس', 'میلان', 'روژن']
 
     for inv in month_invoices:
-        valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
-        immediate_paid = (inv.paid_amount or 0) if (inv.paid_amount or 0) > 0 else ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0))
-        settled_amt = immediate_paid + valid_cheques
+        inv_amt = inv.total_amount or 0
         profit_amt = inv.real_profit or 0
 
         day = getattr(inv, 'shamsi_day', 1) or 1
         d_idx = min(max(day - 1, 0), days_in_month - 1)
 
         if inv.invoice_type == 'sale':
-            total_sales_all += settled_amt
-            estimated_gross_profit += profit_amt
             if inv.shop_id == 2:
-                shop2_total += settled_amt
-                shop2_profit += profit_amt
-                b2_daily_sales[d_idx] += settled_amt
+                b2_daily_sales[d_idx] += inv_amt
                 b2_daily_profit[d_idx] += profit_amt
             else:
-                shop1_total += settled_amt
-                shop1_profit += profit_amt
-                b1_daily_sales[d_idx] += settled_amt
+                b1_daily_sales[d_idx] += inv_amt
                 b1_daily_profit[d_idx] += profit_amt
 
             for it in inv.items:
@@ -3356,18 +3382,29 @@ def api_admin_bi_analytics():
                 brand_dict[br]['qty'] += (it.quantity or 1)
 
         elif inv.invoice_type == 'return':
-            total_sales_all -= settled_amt
-            estimated_gross_profit -= profit_amt
             if inv.shop_id == 2:
-                shop2_total -= settled_amt
-                shop2_profit -= profit_amt
-                b2_daily_sales[d_idx] -= settled_amt
+                b2_daily_sales[d_idx] -= inv_amt
                 b2_daily_profit[d_idx] -= profit_amt
             else:
-                shop1_total -= settled_amt
-                shop1_profit -= profit_amt
-                b1_daily_sales[d_idx] -= settled_amt
+                b1_daily_sales[d_idx] -= inv_amt
                 b1_daily_profit[d_idx] -= profit_amt
+
+    # ۱. فروش کل تعهدی، بهای تمام‌شده و سود ناخالص واقعی
+    gross_sales = sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    returns_amount = sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    net_sales = max(0, gross_sales - returns_amount)
+    total_sales_all = net_sales
+
+    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    total_cogs = max(0, cogs_sales - cogs_returns)
+    gross_profit = net_sales - total_cogs
+    estimated_gross_profit = gross_profit
+
+    shop1_total = sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return' and inv.status == 'final')
+    shop2_total = sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return' and inv.status == 'final')
+    shop1_profit = sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return' and inv.status == 'final')
+    shop2_profit = sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.real_profit or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return' and inv.status == 'final')
 
     top_brands = sorted(brand_dict.values(), key=lambda x: x['sales'], reverse=True)
     for b in top_brands:
@@ -3385,7 +3422,7 @@ def api_admin_bi_analytics():
     sellers_scorecards = []
     for s in sellers:
         s_stats = calculate_seller_exact_stats(s.id, selected_year, selected_month, s.commission_rate, settings, user=s)
-        total_commissions += s_stats['settled_commission'] + s_stats.get('tier_bonus_amount', 0)
+        total_commissions += s_stats['settled_commission']
         sellers_scorecards.append({
             'seller_id': s.id,
             'name': s.full_name,
@@ -3394,20 +3431,54 @@ def api_admin_bi_analytics():
         })
 
     total_payroll = total_base_salaries + total_commissions
-    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
-    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
-    total_cogs = max(0, cogs_sales - cogs_returns)
-    net_invoiced_sales = total_sales_all
-    gross_profit = net_invoiced_sales - total_cogs
     operating_expenses = total_expenses
-    net_profit = gross_profit - (operating_expenses + total_rent + total_payroll)
-    gross_margin_percent = round((gross_profit / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
-    net_margin_percent = round((net_profit / net_invoiced_sales * 100), 1) if net_invoiced_sales > 0 else 0
+    total_operating_expenses = operating_expenses + total_rent + total_payroll
+    net_profit = gross_profit - total_operating_expenses
+    gross_margin_percent = round((gross_profit / net_sales * 100), 1) if net_sales > 0 else 0
+    net_margin_percent = round((net_profit / net_sales * 100), 1) if net_sales > 0 else 0
+
+    # گردش وجوه نقد و وصولی‌ها (Cash Flow Reconciler)
+    paid_pos_total = sum((inv.paid_pos or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.paid_pos or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    paid_card_total = sum((inv.paid_card or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.paid_card or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    paid_cash_total = sum((inv.paid_cash or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final') - sum((inv.paid_cash or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+
+    def get_inv_cheques(inv):
+        chk_sum = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+        if chk_sum == 0 and (inv.paid_cheque or 0) > 0:
+            return inv.paid_cheque or 0
+        return chk_sum
+
+    cheques_sales = sum(get_inv_cheques(inv) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    cheques_returns = sum(get_inv_cheques(inv) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    cheques_total = max(0, cheques_sales - cheques_returns)
+
+    def get_inv_immediate(inv):
+        parts = (inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)
+        return max(parts, inv.paid_amount or 0)
+
+    imm_sales = sum(get_inv_immediate(inv) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    imm_returns = sum(get_inv_immediate(inv) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    collected_immediate = max(0, imm_sales - imm_returns)
+
+    def get_inv_credit(inv):
+        imm = get_inv_immediate(inv)
+        chk = get_inv_cheques(inv)
+        rem = inv.remaining_balance or 0
+        if rem > 0:
+            return rem
+        return max(0, (inv.total_amount or 0) - (imm + chk))
+
+    credit_sales = sum(get_inv_credit(inv) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final')
+    credit_returns = sum(get_inv_credit(inv) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final')
+    pending_credit = max(0, credit_sales - credit_returns)
+
+    reconciled_total = collected_immediate + cheques_total + pending_credit
+    reconciliation_diff = net_sales - reconciled_total
 
     store_balance_sheet_data = {
-        'gross_sales': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale' and inv.status == 'final'),
-        'returns_amount': sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return' and inv.status == 'final'),
-        'net_sales': net_invoiced_sales,
+        'gross_sales': gross_sales,
+        'returns_amount': returns_amount,
+        'net_sales': net_sales,
         'cogs': total_cogs,
         'gross_profit': gross_profit,
         'gross_margin_percent': gross_margin_percent,
@@ -3417,9 +3488,17 @@ def api_admin_bi_analytics():
         'payroll': total_payroll,
         'base_salaries': total_base_salaries,
         'commissions': total_commissions,
-        'total_operating_expenses': operating_expenses + total_rent + total_payroll,
+        'total_operating_expenses': total_operating_expenses,
         'net_profit': net_profit,
-        'net_margin_percent': net_margin_percent
+        'net_margin_percent': net_margin_percent,
+        'collected_immediate': collected_immediate,
+        'paid_pos': max(0, paid_pos_total),
+        'paid_card': max(0, paid_card_total),
+        'paid_cash': max(0, paid_cash_total),
+        'cheques_total': cheques_total,
+        'pending_credit': pending_credit,
+        'reconciled_total': reconciled_total,
+        'reconciliation_diff': reconciliation_diff
     }
 
     branch_comparison_list = []
@@ -4848,10 +4927,10 @@ def payroll_view():
         advances = sum(e.amount for e in adv_expenses)
         
         base_sal = u.base_salary or 0
-        final_payable = base_sal + stats['settled_commission'] + stats['tier_bonus_amount'] - advances
+        final_payable = base_sal + stats['settled_commission'] - advances
         
         total_payroll_payable += final_payable
-        total_commissions_settled += stats['settled_commission']
+        total_commissions_settled += stats['base_commission']
         total_tier_bonuses += stats['tier_bonus_amount']
 
         payroll_items.append({
@@ -7004,7 +7083,7 @@ def export_payroll_excel():
         advances = sum(e.amount for e in all_adv_expenses if u.full_name in (e.title or ''))
 
         base_sal = u.base_salary or 0
-        final_payable = base_sal + stats['settled_commission'] + stats['tier_bonus_amount'] - advances
+        final_payable = base_sal + stats['settled_commission'] - advances
 
         role_fa = 'خدمات و تحویل بار' if u.role in ['logistics', 'services'] else ('ادمین انبار' if u.can_manage_inventory else 'فروشنده')
 
@@ -7018,7 +7097,7 @@ def export_payroll_excel():
             base_sal,
             stats['net_sales'] if u.role not in ['logistics', 'services'] else 0,
             f"{stats['effective_rate']}%" if u.role not in ['logistics', 'services'] else '-',
-            stats['settled_commission'] if u.role not in ['logistics', 'services'] else 0,
+            stats['base_commission'] if u.role not in ['logistics', 'services'] else 0,
             stats['tier_bonus_amount'] if u.role not in ['logistics', 'services'] else 0,
             advances,
             final_payable

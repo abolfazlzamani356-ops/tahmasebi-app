@@ -276,3 +276,144 @@ def test_multi_branch_full_reconciliation_cycle(admin_client, clean_db):
         clean_db.delete(inv2)
         clean_db.delete(inv_ret)
         clean_db.commit()
+
+
+@pytest.mark.unit
+def test_calculate_store_financial_summary_with_returns_and_reconciler_zero_diff(app_ctx, clean_db):
+    """
+    Verify calculate_store_financial_summary in helpers.py handles returns without leakage:
+    1. Returns are deducted from immediate collections / reconciler components
+    2. reconciled_total == net_sales
+    3. reconciliation_diff == 0
+    4. cogs, gross_profit, and net_profit invariants hold exact to 1 Rial
+    """
+    now_j = jdatetime.datetime.now()
+    now_str = now_j.strftime("%Y/%m/%d %H:%M:%S")
+    uid = uuid.uuid4().hex[:6]
+
+    seller = User.query.filter_by(role='seller').first()
+    if not seller:
+        seller = User(username=f'seller_{uid}', full_name='فروشنده تست', role='seller', shop_id=1, commission_rate=1.0)
+        clean_db.add(seller)
+        clean_db.commit()
+
+    inv_s = Invoice(
+        invoice_number=f"INV-FS-SALE-{uid}",
+        customer_name="مشتری تست تراز",
+        seller_id=seller.id,
+        shop_id=1,
+        total_amount=100000000,
+        paid_pos=40000000,
+        paid_card=20000000,
+        paid_cash=10000000,
+        paid_cheque=15000000,
+        paid_amount=70000000,
+        remaining_balance=15000000,
+        actual_buy_cost=60000000,
+        real_profit=40000000,
+        invoice_type='sale',
+        status='final',
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_day=now_j.day,
+        shamsi_date_time=now_str
+    )
+    clean_db.add(inv_s)
+
+    inv_r = Invoice(
+        invoice_number=f"INV-FS-RET-{uid}",
+        customer_name="مشتری تست مرجوعی",
+        seller_id=seller.id,
+        shop_id=1,
+        total_amount=20000000,
+        paid_pos=15000000,
+        paid_cash=5000000,
+        paid_amount=20000000,
+        remaining_balance=0,
+        actual_buy_cost=12000000,
+        real_profit=8000000,
+        invoice_type='return',
+        status='final',
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_day=now_j.day,
+        shamsi_date_time=now_str
+    )
+    clean_db.add(inv_r)
+    clean_db.commit()
+
+    try:
+        summary = calculate_store_financial_summary(now_j.year, now_j.month)
+        bs = summary['store_balance_sheet']
+
+        # Sales & returns math
+        assert bs['gross_sales'] >= 100000000
+        assert bs['returns_amount'] >= 20000000
+        assert bs['net_sales'] == bs['gross_sales'] - bs['returns_amount']
+
+        # COGS & Profit math
+        assert bs['gross_profit'] == bs['net_sales'] - bs['cogs']
+        assert bs['net_profit'] == bs['gross_profit'] - bs['total_operating_expenses']
+
+        # Cash Flow Reconciler Zero Leakage Invariant
+        assert bs['reconciled_total'] == bs['net_sales']
+        assert bs['reconciled_total'] == bs['collected_immediate'] + bs['cheques_total'] + bs['pending_credit']
+        assert bs['reconciliation_diff'] == 0
+    finally:
+        clean_db.delete(inv_s)
+        clean_db.delete(inv_r)
+        clean_db.commit()
+
+
+@pytest.mark.unit
+def test_seller_stats_standalone_cheque_fallback_and_pending_sales(app_ctx, clean_db):
+    """
+    Verify calculate_seller_exact_stats handles standalone paid_cheque (no Cheque rows)
+    and reports pending_sales accurately.
+    """
+    now_j = jdatetime.datetime.now()
+    now_str = now_j.strftime("%Y/%m/%d %H:%M:%S")
+    uid = uuid.uuid4().hex[:6]
+
+    seller = User.query.filter_by(role='seller').first()
+    if not seller:
+        seller = User(username=f'seller_chk_{uid}', full_name='فروشنده چک', role='seller', shop_id=1, commission_rate=2.0)
+        clean_db.add(seller)
+        clean_db.commit()
+
+    settings = Settings.query.first() or Settings()
+
+    inv = Invoice(
+        invoice_number=f"INV-SELLER-CHK-{uid}",
+        customer_name="مشتری چک صیادی",
+        seller_id=seller.id,
+        shop_id=1,
+        total_amount=30000000,
+        paid_pos=0,
+        paid_card=0,
+        paid_cash=0,
+        paid_cheque=20000000,
+        paid_amount=0,
+        remaining_balance=10000000,
+        actual_buy_cost=18000000,
+        real_profit=12000000,
+        invoice_type='sale',
+        status='final',
+        shamsi_year=now_j.year,
+        shamsi_month=now_j.month,
+        shamsi_day=now_j.day,
+        shamsi_date_time=now_str
+    )
+    clean_db.add(inv)
+    clean_db.commit()
+
+    try:
+        stats = calculate_seller_exact_stats(seller.id, now_j.year, now_j.month, seller.commission_rate, settings, user=seller)
+        assert stats['pending_sales'] >= 10000000
+        # Standalone cheque must be included in net_sales
+        assert stats['net_sales'] >= 20000000
+        assert stats['settled_commission'] >= int(20000000 * stats['effective_rate'] / 100)
+    finally:
+        clean_db.delete(inv)
+        clean_db.commit()
+

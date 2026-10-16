@@ -345,6 +345,8 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
             # به درخواست مدیریت: کلیه چک‌های ثبت‌شده (وصول‌شده و در انتظار) در فروش قطعی و پورسانت ماه جاری لحاظ می‌شوند
             # تنها چک‌هایی که وضعیت «برگشت خورده (bounced)» دارند کسر/لحاظ نمی‌شوند
             valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+            if valid_cheques == 0 and (inv.paid_cheque or 0) > 0:
+                valid_cheques = inv.paid_cheque or 0
             # مانده تسویه‌نشده نسیه یا بیعانه (بدون چک)
             remaining = inv.remaining_balance or 0
             # پرداخت فوری: نقد + کارتخوان + کارت‌به‌کارت
@@ -369,6 +371,8 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         elif inv.invoice_type == 'return':
             # برای مرجوعی هم مبلغ واقعی برگشتی ملاک است
             valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+            if valid_cheques == 0 and (inv.paid_cheque or 0) > 0:
+                valid_cheques = inv.paid_cheque or 0
             immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
             settled_amount = immediate_paid + valid_cheques
             effective_return = abs(settled_amount if settled_amount > 0 else (inv.total_amount or 0))
@@ -417,6 +421,8 @@ def calculate_seller_exact_stats(user_id, year, month, base_commission_rate, set
         'gross_sales': gross_sales,
         'returns_amount': returns_amount,
         'net_sales': net_sales,
+        'pending_sales': pending_commission_sales,
+        'pending_commission_sales': pending_commission_sales,
         'total_cost': total_cost,
         'real_profit_share': real_profit_share,
         'sales_count': sales_count,
@@ -527,61 +533,67 @@ def calculate_store_financial_summary(year, month, settings=None):
         Invoice.status == 'final'
     ).all()
 
-    shop1_total = 0
-    shop2_total = 0
-    gross_sales = 0
-    returns_amount = 0
-    total_sales_all = 0
-    estimated_gross_profit = 0
-    total_actual_cost = 0
-    total_discounts = 0
+    gross_sales = sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale')
+    returns_amount = sum((inv.total_amount or 0) for inv in month_invoices if inv.invoice_type == 'return')
+    net_sales = max(0, gross_sales - returns_amount)
+    total_sales_all = net_sales
 
-    paid_pos = 0
-    paid_card = 0
-    paid_cash = 0
-    paid_cheque = 0
-    remaining_balance = 0
+    cogs_sales = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'sale')
+    cogs_returns = sum((inv.actual_buy_cost or 0) for inv in month_invoices if inv.invoice_type == 'return')
+    total_actual_cost = max(0, cogs_sales - cogs_returns)
 
-    sales_count = 0
-    returns_count = 0
+    gross_profit = net_sales - total_actual_cost
+    estimated_gross_profit = gross_profit
 
-    for inv in month_invoices:
-        valid_cheques = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
-        immediate_paid = max((inv.paid_amount or 0), ((inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)))
-        settled_amt = immediate_paid + valid_cheques
-        profit_amt = inv.real_profit or 0
-        cost_amt = inv.actual_buy_cost or 0
+    # گردش وجوه نقد و وصولی‌ها (Cash Flow Reconciler)
+    paid_pos_total = sum((inv.paid_pos or 0) for inv in month_invoices if inv.invoice_type == 'sale') - sum((inv.paid_pos or 0) for inv in month_invoices if inv.invoice_type == 'return')
+    paid_card_total = sum((inv.paid_card or 0) for inv in month_invoices if inv.invoice_type == 'sale') - sum((inv.paid_card or 0) for inv in month_invoices if inv.invoice_type == 'return')
+    paid_cash_total = sum((inv.paid_cash or 0) for inv in month_invoices if inv.invoice_type == 'sale') - sum((inv.paid_cash or 0) for inv in month_invoices if inv.invoice_type == 'return')
 
-        if inv.invoice_type == 'sale':
-            gross_sales += (inv.total_amount or 0)
-            sales_count += 1
-            total_discounts += (inv.discount_amount or 0)
-            total_sales_all += settled_amt
-            estimated_gross_profit += profit_amt
-            total_actual_cost += cost_amt
-            paid_pos += (inv.paid_pos or 0)
-            paid_card += (inv.paid_card or 0)
-            paid_cash += (inv.paid_cash or 0)
-            paid_cheque += (inv.paid_cheque or 0)
-            remaining_balance += (inv.remaining_balance or 0)
-            if inv.shop_id == 2:
-                shop2_total += settled_amt
-            else:
-                shop1_total += settled_amt
-        elif inv.invoice_type == 'return':
-            effective_return = abs(settled_amt if settled_amt > 0 else (inv.total_amount or 0))
-            returns_amount += abs(inv.total_amount or effective_return)
-            returns_count += 1
-            total_sales_all -= effective_return
-            estimated_gross_profit -= profit_amt
-            total_actual_cost -= cost_amt
-            if inv.shop_id == 2:
-                shop2_total -= effective_return
-            else:
-                shop1_total -= effective_return
+    def get_inv_cheques(inv):
+        chk_sum = sum(chk.amount for chk in inv.cheques if chk.status in ['passed', 'pending', 'assigned'])
+        if chk_sum == 0 and (inv.paid_cheque or 0) > 0:
+            return inv.paid_cheque or 0
+        return chk_sum
 
-    total_sales_all = max(0, total_sales_all)
-    net_sales = gross_sales - returns_amount
+    cheques_sales = sum(get_inv_cheques(inv) for inv in month_invoices if inv.invoice_type == 'sale')
+    cheques_returns = sum(get_inv_cheques(inv) for inv in month_invoices if inv.invoice_type == 'return')
+    cheques_total = max(0, cheques_sales - cheques_returns)
+
+    def get_inv_immediate(inv):
+        parts = (inv.paid_pos or 0) + (inv.paid_card or 0) + (inv.paid_cash or 0)
+        return max(parts, inv.paid_amount or 0)
+
+    imm_sales = sum(get_inv_immediate(inv) for inv in month_invoices if inv.invoice_type == 'sale')
+    imm_returns = sum(get_inv_immediate(inv) for inv in month_invoices if inv.invoice_type == 'return')
+    collected_immediate = max(0, imm_sales - imm_returns)
+
+    def get_inv_credit(inv):
+        imm = get_inv_immediate(inv)
+        chk = get_inv_cheques(inv)
+        rem = inv.remaining_balance or 0
+        if rem > 0:
+            return rem
+        return max(0, (inv.total_amount or 0) - (imm + chk))
+
+    credit_sales = sum(get_inv_credit(inv) for inv in month_invoices if inv.invoice_type == 'sale')
+    credit_returns = sum(get_inv_credit(inv) for inv in month_invoices if inv.invoice_type == 'return')
+    pending_credit = max(0, credit_sales - credit_returns)
+
+    reconciled_total = collected_immediate + cheques_total + pending_credit
+    reconciliation_diff = net_sales - reconciled_total
+
+    shop1_total = sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale') - sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return')
+    shop2_total = sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale') - sum((inv.total_amount or 0) for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return')
+    total_discounts = sum((inv.discount_amount or 0) for inv in month_invoices if inv.invoice_type == 'sale')
+    sales_count = sum(1 for inv in month_invoices if inv.invoice_type == 'sale')
+    returns_count = sum(1 for inv in month_invoices if inv.invoice_type == 'return')
+
+    paid_pos = max(0, paid_pos_total)
+    paid_card = max(0, paid_card_total)
+    paid_cash = max(0, paid_cash_total)
+    paid_cheque = cheques_total
+    remaining_balance = pending_credit
 
     # محاسبه پورسانت‌ها
     sellers = User.query.filter(User.role.in_(['seller', 'cashier']), User.is_active == True).all()
@@ -611,19 +623,10 @@ def calculate_store_financial_summary(year, month, settings=None):
 
     operating_expenses = total_expenses
     total_operating_expenses = operating_expenses + total_rent + total_payroll
-    gross_profit = net_sales - total_actual_cost
-    estimated_gross_profit = gross_profit
     store_net_profit = gross_profit - total_operating_expenses
 
     profit_margin_percent = round((store_net_profit / net_sales * 100), 1) if net_sales > 0 else 0
     gross_margin_percent = round((gross_profit / net_sales * 100), 1) if net_sales > 0 else 0
-
-    # گردش وجوه نقد و وصولی‌ها (Cash Flow Reconciler)
-    imm_collected = paid_pos + paid_card + paid_cash
-    cheques_collected = paid_cheque
-    pending_credit = remaining_balance
-    reconciled_total = imm_collected + cheques_collected + pending_credit
-    reconciliation_diff = net_sales - reconciled_total
 
     store_balance_sheet = {
         'gross_sales': gross_sales,
@@ -641,11 +644,11 @@ def calculate_store_financial_summary(year, month, settings=None):
         'total_operating_expenses': total_operating_expenses,
         'net_profit': store_net_profit,
         'net_margin_percent': profit_margin_percent,
-        'collected_immediate': imm_collected,
+        'collected_immediate': collected_immediate,
         'paid_pos': paid_pos,
         'paid_card': paid_card,
         'paid_cash': paid_cash,
-        'cheques_total': cheques_collected,
+        'cheques_total': cheques_total,
         'pending_credit': pending_credit,
         'reconciled_total': reconciled_total,
         'reconciliation_diff': reconciliation_diff

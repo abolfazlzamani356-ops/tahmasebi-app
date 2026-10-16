@@ -3108,9 +3108,6 @@ def admin_dashboard():
                 b1_daily_sales[d_idx] -= amt
                 b1_daily_profit[d_idx] -= prf
 
-    # سود ناخالص شعب ۱ و ۲
-    shop1_profit = sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'sale') - sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id != 2 and inv.invoice_type == 'return')
-    shop2_profit = sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'sale') - sum(inv.real_profit or 0 for inv in month_invoices if inv.shop_id == 2 and inv.invoice_type == 'return')
 
     # ۷. تحلیل سودآوری و فروش برندها
     catalog_brands_map = {c.name.strip(): (c.brand or '').strip() for c in ProductCatalog.query.all() if c.brand}

@@ -62,8 +62,8 @@
         </div>
         <h3 class="text-xl font-black text-indigo-400 mt-2">{{ "{:,}".format(stats.net_sales) }} <span class="text-xs font-normal text-slate-400">تومان</span></h3>
         <span class="text-[10px] text-indigo-300 font-bold">
-            {% if stats.gross_sales > stats.net_sales %}
-            ⏳ {{ "{:,}".format(stats.gross_sales - stats.net_sales) }} ت در انتظار تسویه
+            {% if stats.pending_sales and stats.pending_sales > 0 %}
+            ⏳ {{ "{:,}".format(stats.pending_sales) }} ت در انتظار تسویه مانده نسیه
             {% else %}
             ✅ ۱۰۰٪ تسویه کامل
             {% endif %}

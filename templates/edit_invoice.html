@@ -56,8 +56,23 @@
             </select>
         </div>
 
-        <!-- اطلاعات مشتری -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <!-- شماره فاکتور و اطلاعات مشتری -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">شماره فاکتور / سند:</label>
+                <input type="text" name="invoice_number" id="editInvNumInput" required value="{{ invoice.invoice_number }}" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-bold text-left" dir="ltr" oninput="debouncedCheckEditInvoiceNumber()" onblur="checkEditInvoiceNumberCollision()">
+                
+                <!-- هشدار تداخل شماره فاکتور -->
+                <div id="editInvNumCollisionAlert" class="hidden mt-1.5 p-2 bg-rose-50 border border-rose-300 rounded-xl text-[11px] text-rose-800 leading-snug">
+                    <div class="flex items-start gap-1.5">
+                        <span class="text-sm">⚠️</span>
+                        <div>
+                            <span class="font-bold text-rose-900">شماره تکراری است!</span>
+                            <div id="editInvNumCollisionDetail" class="text-[10px] text-rose-700 font-medium mt-0.5"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">نام و نام خانوادگی خریدار:</label>
                 <input type="text" name="customer_name" required value="{{ invoice.customer_name }}" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium">
@@ -1283,6 +1298,60 @@
                 onManualTotalInput(totalElem);
             }
         }
+    }
+
+    // استعلام و بررسی آنی تکراری بودن شماره فاکتور در صفحه ویرایش
+    let editInvoiceNumberCheckTimer = null;
+    let lastCheckedEditInvoiceNum = '{{ invoice.invoice_number }}';
+
+    function debouncedCheckEditInvoiceNumber() {
+        clearTimeout(editInvoiceNumberCheckTimer);
+        editInvoiceNumberCheckTimer = setTimeout(checkEditInvoiceNumberCollision, 450);
+    }
+
+    async function checkEditInvoiceNumberCollision() {
+        const inp = document.getElementById('editInvNumInput');
+        if (!inp) return;
+        const num = inp.value.trim();
+        const alertBox = document.getElementById('editInvNumCollisionAlert');
+        const detailElem = document.getElementById('editInvNumCollisionDetail');
+
+        if (!num || num === '{{ invoice.invoice_number }}') {
+            dismissEditCollision();
+            return;
+        }
+
+        if (num === lastCheckedEditInvoiceNum) return;
+        lastCheckedEditInvoiceNum = num;
+
+        try {
+            const resp = await fetch(`/api/invoice/check_number?num=${encodeURIComponent(num)}&exclude_id={{ invoice.id }}`);
+            const data = await resp.json();
+
+            if (data.exists) {
+                inp.classList.add('border-rose-500', 'bg-rose-50/50', 'text-rose-900');
+                inp.classList.remove('border-slate-300');
+
+                if (alertBox && detailElem) {
+                    detailElem.innerHTML = `ثبت شده توسط: <strong class="text-rose-900">${data.seller_name}</strong> (${data.shop_name})<br>مشتری: ${data.customer_name || 'نامشخص'} - تاریخ: <span dir="ltr">${data.shamsi_date_time}</span>`;
+                    alertBox.classList.remove('hidden');
+                }
+            } else {
+                dismissEditCollision();
+            }
+        } catch (e) {
+            console.warn('Error checking edit invoice number:', e);
+        }
+    }
+
+    function dismissEditCollision() {
+        const inp = document.getElementById('editInvNumInput');
+        if (inp) {
+            inp.classList.remove('border-rose-500', 'bg-rose-50/50', 'text-rose-900');
+            inp.classList.add('border-slate-300');
+        }
+        const alertBox = document.getElementById('editInvNumCollisionAlert');
+        if (alertBox) alertBox.classList.add('hidden');
     }
 </script>
 

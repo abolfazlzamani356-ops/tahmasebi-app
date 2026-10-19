@@ -258,19 +258,34 @@
                 </button>
             </div>
 
-            <!-- مشخصات خریدار (سریع) و استعلام سوابق و مانده بدهی -->
+            <!-- مشخصات فاکتور و خریدار و استعلام سوابق و مانده بدهی -->
             <div class="p-2.5 bg-[#0e1626] border-b border-white/10 space-y-2 shrink-0">
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
+                <div class="grid grid-cols-12 gap-2">
+                    <div class="col-span-4">
+                        <label class="block text-[10px] font-bold text-slate-400 mb-0.5">شماره فاکتور (اختیاری):</label>
+                        <input type="text" v-model="customInvoiceNumber" @input="onInvoiceNumberInput" placeholder="پیش‌فرض هوشمند" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white font-mono text-left dir-ltr outline-none focus:border-cyan-400" :class="{'border-rose-500 bg-rose-950/30 text-rose-300': invoiceNumberCollision}" dir="ltr">
+                    </div>
+                    <div class="col-span-4">
                         <label class="block text-[10px] font-bold text-slate-400 mb-0.5">نام مشتری:</label>
                         <input type="text" v-model="customer.name" placeholder="مثلاً: حاج رضا حسینی" class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400">
                     </div>
-                    <div>
+                    <div class="col-span-4">
                         <label class="block text-[10px] font-bold text-slate-400 mb-0.5">شماره تماس:</label>
                         <div class="relative">
                             <input type="text" v-model="customer.phone" @input="onCustomerPhoneInput" placeholder="۰۹۱۲..." class="w-full bg-[#162138] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400 font-mono text-left dir-ltr" dir="ltr">
                             <span v-if="isSearchingCustomer" class="absolute right-2 top-2 text-[10px] text-cyan-400 font-bold animate-pulse">در حال استعلام...</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- اعلان هشدار تداخل و ثبت قبلی شماره فاکتور -->
+                <div v-if="invoiceNumberCollision" class="p-2 rounded-xl border border-rose-500/50 bg-rose-950/50 text-rose-200 text-[11px] space-y-0.5">
+                    <div class="flex items-center gap-1.5 font-bold text-rose-300">
+                        <span>⚠️</span>
+                        <span>این شماره فاکتور قبلاً در سیستم ثبت شده است!</span>
+                    </div>
+                    <div class="text-[10px] text-rose-200 font-medium">
+                        ثبت شده توسط: <strong class="text-white">[[ invoiceNumberCollision.seller_name ]]</strong> ([[ invoiceNumberCollision.shop_name ]]) | مشتری: [[ invoiceNumberCollision.customer_name || 'نامشخص' ]]
                     </div>
                 </div>
 
@@ -698,6 +713,10 @@ createApp({
         const isSearchingCustomer = ref(false);
         const customerInfo = ref(null);
 
+        // شماره فاکتور دستی و هشدار تداخل
+        const customInvoiceNumber = ref('');
+        const invoiceNumberCollision = ref(null);
+
         // اطلاعات چک صیادی
         const chequeForm = ref({ sayad: '', bank: '', dueDate: '' });
 
@@ -972,6 +991,30 @@ createApp({
                 } finally {
                     isSearchingCustomer.value = false;
                 }
+        // استعلام و بررسی آنی تکراری بودن شماره فاکتور دستی
+        let invoiceNumCheckTimeout = null;
+        function onInvoiceNumberInput() {
+            const rawNum = customInvoiceNumber.value ? customInvoiceNumber.value.trim() : '';
+            if (!rawNum) {
+                invoiceNumberCollision.value = null;
+                return;
+            }
+            clearTimeout(invoiceNumCheckTimeout);
+            invoiceNumCheckTimeout = setTimeout(async function() {
+                try {
+                    const res = await fetch(`/api/invoice/check_number?num=${encodeURIComponent(rawNum)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.exists) {
+                            invoiceNumberCollision.value = data;
+                            vibrate([40, 60, 40]);
+                        } else {
+                            invoiceNumberCollision.value = null;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Invoice number check error:', e);
+                }
             }, 350);
         }
 
@@ -1127,6 +1170,7 @@ createApp({
                 const payload = {
                     shop_id: activeShopId.value || 1,
                     invoice_type: 'final',
+                    invoice_number: (customInvoiceNumber.value || '').trim(),
                     customer_name: (customer.value.name || '').trim() || 'مشتری محترم',
                     customer_phone: (customer.value.phone || '').trim(),
                     total_amount: grossTotal.value,
@@ -1188,6 +1232,8 @@ createApp({
             payments.value = { pos: 0, card: 0, cash: 0, cheque: 0 };
             customer.value = { name: '', phone: '' };
             customerInfo.value = null;
+            customInvoiceNumber.value = '';
+            invoiceNumberCollision.value = null;
             chequeForm.value = { sayad: '', bank: '', dueDate: '' };
             showPrintModal.value = false;
             playTone('key');

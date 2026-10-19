@@ -1641,9 +1641,22 @@ def add_invoice():
         if invoice_number:
             existing_inv = Invoice.query.filter_by(invoice_number=invoice_number).first()
             if existing_inv:
+                seller_name = existing_inv.seller.full_name if existing_inv.seller else 'نامشخص'
+                shop_name = existing_inv.shop.name if existing_inv.shop else f'شعبه {existing_inv.shop_id}'
+                err_msg = f'شماره فاکتور «{invoice_number}» قبلاً توسط {seller_name} در {shop_name} (تاریخ {existing_inv.shamsi_date_time}) ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.'
                 if is_json:
-                    return jsonify({'success': False, 'error': f'شماره فاکتور «{invoice_number}» قبلاً در سامانه ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.'}), 400
-                flash(f'شماره فاکتور «{invoice_number}» قبلاً در سامانه ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.', 'warning')
+                    return jsonify({
+                        'success': False,
+                        'error': err_msg,
+                        'collision': {
+                            'invoice_id': existing_inv.id,
+                            'invoice_number': existing_inv.invoice_number,
+                            'seller_name': seller_name,
+                            'shop_name': shop_name,
+                            'shamsi_date_time': existing_inv.shamsi_date_time
+                        }
+                    }), 400
+                flash(err_msg, 'warning')
                 return redirect(request.referrer or url_for('seller_dashboard'))
         else:
             base_inv = f"INV-{now_j.year}{now_j.month:02d}{now_j.day:02d}"
@@ -2249,6 +2262,45 @@ def settle_deposit(invoice_id):
         return redirect(request.referrer or url_for('admin_dashboard'))
     return redirect(request.referrer or url_for('seller_dashboard'))
 
+# ==================== استعلام وضعیت و بررسی تکراری بودن شماره فاکتور ====================
+@app.route('/api/invoice/check_number', methods=['GET'])
+def api_check_invoice_number():
+    """استعلام آنی شماره فاکتور جهت جلوگیری از تداخل و شناسایی دقیق ثبت‌کننده"""
+    if 'user_id' not in session:
+        return jsonify({'exists': False, 'error': 'unauthorized'}), 401
+    
+    num = (request.args.get('num') or request.args.get('invoice_number') or '').strip()
+    exclude_id = safe_int(request.args.get('exclude_id'), None)
+
+    if not num:
+        return jsonify({'exists': False})
+
+    query = Invoice.query.filter_by(invoice_number=num)
+    if exclude_id:
+        query = query.filter(Invoice.id != exclude_id)
+    
+    existing_inv = query.first()
+    if not existing_inv:
+        return jsonify({'exists': False})
+
+    seller_name = existing_inv.seller.full_name if existing_inv.seller else 'نامشخص'
+    shop_name = existing_inv.shop.name if existing_inv.shop else f'شعبه {existing_inv.shop_id}'
+
+    return jsonify({
+        'exists': True,
+        'invoice_id': existing_inv.id,
+        'invoice_number': existing_inv.invoice_number,
+        'seller_id': existing_inv.seller_id,
+        'seller_name': seller_name,
+        'shop_id': existing_inv.shop_id,
+        'shop_name': shop_name,
+        'customer_name': existing_inv.customer_name,
+        'total_amount': existing_inv.total_amount,
+        'shamsi_date_time': existing_inv.shamsi_date_time,
+        'status': existing_inv.status,
+        'invoice_type': existing_inv.invoice_type
+    })
+
 # ==================== ویرایش فاکتور توسط فروشنده و ادمین ====================
 @app.route('/invoice/edit/<int:invoice_id>', methods=['GET', 'POST'])
 def edit_invoice(invoice_id):
@@ -2283,6 +2335,19 @@ def edit_invoice(invoice_id):
         
     # POST: ذخیره تغییرات
     try:
+        old_inv_number = inv.invoice_number
+        new_inv_number = request.form.get('invoice_number', '').strip()
+
+        # بررسی و اعتبارسنجی شماره فاکتور جدید در صورت تغییر یا ارسال
+        if new_inv_number and new_inv_number != old_inv_number:
+            collision_inv = Invoice.query.filter(Invoice.invoice_number == new_inv_number, Invoice.id != inv.id).first()
+            if collision_inv:
+                seller_name = collision_inv.seller.full_name if collision_inv.seller else 'نامشخص'
+                shop_name = collision_inv.shop.name if collision_inv.shop else f'شعبه {collision_inv.shop_id}'
+                flash(f'شماره فاکتور «{new_inv_number}» قبلاً توسط {seller_name} در {shop_name} (تاریخ {collision_inv.shamsi_date_time}) ثبت شده است! لطفاً شماره دیگری انتخاب فرمایید.', 'warning')
+                return redirect(request.referrer or url_for('edit_invoice', invoice_id=inv.id))
+            inv.invoice_number = new_inv_number
+
         old_total = inv.total_amount
         old_remaining = inv.remaining_balance
         old_status = inv.status
@@ -2664,10 +2729,14 @@ def edit_invoice(invoice_id):
             except Exception:
                 pass
 
+        # در صورتی که شماره فاکتور تغییر کرده است، reference_id لاگ‌های انبار مربوطه را همگام کن
+        if new_inv_number and new_inv_number != old_inv_number:
+            StockLog.query.filter_by(reference_id=old_inv_number).update({'reference_id': new_inv_number})
+
         db.session.commit()
 
         log_activity(
-            f"ویرایش فاکتور {inv.invoice_number} توسط {session.get('full_name')} (مبلغ قدیم: {old_total:,} ت | جدید: {total_amount:,} ت)",
+            f"ویرایش فاکتور {inv.invoice_number} (قبلی: {old_inv_number}) توسط {session.get('full_name')} (مبلغ قدیم: {old_total:,} ت | جدید: {total_amount:,} ت)",
             session.get('full_name'),
             "فروش / امنیت"
         )

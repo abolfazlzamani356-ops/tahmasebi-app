@@ -44,6 +44,27 @@
     </div>
 </div>
 
+<!-- اعلان هوشمند سربرگ: هشدار تکراری بودن شماره فاکتور و نمایش همکار ثبت‌کننده -->
+<div id="invoiceCollisionTopBanner" class="hidden glass-card p-4 mb-6 border-r-4 border-r-rose-500 bg-gradient-to-r from-rose-950/60 via-slate-900 to-amber-950/40 animate-pulse">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">⚠️</span>
+            <div>
+                <h4 class="text-xs font-black text-rose-300 flex items-center gap-2">
+                    <span>هشدار تداخل شماره فاکتور:</span>
+                    <span id="collisionBannerInvNum" class="font-mono bg-rose-500/20 text-white px-2 py-0.5 rounded-lg border border-rose-500/40 text-xs"></span>
+                </h4>
+                <p id="collisionBannerDetail" class="text-xs text-slate-200 mt-1 font-medium"></p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 self-end sm:self-center">
+            <button type="button" onclick="dismissCollisionBanner()" class="text-slate-400 hover:text-white text-xs bg-white/5 hover:bg-white/10 px-2.5 py-1.5 rounded-xl border border-white/10 transition">
+                ✕ بستن اعلان
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Stat Cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mb-6">
     <div class="glass-card p-4 border-r-4 border-r-emerald-500">
@@ -257,12 +278,23 @@
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-xs font-bold text-slate-600">شماره فاکتور / سند:</label>
                         {% if next_inv_suggestion %}
-                        <button type="button" onclick="document.getElementById('invNumInput').value='{{ next_inv_suggestion }}'" class="text-[10px] text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded font-bold transition" title="کلیک برای درج شماره پیشنهادی بعدی">
+                        <button type="button" onclick="document.getElementById('invNumInput').value='{{ next_inv_suggestion }}'; checkInvoiceNumberCollision();" class="text-[10px] text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded font-bold transition" title="کلیک برای درج شماره پیشنهادی بعدی">
                             🎲 شماره بعدی: {{ next_inv_suggestion }}
                         </button>
                         {% endif %}
                     </div>
-                    <input type="text" name="invoice_number" id="invNumInput" value="{{ next_inv_suggestion or '' }}" required placeholder="مثلاً: 1205" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 text-xs font-bold text-left" dir="ltr">
+                    <input type="text" name="invoice_number" id="invNumInput" value="{{ next_inv_suggestion or '' }}" required placeholder="مثلاً: 1205" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 text-xs font-bold text-left transition" dir="ltr" oninput="debouncedCheckInvoiceNumber()" onblur="checkInvoiceNumberCollision()">
+                    
+                    <!-- هشدار کنار فیلد برای تکراری بودن شماره فاکتور -->
+                    <div id="invNumCollisionInlineAlert" class="hidden mt-1.5 p-2 bg-rose-50 border border-rose-300 rounded-xl text-[11px] text-rose-800 leading-snug">
+                        <div class="flex items-start gap-1.5">
+                            <span class="text-sm">⚠️</span>
+                            <div>
+                                <span class="font-bold text-rose-900">شماره فاکتور تکراری است!</span>
+                                <div id="invNumCollisionInlineDetail" class="text-[10px] text-rose-700 font-medium mt-0.5"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1">نام خریدار:</label>
@@ -2890,6 +2922,76 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
                 }
             })
             .catch(() => {});
+    }
+
+    // استعلام و بررسی آنی تکراری بودن شماره فاکتور و نمایش همکار ثبت‌کننده
+    let invoiceNumberCheckTimer = null;
+    let lastCheckedInvoiceNum = '';
+
+    function debouncedCheckInvoiceNumber() {
+        clearTimeout(invoiceNumberCheckTimer);
+        invoiceNumberCheckTimer = setTimeout(checkInvoiceNumberCollision, 450);
+    }
+
+    async function checkInvoiceNumberCollision() {
+        const inp = document.getElementById('invNumInput');
+        if (!inp) return;
+        const num = inp.value.trim();
+        const topBanner = document.getElementById('invoiceCollisionTopBanner');
+        const topBannerInvNum = document.getElementById('collisionBannerInvNum');
+        const topBannerDetail = document.getElementById('collisionBannerDetail');
+        const inlineAlert = document.getElementById('invNumCollisionInlineAlert');
+        const inlineDetail = document.getElementById('invNumCollisionInlineDetail');
+
+        if (!num) {
+            dismissCollisionBanner();
+            return;
+        }
+
+        if (num === lastCheckedInvoiceNum) return;
+        lastCheckedInvoiceNum = num;
+
+        try {
+            const resp = await fetch(`/api/invoice/check_number?num=${encodeURIComponent(num)}`);
+            const data = await resp.json();
+
+            if (data.exists) {
+                inp.classList.add('border-rose-500', 'bg-rose-50/50', 'text-rose-900');
+                inp.classList.remove('border-slate-300');
+
+                const detailText = `این شماره فاکتور قبلاً توسط همکار گرامی «${data.seller_name}» در ${data.shop_name} ثبت شده است (مشتری: ${data.customer_name || 'نامشخص'} - تاریخ: ${data.shamsi_date_time}). لطفاً شماره فاکتور اختصاصی خود را وارد فرمایید تا مشکلی در ثبت پیش نیاید.`;
+                
+                // نمایش در سربرگ داشبورد
+                if (topBanner) {
+                    if (topBannerInvNum) topBannerInvNum.innerText = num;
+                    if (topBannerDetail) topBannerDetail.innerText = detailText;
+                    topBanner.classList.remove('hidden');
+                    topBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                // نمایش کنار فیلد ورودی
+                if (inlineAlert && inlineDetail) {
+                    inlineDetail.innerHTML = `ثبت شده توسط: <strong class="text-rose-900">${data.seller_name}</strong> (${data.shop_name})<br>تاریخ ثبت: <span dir="ltr">${data.shamsi_date_time}</span>`;
+                    inlineAlert.classList.remove('hidden');
+                }
+            } else {
+                dismissCollisionBanner();
+            }
+        } catch (e) {
+            console.warn('Error checking invoice number:', e);
+        }
+    }
+
+    function dismissCollisionBanner() {
+        const inp = document.getElementById('invNumInput');
+        if (inp) {
+            inp.classList.remove('border-rose-500', 'bg-rose-50/50', 'text-rose-900');
+            inp.classList.add('border-slate-300');
+        }
+        const topBanner = document.getElementById('invoiceCollisionTopBanner');
+        if (topBanner) topBanner.classList.add('hidden');
+        const inlineAlert = document.getElementById('invNumCollisionInlineAlert');
+        if (inlineAlert) inlineAlert.classList.add('hidden');
     }
 
     // پخش صدای بیپ بارکدخوان با Web Audio API

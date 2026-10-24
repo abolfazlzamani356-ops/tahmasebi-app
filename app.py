@@ -563,7 +563,7 @@ def initialize_database():
 
     try:
         from milan_catalog_data import generate_all_milan_items
-        _seed_catalog('میلان (Milan)', generate_all_milan_items, 18.0, 'Milan')
+        _seed_catalog('میلان (Milan)', generate_all_milan_items, 18.0, 'Milan', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Milan import warning: {e}")
 

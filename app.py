@@ -575,7 +575,7 @@ def initialize_database():
 
     try:
         from krd_catalog_data import generate_all_krd_items
-        _seed_catalog('KRD', generate_all_krd_items, 32.0, 'KRD')
+        _seed_catalog('KRD', generate_all_krd_items, 30.0, 'KRD', update_existing=True)
     except Exception as e:
         app.logger.warning(f"KRD import warning: {e}")
 

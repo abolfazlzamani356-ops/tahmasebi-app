@@ -585,6 +585,12 @@ def initialize_database():
     except Exception as e:
         app.logger.warning(f"Rozen import warning: {e}")
 
+    try:
+        from datees_catalog_data import generate_all_datees_items
+        _seed_catalog('داتیس (Datees)', generate_all_datees_items, 18.0, 'Datees', update_existing=True)
+    except Exception as e:
+        app.logger.warning(f"Datees import warning: {e}")
+
 
 
 

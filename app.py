@@ -539,7 +539,7 @@ def initialize_database():
 
     try:
         from akhavan_catalog_data import generate_all_akhavan_items
-        _seed_catalog('اخوان (Akhavan)', generate_all_akhavan_items, 20.0, 'Akhavan')
+        _seed_catalog('اخوان (Akhavan)', generate_all_akhavan_items, 21.0, 'Akhavan', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Akhavan import warning: {e}")
 

@@ -533,7 +533,7 @@ def initialize_database():
 
     try:
         from steel_alborz_catalog_data import generate_all_steel_alborz_items
-        _seed_catalog('استیل البرز (Steel Alborz)', generate_all_steel_alborz_items, 21.0, 'Steel Alborz')
+        _seed_catalog('استیل البرز (Steel Alborz)', generate_all_steel_alborz_items, 21.0, 'Steel Alborz', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Steel Alborz import warning: {e}")
 

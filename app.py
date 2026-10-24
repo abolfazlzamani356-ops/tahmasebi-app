@@ -557,7 +557,7 @@ def initialize_database():
 
     try:
         from ilia_steel_catalog_data import generate_all_ilia_steel_items
-        _seed_catalog('ایلیا استیل (Ilia Steel)', generate_all_ilia_steel_items, 18.0, 'Ilia Steel')
+        _seed_catalog('ایلیا استیل (Ilia Steel)', generate_all_ilia_steel_items, 18.0, 'Ilia Steel', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Ilia Steel import warning: {e}")
 

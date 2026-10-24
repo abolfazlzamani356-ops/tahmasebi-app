@@ -551,7 +551,7 @@ def initialize_database():
 
     try:
         from bimax_catalog_data import generate_all_bimax_items
-        _seed_catalog('بیمکث (Bimax)', generate_all_bimax_items, 18.0, 'Bimax')
+        _seed_catalog('بیمکث (Bimax)', generate_all_bimax_items, 19.0, 'Bimax', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Bimax import warning: {e}")
 

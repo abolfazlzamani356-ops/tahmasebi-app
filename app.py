@@ -569,7 +569,7 @@ def initialize_database():
 
     try:
         from gatria_catalog_data import generate_all_gatria_items
-        _seed_catalog('گاتریا (Gatria)', generate_all_gatria_items, 15.0, 'Gatria')
+        _seed_catalog('گاتریا (Gatria)', generate_all_gatria_items, 15.0, 'Gatria', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Gatria import warning: {e}")
 

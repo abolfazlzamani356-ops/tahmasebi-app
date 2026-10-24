@@ -445,11 +445,42 @@ def initialize_database():
         db.session.rollback()
 
     # ==================== تابع کمکی برای بارگذاری سریع کاتالوگ ====================
-    def _seed_catalog(brand_filter, generate_func, discount, warning_tag, brand_names=None):
-        """بارگذاری سریع با bulk insert - فقط اگر تعداد کمتر از آستانه باشد seed می‌زند"""
+    def _seed_catalog(brand_filter, generate_func, discount, warning_tag, brand_names=None, update_existing=False):
+        """بارگذاری سریع با bulk insert و بروزرسانی قیمت‌های کاتالوگ"""
         try:
             items = generate_func(discount)
             if not items:
+                return
+            target_brands = brand_names if brand_names else ([brand_filter] if brand_filter else [])
+            if update_existing:
+                existing_products = ProductCatalog.query.filter(
+                    ProductCatalog.brand.in_(target_brands)
+                ).all()
+                existing_map = {(p.name, p.brand): p for p in existing_products}
+                new_items = []
+                updated = False
+                for item in items:
+                    key = (item['name'], item['brand'])
+                    if key in existing_map:
+                        p = existing_map[key]
+                        if p.sell_price != item['sell_price'] or p.buy_price != item['buy_price']:
+                            p.sell_price = item['sell_price']
+                            p.buy_price = item['buy_price']
+                            p.category = item['category']
+                            p.description = item['description']
+                            updated = True
+                    else:
+                        new_items.append(item)
+                if new_items:
+                    db.session.bulk_insert_mappings(ProductCatalog, [
+                        dict(name=i['name'], category=i['category'], brand=i['brand'],
+                             buy_price=i['buy_price'], sell_price=i['sell_price'],
+                             description=i['description'])
+                        for i in new_items
+                    ])
+                    updated = True
+                if updated:
+                    db.session.commit()
                 return
             if brand_names:
                 existing_count = ProductCatalog.query.filter(
@@ -494,8 +525,9 @@ def initialize_database():
 
     try:
         from kasra_catalog_data import generate_all_kasra_items
-        _seed_catalog(None, generate_all_kasra_items, 28.0, 'Kasra',
-                      brand_names=['کسرا (Kasra)', 'ایزی‌پایپ (Easy Pipe)'])
+        _seed_catalog(None, generate_all_kasra_items, 20.0, 'Kasra',
+                      brand_names=['کسرا (Kasra)', 'ایزی‌پایپ (Easy Pipe)'],
+                      update_existing=True)
     except Exception as e:
         app.logger.warning(f"Kasra import warning: {e}")
 

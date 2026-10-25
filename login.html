@@ -1,54 +1,343 @@
 {% extends 'base.html' %}
-{% block title %}ورود به سامانه هوشمند طهماسبی{% endblock %}
+{% block title %}ورود به سامانه هوشمند • مجموعه فروشگاه‌های تخصصی طهماسبی{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-center min-h-[75vh] py-8">
-    <div class="w-full max-w-md">
-        <!-- Card -->
-        <div class="glass-card p-8 md:p-10 relative overflow-hidden">
-            <!-- Accent Top Bar -->
-            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-500"></div>
+<style>
+    /* مخفی‌سازی نوار پیش‌فرض و فوتر برای تجربه تمام‌صفحه و غوطه‌ورکننده مدرن */
+    .navbar-luxury, footer {
+        display: none !important;
+    }
+    main.container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
 
-            <!-- Header -->
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-amber-500 text-3xl shadow-lg shadow-indigo-500/25 mb-4">
-                    🏬
-                </div>
-                <h2 class="text-xl md:text-2xl font-black text-white">فروشگاه‌های تخصصی طهماسبی</h2>
-                <p class="text-slate-400 text-xs mt-2 font-medium">ورود ایمن به سامانه جامع فروش، انبارداری و حسابداری</p>
+    /* انیمیشن اورورا و هاله نورانی پس‌زمینه */
+    @keyframes aurora-pulse {
+        0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.45; }
+        50% { transform: scale(1.15) translate(20px, -20px); opacity: 0.7; }
+    }
+    @keyframes aurora-pulse-2 {
+        0%, 100% { transform: scale(1.1) translate(0, 0); opacity: 0.35; }
+        50% { transform: scale(0.9) translate(-30px, 20px); opacity: 0.6; }
+    }
+    @keyframes shimmer-sweep {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+    @keyframes float-badge {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-6px); }
+    }
+
+    .aurora-orb-1 {
+        animation: aurora-pulse 10s ease-in-out infinite;
+    }
+    .aurora-orb-2 {
+        animation: aurora-pulse-2 12s ease-in-out infinite;
+    }
+    .shimmer-btn::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transform: translateX(100%);
+        transition: transform 0.6s ease;
+    }
+    .shimmer-btn:hover::after {
+        animation: shimmer-sweep 1.2s infinite;
+    }
+    .floating-card {
+        animation: float-badge 6s ease-in-out infinite;
+    }
+</style>
+
+<div class="relative min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-10 overflow-hidden bg-[#070a13]">
+
+    <!-- هاله‌های نورانی اورورا (Ambient Aurora Glows) -->
+    <div class="absolute -top-40 -right-40 w-96 sm:w-[550px] h-96 sm:h-[550px] bg-gradient-to-br from-indigo-600/30 via-purple-600/25 to-transparent rounded-full blur-3xl pointer-events-none aurora-orb-1"></div>
+    <div class="absolute -bottom-40 -left-40 w-96 sm:w-[600px] h-96 sm:h-[600px] bg-gradient-to-tr from-cyan-600/25 via-emerald-600/20 to-transparent rounded-full blur-3xl pointer-events-none aurora-orb-2"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-purple-900/10 rounded-full blur-[140px] pointer-events-none"></div>
+
+    <!-- کانتینر اصلی دو ستونه به سبک پلتفرم‌های برتر ۲۰۲۶ -->
+    <div class="relative z-10 w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+
+        <!-- ستون سمت راست (معرفی برند، اعتبار و اکوسیستم فروشگاه‌های طهماسبی) - فقط دسکتاپ و تبلت -->
+        <div class="lg:col-span-7 flex flex-col justify-center space-y-6 lg:pr-4">
+
+            <!-- نشانگر وضعیت زنده سیستم -->
+            <div class="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/80 border border-white/10 backdrop-blur-xl shadow-lg w-fit">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]"></span>
+                <span class="text-xs font-bold text-slate-300">سامانه هوشمند ERP پاییز ۱۴۰۵</span>
+                <span class="text-white/20">|</span>
+                <span class="text-xs font-extrabold text-indigo-400">نسخه ابری اختصاصی طهماسبی</span>
             </div>
 
-            <!-- Login Form -->
-            <form method="POST" class="space-y-5">
-                <div>
-                    <label class="block text-xs font-bold text-slate-300 mb-2">نام کاربری:</label>
-                    <input type="text" name="username" required autofocus
-                           placeholder="مثال: admin یا نام کاربری فروشنده"
-                           class="w-full p-3.5 text-sm font-bold text-left" dir="ltr">
+            <!-- عنوان و هویت بصری لوکس -->
+            <div class="space-y-3">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-600 p-0.5 shadow-xl shadow-indigo-600/30 flex-shrink-0">
+                        <div class="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center text-2xl sm:text-3xl">
+                            🏬
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+                            مجموعه فروشگاه‌های تخصصی <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-indigo-300 to-purple-400">طهماسبی</span>
+                        </h1>
+                        <p class="text-slate-400 text-xs sm:text-sm font-semibold mt-1">
+                            سامانه جامع مدیریت هوشمند فروش، انبارداری بلادرنگ و تراز مالی دقیق
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- کارت‌های شناور قابلیت‌های ویژه سیستم (Feature Grid) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                <!-- کارت ۱: شعب -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-white/10 backdrop-blur-xl hover:border-indigo-500/40 transition duration-300 group shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                            🏪
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-black text-white">مدیریت همزمان شعب ۱ و ۲</h4>
+                            <p class="text-[11px] text-slate-400 mt-0.5">تفکیک دخل، پوزهای فروش و تراز لحظه‌ای</p>
+                        </div>
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-slate-300 mb-2">رمز عبور:</label>
-                    <input type="password" name="password" required
-                           placeholder="••••••••"
-                           class="w-full p-3.5 text-sm font-bold text-left" dir="ltr">
+                <!-- کارت ۲: کاتالوگ -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-white/10 backdrop-blur-xl hover:border-amber-500/40 transition duration-300 group shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                            📋
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-black text-white">+۵,۰۰۰ قلم کاتالوگ مرجع</h4>
+                            <p class="text-[11px] text-slate-400 mt-0.5">لیست پاییز ۱۴۰۵ با درصدهای خرید رسمی</p>
+                        </div>
+                    </div>
                 </div>
 
-                <button type="submit" class="w-full py-3.5 mt-2 rounded-xl text-white font-black text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-                    <span>ورود به حساب کاربری</span>
-                    <span class="text-base">←</span>
-                </button>
-            </form>
+                <!-- کارت ۳: صندوق لمسی POS v2 -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-white/10 backdrop-blur-xl hover:border-cyan-500/40 transition duration-300 group shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                            📱
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-black text-white">صندوق لمسی سریع POS v2</h4>
+                            <p class="text-[11px] text-slate-400 mt-0.5">صدور فاکتور زیر ۳ ثانیه در شلوغی بازار</p>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- Store Onboarding / Multi-Tenant Link -->
-            <div class="mt-6 pt-5 border-t border-white/10 text-center space-y-3">
-                <a href="{{ url_for('register_store') }}" class="block w-full py-2.5 px-4 rounded-xl text-xs font-black text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition shadow-sm flex items-center justify-center gap-2">
-                    <span>✨</span>
-                    <span>فروشگاه جدید دارید؟ افتتاح حساب و تست ۱۴ روزه رایگان</span>
-                </a>
-                <p class="text-[11px] text-slate-500">سامانه جامع ERP و مدیریت زنجیره فروشگاه‌ها • ۲۰۲۶</p>
+                <!-- کارت ۴: پورسانت و ممیزی -->
+                <div class="p-4 rounded-2xl bg-slate-900/60 border border-white/10 backdrop-blur-xl hover:border-emerald-500/40 transition duration-300 group shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                            📈
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-black text-white">پورسانت کلی و ممیزی ۲٪</h4>
+                            <p class="text-[11px] text-slate-400 mt-0.5">محاسبه خودکار و تفکیک عادلانه بین فروشندگان</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- شعار و تضمین سیستم -->
+            <div class="pt-2 hidden lg:flex items-center gap-6 text-xs text-slate-400 font-medium">
+                <span class="flex items-center gap-1.5">
+                    <span class="text-emerald-400 text-sm">✓</span> امنیت داده‌ها و انبارداری بلادرنگ
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <span class="text-emerald-400 text-sm">✓</span> پشتیبان‌گیری خودکار هر ۳۰ دقیقه
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <span class="text-emerald-400 text-sm">✓</span> عملکرد آفلاین PWA
+                </span>
+            </div>
+
+        </div>
+
+        <!-- ستون سمت چپ (کارت لاگین شیشه‌ای مدرن - Glassmorphism Card) -->
+        <div class="lg:col-span-5 w-full max-w-md mx-auto">
+            <div class="relative rounded-3xl p-7 sm:p-9 bg-slate-900/85 backdrop-blur-2xl border border-white/12 shadow-[0_25px_60px_-15px_rgba(79,70,229,0.35)] overflow-hidden">
+
+                <!-- نوار نئونی درخشان بالای کارت -->
+                <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-indigo-500 to-purple-600"></div>
+
+                <!-- سربرگ فرم لاگین -->
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white text-2xl shadow-lg shadow-indigo-500/30 mb-3 border border-white/15">
+                        🔐
+                    </div>
+                    <h2 class="text-xl font-black text-white">ورود به پنل کاربری</h2>
+                    <p class="text-slate-400 text-xs mt-1 font-medium">نام کاربری و رمز عبور خود را وارد نمایید</p>
+                </div>
+
+                <!-- پیام‌های خطا یا هشدار سرور -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="space-y-2 mb-5">
+                        {% for category, message in messages %}
+                            <div class="p-3 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md
+                                {% if category == 'error' %}bg-rose-500/20 border border-rose-500/50 text-rose-200
+                                {% elif category == 'warning' %}bg-amber-500/20 border border-amber-500/50 text-amber-200
+                                {% else %}bg-emerald-500/20 border border-emerald-500/50 text-emerald-200{% endif %}">
+                                <span>{% if category == 'error' %}⚠️{% elif category == 'warning' %}🔔{% else %}✅{% endif %}</span>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <!-- انتخابگر سریع نقش (Quick Role Switcher - جهت راحتی ورود پرسنل) -->
+                <div class="mb-5 pb-4 border-b border-white/10">
+                    <span class="text-[11px] font-bold text-slate-400 block mb-2">انتخاب سریع پرسنل:</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button type="button" onclick="setQuickUser('admin')" class="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 text-[11px] font-black transition flex items-center gap-1">
+                            <span>👑</span> مدیریت کل
+                        </button>
+                        <button type="button" onclick="setQuickUser('naqdi')" class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold transition flex items-center gap-1">
+                            <span>👩‍💼</span> خ. نقدی
+                        </button>
+                        <button type="button" onclick="setQuickUser('amiri')" class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold transition flex items-center gap-1">
+                            <span>👩‍💼</span> خ. امیری
+                        </button>
+                        <button type="button" onclick="setQuickUser('hajilou')" class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold transition flex items-center gap-1">
+                            <span>👩‍💼</span> خ. حاجیلو
+                        </button>
+                        <button type="button" onclick="setQuickUser('bidrigh')" class="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold transition flex items-center gap-1">
+                            <span>👩‍💼</span> خ. بیدریغ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- فرم اصلی لاگین -->
+                <form method="POST" id="loginForm" class="space-y-4">
+
+                    <!-- فیلد نام کاربری -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">نام کاربری:</label>
+                        <div class="relative">
+                            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">👤</span>
+                            <input type="text" id="usernameInput" name="username" required autofocus
+                                   placeholder="مثال: admin یا نام کاربری فروشنده"
+                                   class="w-full pr-10 pl-4 py-3 bg-slate-950/70 border border-white/15 rounded-xl text-white text-xs font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 outline-none transition text-left" dir="ltr">
+                        </div>
+                    </div>
+
+                    <!-- فیلد رمز عبور همراه با دکمه چشم و هشدار CapsLock -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-bold text-slate-300">رمز عبور:</label>
+                            <span id="capsLockWarning" class="hidden text-[10px] font-bold text-amber-400 flex items-center gap-1">
+                                <span>⚠️</span> کلید Caps Lock روشن است
+                            </span>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">🔒</span>
+                            <input type="password" id="passwordInput" name="password" required
+                                   placeholder="••••••••"
+                                   class="w-full pr-10 pl-11 py-3 bg-slate-950/70 border border-white/15 rounded-xl text-white text-xs font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 outline-none transition text-left" dir="ltr">
+                            <button type="button" onclick="togglePasswordVisibility()" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition p-1" title="نمایش / مخفی‌سازی رمز">
+                                <span id="eyeIcon">👁️</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- دکمه ورود باشکوه -->
+                    <button type="submit" id="submitBtn" class="shimmer-btn relative overflow-hidden w-full py-3.5 mt-2 rounded-xl text-white font-black text-sm bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-500 hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 shadow-lg shadow-indigo-600/40 hover:shadow-indigo-600/60 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer">
+                        <span id="btnText">ورود به سامانه</span>
+                        <span id="btnArrow" class="text-base font-bold transition group-hover:translate-x-1">←</span>
+                    </button>
+                </form>
+
+                <!-- بخش‌های جانبی: ثبت فروشگاه جدید و نصب PWA -->
+                <div class="mt-6 pt-5 border-t border-white/10 space-y-3">
+                    <a href="{{ url_for('register_store') }}" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition flex items-center justify-center gap-2 shadow-sm">
+                        <span>✨</span>
+                        <span>فروشگاه جدید دارید؟ افتتاح حساب و تست ۱۴ روزه</span>
+                    </a>
+
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                        <button type="button" onclick="handlePWAInstall()" class="hover:text-indigo-400 transition flex items-center gap-1 font-bold cursor-pointer">
+                            <span>📲</span>
+                            <span>نصب اپلیکیشن (PWA)</span>
+                        </button>
+                        <span class="text-slate-600">|</span>
+                        <span class="text-slate-500 font-mono">Tahmasebi ERP 2026</span>
+                    </div>
+                </div>
+
             </div>
         </div>
+
     </div>
+
 </div>
+
+<script>
+    // انتخاب سریع کاربر در فیلد نام کاربری
+    function setQuickUser(username) {
+        const userInput = document.getElementById('usernameInput');
+        const passInput = document.getElementById('passwordInput');
+        if (userInput) {
+            userInput.value = username;
+            userInput.classList.add('ring-2', 'ring-indigo-500/50');
+            setTimeout(() => userInput.classList.remove('ring-2', 'ring-indigo-500/50'), 800);
+        }
+        if (passInput) {
+            passInput.focus();
+        }
+    }
+
+    // تغییر وضعیت مشاهده رمز عبور
+    function togglePasswordVisibility() {
+        const passInput = document.getElementById('passwordInput');
+        const eyeIcon = document.getElementById('eyeIcon');
+        if (!passInput) return;
+
+        if (passInput.type === 'password') {
+            passInput.type = 'text';
+            if (eyeIcon) eyeIcon.innerText = '🙈';
+        } else {
+            passInput.type = 'password';
+            if (eyeIcon) eyeIcon.innerText = '👁️';
+        }
+    }
+
+    // تشخیص روشن بودن کلید Caps Lock
+    const passInput = document.getElementById('passwordInput');
+    const capsWarning = document.getElementById('capsLockWarning');
+    if (passInput && capsWarning) {
+        passInput.addEventListener('keyup', function(e) {
+            if (e.getModifierState && e.getModifierState('CapsLock')) {
+                capsWarning.classList.remove('hidden');
+            } else {
+                capsWarning.classList.add('hidden');
+            }
+        });
+    }
+
+    // انیمیشن ارسال فرم
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function() {
+            const btn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const btnArrow = document.getElementById('btnArrow');
+            if (btn && btnText) {
+                btnText.innerText = 'در حال اعتبارسنجی...';
+                if (btnArrow) btnArrow.innerText = '⏳';
+                btn.classList.add('opacity-80', 'cursor-wait');
+            }
+        });
+    }
+</script>
 {% endblock %}

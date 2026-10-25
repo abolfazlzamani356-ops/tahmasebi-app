@@ -13,15 +13,21 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-        <!-- دکمه سوئیچ به صندوق لمسی POS v2 -->
+        <!-- غیرفعال موقت به درخواست کاربر: ورود به صندوق لمسی POS v2
         <a href="{{ url_for('pos_v2_view') }}" 
            onclick="setTahmasebiUiMode('pos_v2')" 
            class="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:via-teal-400 hover:to-emerald-400 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-cyan-500/25 border border-cyan-300/30">
             <span>📱</span> ورود به صندوق لمسی POS v2
         </a>
+        -->
         <button type="button" onclick="openDailyShiftModal()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-emerald-500/25">
             <span>📑</span> ثبت گزارش پایان روز و دخل
         </button>
+        <!-- دکمه اختصاصی ثبت هزینه جاری تنخواه مغازه -->
+        <button type="button" onclick="openPettyCashModal()" class="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-rose-500/25 active:scale-95">
+            <span>💸</span> ثبت هزینه تنخواه
+        </button>
+        <!-- غیرفعال موقت به درخواست کاربر: سفارش ساخت کارگاه
         <a href="{{ url_for('workshop_orders_hub') }}" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-orange-500/25">
             <span>🔨</span> سفارش ساخت کارگاه
             {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}
@@ -30,6 +36,7 @@
             </span>
             {% endif %}
         </a>
+        -->
         <a href="#leaderboard" class="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
             <span>🏆</span> سکوی رقابت ماه
         </a>
@@ -143,8 +150,7 @@
     {% endif %}
 </div>
 
-<!-- بنر دسترسی سریع به سفارشات ساخت کارگاهی کابینت، روشویی، آینه و باکس -->
-<!-- بنر دسترسی سریع به صندوق لمسی جدید POS v2 Demo -->
+<!-- غیرفعال موقت به درخواست کاربر: رونمایی از صندوق فروشگاهی لمسی نسل جدید (POS v2 Touch)
 <div class="glass-card p-4 mb-6 border-r-4 border-r-emerald-500 bg-gradient-to-r from-emerald-950/40 via-cyan-950/20 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 text-white flex items-center justify-center text-xl shadow-lg shadow-emerald-500/20 shrink-0">
@@ -164,7 +170,9 @@
         </a>
     </div>
 </div>
+-->
 
+<!-- غیرفعال موقت به درخواست کاربر: سفارشات ساخت کارگاهی (کابینت، روشویی، آینه و باکس سفارشی)
 <div class="glass-card p-4 mb-6 border-r-4 border-r-amber-500 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center text-xl flex-shrink-0">
@@ -189,8 +197,9 @@
         </a>
     </div>
 </div>
+-->
 
-<!-- دستیار صوتی و متنی هوشمند ثبت فاکتور (AI Assistant) -->
+<!-- غیرفعال موقت به درخواست کاربر: دستیار صوتی و متنی هوشمند ثبت فاکتور (AI Assistant)
 <div class="glass-card glass-card-glow-indigo text-white p-5 mb-6">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -216,98 +225,123 @@
         <div id="aiResultMsg" class="mt-2 text-xs font-bold text-amber-300 hidden"></div>
     </div>
 </div>
+-->
 
 <!-- بخش اصلی: صدور فاکتور چندآیتمی متصل به انبار -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in-up mb-8">
-    <!-- فرم صدور فاکتور -->
-    <div class="glass-card p-6 h-fit">
-        <h3 class="text-md font-bold text-slate-200 mb-4 border-b pb-3 flex items-center justify-between">
-            <span class="flex items-center gap-2"><span>✍️</span> صدور فاکتور / پیش‌فاکتور / مرجوعی</span>
-            <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded-xl">متصل به انبار زنده</span>
-        </h3>
+<div id="sellerMainGrid" class="grid grid-cols-1 xl:grid-cols-12 gap-6 fade-in-up mb-8 items-start">
+    <!-- فرم صدور فاکتور - طراحی فوق‌مدرن و با ابهت 2026 -->
+    <div id="invoiceFormColumn" class="xl:col-span-5 lg:col-span-1 transition-all duration-300">
+        <div id="invoiceWorkspaceCard" class="glass-card p-5 sm:p-6 bg-[#0e1626] border border-indigo-500/30 shadow-2xl rounded-3xl relative overflow-hidden">
+            <!-- نوار درخشان بالای کارت -->
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600"></div>
 
-        <form method="POST" action="{{ url_for('add_invoice') }}" onsubmit="return handleInvoiceSubmit(this)" id="mainInvoiceForm" enctype="multipart/form-data">
-            {% if user.role == 'admin' and all_shops %}
-            <div class="mb-3 bg-amber-50/80 p-2.5 rounded-2xl border border-amber-200">
-                <label class="block text-[11px] font-bold text-amber-900 mb-1">🏬 ثبت فاکتور به نام شعبه (مختص مدیریت):</label>
-                <select name="target_shop_id" class="w-full p-2 border border-amber-300 rounded-xl text-xs bg-white font-bold text-amber-900">
-                    {% for sh in all_shops %}
-                    <option value="{{ sh.id }}" {% if sh.id == active_shop_id %}selected{% endif %}>{{ sh.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-
-            <!-- نوع سند -->
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">نوع سند:</label>
-                <div class="grid grid-cols-3 gap-1.5 text-xs">
-                    <label class="flex items-center justify-center p-2 rounded-2xl border cursor-pointer has-[:checked]:bg-emerald-600 has-[:checked]:text-white font-bold transition">
-                        <input type="radio" name="doc_status" value="final" checked class="hidden" onchange="handleDocTypeChange('final')">
-                        <span>🛒 قطعی</span>
-                    </label>
-                    <label class="flex items-center justify-center p-2 rounded-2xl border cursor-pointer has-[:checked]:bg-indigo-600 has-[:checked]:text-white font-bold transition">
-                        <input type="radio" name="doc_status" value="proforma" class="hidden" onchange="handleDocTypeChange('proforma')">
-                        <span>📑 پیش‌فاکتور</span>
-                    </label>
-                    <label class="flex items-center justify-center p-2 rounded-2xl border cursor-pointer has-[:checked]:bg-rose-600 has-[:checked]:text-white font-bold transition">
-                        <input type="radio" name="doc_status" value="return" class="hidden" onchange="handleDocTypeChange('return')">
-                        <span>🔄 مرجوعی</span>
-                    </label>
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-white/10 flex-wrap gap-2">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl p-2 bg-indigo-500/20 text-indigo-300 rounded-2xl border border-indigo-500/30">✍️</span>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                            <span>صدور فاکتور و اسناد فروشگاهی</span>
+                            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">انبار زنده</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">ثبت سریع با کسر هوشمند انبار، اقلام ترکیبی و تسویه چندگانه</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="toggleInvoiceWorkspaceWidth()" id="btnToggleWorkspaceWidth" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl border border-white/10 transition flex items-center gap-1 cursor-pointer" title="تغییر عرض میزکار (عریض / دو ستونه)">
+                        <span id="toggleWidthIcon">⛶</span>
+                        <span id="toggleWidthText">حالت عریض</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- باکس پیش فاکتور -->
-            <div id="proformaDateBox" style="display: none;" class="mb-3 bg-indigo-50 p-3 rounded-2xl border border-indigo-200">
-                <label class="block text-[11px] font-bold text-indigo-900 mb-1">📅 مهلت اعتبار پیش‌فاکتور (تاریخ شمسی):</label>
-                <input type="text" name="proforma_valid_until" placeholder="مثلاً: 1405/06/15 - تا ۴۸ ساعت" class="w-full p-2 border rounded-xl text-xs bg-white text-left font-bold text-slate-800" dir="ltr">
-            </div>
+            <form method="POST" action="{{ url_for('add_invoice') }}" onsubmit="return handleInvoiceSubmit(this)" id="mainInvoiceForm" enctype="multipart/form-data">
+                {% if user.role == 'admin' and all_shops %}
+                <div class="mb-4 bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 p-3 rounded-2xl border border-amber-500/30">
+                    <label class="block text-xs font-black text-amber-300 mb-1.5 flex items-center gap-1.5">
+                        <span>🏬</span>
+                        <span>ثبت فاکتور به نام شعبه (مختص مدیریت کل):</span>
+                    </label>
+                    <select name="target_shop_id" class="w-full p-2.5 bg-slate-900 border border-amber-500/40 rounded-xl text-xs font-bold text-amber-200 outline-none focus:ring-2 focus:ring-amber-500/50">
+                        {% for sh in all_shops %}
+                        <option value="{{ sh.id }}" {% if sh.id == active_shop_id %}selected{% endif %}>{{ sh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
 
-            <!-- باکس علت مرجوعی -->
-            <div id="returnReasonBox" style="display: none;" class="mb-3 bg-rose-50 p-3 rounded-2xl border border-rose-200">
-                <label class="block text-[11px] font-bold text-rose-900 mb-1">⚠️ علت دقیق مرجوعی کالا:</label>
-                <select name="return_reason" class="w-full p-2 border border-rose-300 rounded-xl text-xs bg-white font-bold text-rose-700">
-                    {% for reason in return_reasons %}
-                    <option value="{{ reason }}">{{ reason }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 mb-3">
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="block text-xs font-bold text-slate-600">شماره فاکتور / سند:</label>
-                        {% if next_inv_suggestion %}
-                        <button type="button" onclick="document.getElementById('invNumInput').value='{{ next_inv_suggestion }}'; checkInvoiceNumberCollision();" class="text-[10px] text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded font-bold transition" title="کلیک برای درج شماره پیشنهادی بعدی">
-                            🎲 شماره بعدی: {{ next_inv_suggestion }}
-                        </button>
-                        {% endif %}
+                <!-- نوع سند -->
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-400 mb-1.5">نوع سند:</label>
+                    <div class="grid grid-cols-3 gap-2 text-xs p-1.5 bg-slate-900/90 rounded-2xl border border-slate-700/60 shadow-inner">
+                        <label class="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border border-transparent cursor-pointer has-[:checked]:bg-gradient-to-r has-[:checked]:from-emerald-600 has-[:checked]:to-teal-600 has-[:checked]:text-white has-[:checked]:border-emerald-400/40 has-[:checked]:shadow-lg has-[:checked]:shadow-emerald-600/25 font-black transition-all text-slate-300 hover:text-white">
+                            <input type="radio" name="doc_status" value="final" checked class="hidden" onchange="handleDocTypeChange('final')">
+                            <span>🛒 قطعی</span>
+                        </label>
+                        <label class="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border border-transparent cursor-pointer has-[:checked]:bg-gradient-to-r has-[:checked]:from-indigo-600 has-[:checked]:to-blue-600 has-[:checked]:text-white has-[:checked]:border-indigo-400/40 has-[:checked]:shadow-lg has-[:checked]:shadow-indigo-600/25 font-black transition-all text-slate-300 hover:text-white">
+                            <input type="radio" name="doc_status" value="proforma" class="hidden" onchange="handleDocTypeChange('proforma')">
+                            <span>📑 پیش‌فاکتور</span>
+                        </label>
+                        <label class="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border border-transparent cursor-pointer has-[:checked]:bg-gradient-to-r has-[:checked]:from-rose-600 has-[:checked]:to-pink-600 has-[:checked]:text-white has-[:checked]:border-rose-400/40 has-[:checked]:shadow-lg has-[:checked]:shadow-rose-600/25 font-black transition-all text-slate-300 hover:text-white">
+                            <input type="radio" name="doc_status" value="return" class="hidden" onchange="handleDocTypeChange('return')">
+                            <span>🔄 مرجوعی</span>
+                        </label>
                     </div>
-                    <input type="text" name="invoice_number" id="invNumInput" value="{{ next_inv_suggestion or '' }}" required placeholder="مثلاً: 1205" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900 text-xs font-bold text-left transition" dir="ltr" oninput="debouncedCheckInvoiceNumber()" onblur="checkInvoiceNumberCollision()">
-                    
-                    <!-- هشدار کنار فیلد برای تکراری بودن شماره فاکتور -->
-                    <div id="invNumCollisionInlineAlert" class="hidden mt-1.5 p-2 bg-rose-50 border border-rose-300 rounded-xl text-[11px] text-rose-800 leading-snug">
-                        <div class="flex items-start gap-1.5">
-                            <span class="text-sm">⚠️</span>
-                            <div>
-                                <span class="font-bold text-rose-900">شماره فاکتور تکراری است!</span>
-                                <div id="invNumCollisionInlineDetail" class="text-[10px] text-rose-700 font-medium mt-0.5"></div>
+                </div>
+
+                <!-- باکس پیش فاکتور -->
+                <div id="proformaDateBox" style="display: none;" class="mb-4 bg-indigo-950/40 p-3.5 rounded-2xl border border-indigo-500/40 space-y-1.5 animate-fadeIn">
+                    <label class="block text-xs font-bold text-indigo-300">📅 مهلت اعتبار پیش‌فاکتور (تاریخ شمسی):</label>
+                    <input type="text" name="proforma_valid_until" placeholder="مثلاً: 1405/06/15 - تا ۴۸ ساعت" class="w-full p-2.5 bg-slate-900 border border-indigo-500/40 rounded-xl text-xs text-left font-mono font-bold text-white outline-none focus:border-indigo-400" dir="ltr">
+                </div>
+
+                <!-- باکس علت مرجوعی -->
+                <div id="returnReasonBox" style="display: none;" class="mb-4 bg-rose-950/40 p-3.5 rounded-2xl border border-rose-500/40 space-y-1.5 animate-fadeIn">
+                    <label class="block text-xs font-bold text-rose-300">⚠️ علت دقیق مرجوعی کالا:</label>
+                    <select name="return_reason" class="w-full p-2.5 bg-slate-900 border border-rose-500/40 rounded-xl text-xs font-bold text-rose-300 outline-none focus:border-rose-400">
+                        {% for reason in return_reasons %}
+                        <option value="{{ reason }}">{{ reason }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- مشخصات خریدار و شماره فاکتور -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-4">
+                    <div class="sm:col-span-4">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-300">شماره فاکتور / سند:</label>
+                            {% if next_inv_suggestion %}
+                            <button type="button" onclick="document.getElementById('invNumInput').value='{{ next_inv_suggestion }}'; checkInvoiceNumberCollision();" class="text-[10px] text-cyan-300 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 px-1.5 py-0.5 rounded-lg font-bold transition" title="کلیک برای درج شماره پیشنهادی بعدی">
+                                🎲 بعدی: {{ next_inv_suggestion }}
+                            </button>
+                            {% endif %}
+                        </div>
+                        <input type="text" name="invoice_number" id="invNumInput" value="{{ next_inv_suggestion or '' }}" required placeholder="مثلاً: 1205" class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-black text-left font-mono text-white transition outline-none" dir="ltr" oninput="debouncedCheckInvoiceNumber()" onblur="checkInvoiceNumberCollision()">
+                        
+                        <!-- هشدار کنار فیلد برای تکراری بودن شماره فاکتور -->
+                        <div id="invNumCollisionInlineAlert" class="hidden mt-1.5 p-2 bg-rose-950/70 border border-rose-500/50 rounded-xl text-[11px] text-rose-200 leading-snug">
+                            <div class="flex items-start gap-1.5">
+                                <span class="text-sm">⚠️</span>
+                                <div>
+                                    <span class="font-bold text-rose-300">شماره فاکتور تکراری است!</span>
+                                    <div id="invNumCollisionInlineDetail" class="text-[10px] text-rose-400 font-medium mt-0.5"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">نام خریدار:</label>
-                    <input type="text" name="customer_name" id="custNameInput" required placeholder="آقای احمدی" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium" onblur="checkCustomerDebt()">
-                </div>
-            </div>
 
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-slate-600 mb-1">شماره همراه خریدار:</label>
-                <input type="text" name="customer_phone" id="custPhoneInput" placeholder="0912..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs text-left font-bold" dir="ltr" onblur="checkCustomerDebt()" oninput="if(this.value.length >= 10) checkCustomerDebt()">
-                
+                    <div class="sm:col-span-4">
+                        <label class="block text-xs font-bold text-slate-300 mb-1">نام و نام خانوادگی خریدار:</label>
+                        <input type="text" name="customer_name" id="custNameInput" required placeholder="مثال: آقای احمدی" class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500" onblur="checkCustomerDebt()">
+                    </div>
+
+                    <div class="sm:col-span-4">
+                        <label class="block text-xs font-bold text-slate-300 mb-1">شماره همراه خریدار:</label>
+                        <input type="text" name="customer_phone" id="custPhoneInput" placeholder="0912..." class="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-left font-mono font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500" dir="ltr" onblur="checkCustomerDebt()" oninput="if(this.value.length >= 10) checkCustomerDebt()">
+                    </div>
+                </div>
+
                 <!-- هشدار هوشمند وضعیت اعتبار، رتبه AI و بدهی معوقه خریدار -->
-                <div id="customerDebtBadge" class="hidden mt-2 p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between shadow-sm flex-wrap gap-2">
+                <div id="customerDebtBadge" class="hidden mb-4 p-3 rounded-2xl text-xs font-bold transition flex items-center justify-between shadow-md flex-wrap gap-2">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span id="customerDebtIcon" class="text-base">⚠️</span>
                         <span id="customerDebtText"></span>
@@ -315,418 +349,356 @@
                     </div>
                     <span id="customerDebtAmount" class="font-mono text-xs px-2.5 py-1 rounded-lg"></span>
                 </div>
-            </div>
 
-            <!-- باکس آپلود و اسکن هوشمند فاکتور دفتری با هوش مصنوعی -->
-            <div class="mb-4 bg-gradient-to-r from-purple-950/25 via-slate-900/40 to-indigo-950/25 p-3.5 rounded-2xl border border-purple-500/25 space-y-2.5 shadow-sm">
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                    <label class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
-                        <span>📸</span> پیوست و اسکن خودکار فاکتور دفتری:
-                    </label>
-                    <span class="text-[10px] bg-purple-500/15 text-purple-200 px-2 py-0.5 rounded-lg border border-purple-500/30 font-bold">
-                        هوش مصنوعی Google AI ✨
-                    </span>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input type="file" id="paperInvoiceFileInput" name="paper_invoice_image" accept="image/*" capture="environment" class="sr-only" onchange="handlePaperInvoiceSelected(this)">
-                    <input type="hidden" name="existing_paper_image" id="existingPaperImageInput" value="">
-                    
-                    <label for="paperInvoiceFileInput" class="cursor-pointer w-full bg-slate-800 hover:bg-slate-700 text-slate-100 border border-white/15 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 text-center">
-                        <span class="text-base">📷</span> <span>انتخاب / عکس از فاکتور دفتری</span>
-                    </label>
-
-                    <button type="button" onclick="triggerAIScan()" id="btnTriggerAIScan" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md shadow-purple-600/20 active:scale-95 text-center">
-                        <span class="text-base">✨</span> <span>اسکن هوشمند (چیدن اقلام)</span>
+                <!-- نوار ثبت و اسکن سریع بارکدخوان -->
+                <div class="mb-4 p-2.5 bg-gradient-to-r from-indigo-950/40 via-slate-900 to-indigo-950/30 border border-indigo-500/30 rounded-2xl flex items-center gap-2 shadow-inner">
+                    <span class="text-base p-1.5 bg-indigo-500/20 text-indigo-300 rounded-xl border border-indigo-500/30">🏷️</span>
+                    <input type="text" id="quickBarcodeInput" placeholder="اسکن بارکدخوان یا تایپ بارکد کالا..." class="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-mono font-bold text-left text-white focus:ring-2 focus:ring-indigo-500 outline-none" dir="ltr" autocomplete="off" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleBarcodeScan(this.value); }">
+                    <button type="button" onclick="handleBarcodeScan(document.getElementById('quickBarcodeInput').value)" class="text-xs bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black px-3.5 py-2 rounded-xl whitespace-nowrap shadow-md shadow-indigo-600/20 transition active:scale-95">
+                        ثبت بارکد ⚡
                     </button>
                 </div>
 
-                <!-- وضعیت پیش‌نمایش تصویر و اسکن -->
-                <div id="paperInvoicePreviewContainer" class="hidden items-center justify-between bg-slate-950/60 p-2 rounded-xl border border-white/10">
-                    <div class="flex items-center gap-2">
-                        <img id="paperInvoiceThumb" src="" alt="فاکتور دفتری" class="w-12 h-12 object-cover rounded-lg border border-purple-500/40 cursor-pointer shadow" onclick="openPaperInvoiceZoom(this.src)">
-                        <div>
-                            <span id="paperInvoiceFileName" class="text-[11px] font-mono text-slate-200 block truncate max-w-[170px]">تصویر انتخاب شد</span>
-                            <span id="paperInvoiceScanStatus" class="text-[10px] text-emerald-400 font-bold block">آماده اسکن یا ذخیره در فاکتور</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <button type="button" onclick="openPaperInvoiceZoom(document.getElementById('paperInvoiceThumb').src)" class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded bg-blue-500/10 font-bold" title="بزرگنمایی">🔍 مشاهده</button>
-                        <button type="button" onclick="removePaperInvoiceSelected()" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded bg-rose-500/10 font-bold" title="حذف عکس">✕ حذف</button>
-                    </div>
-                </div>
+                <!-- فیلدهای پنهان عکس فاکتور دفتری (جهت حفظ سازگاری اسکریپت‌ها) -->
+                <input type="file" id="paperInvoiceFileInput" name="paper_invoice_image" class="sr-only hidden">
+                <input type="hidden" name="existing_paper_image" id="existingPaperImageInput" value="">
+                <div id="paperInvoicePreviewContainer" class="hidden"></div>
+                <div id="aiScanLoading" class="hidden"></div>
+                <button type="button" id="btnTriggerAIScan" class="hidden"></button>
+                <span id="paperInvoiceScanStatus" class="hidden"></span>
 
-                <!-- لودینگ متحرک اسکن هوش مصنوعی -->
-                <div id="aiScanLoading" class="hidden bg-purple-950/50 p-3 rounded-xl border border-purple-500/30 text-center space-y-1">
-                    <div class="inline-block animate-spin text-purple-300 text-base">⏳</div>
-                    <div class="text-xs font-bold text-purple-200">هوش مصنوعی در حال تحلیل دست‌خط، اقلام ترکیبی و قیمت‌ها است...</div>
-                    <div class="text-[10px] text-purple-300/80">اقلام تکی و پکیج‌های ترکیبی (مانند کابینت با سنگ) به طور هوشمند تفکیک می‌شوند</div>
-                </div>
-            </div>
-
-            <!-- بخش اقلام فاکتور با تعداد و دسته دلخواه -->
-            <div class="mb-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                <div class="flex justify-between items-center mb-2.5 flex-wrap gap-2">
-                    <label class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <span>📦</span> اقلام و تعداد کالاهای فاکتور (کسر آنی انبار):
-                    </label>
-                    <div class="flex items-center gap-1.5">
-                        <button type="button" onclick="addInvoiceItemRow()" class="text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-xl transition shadow">
-                            ➕ ردیف کالا
-                        </button>
-                        <button type="button" onclick="addComboItemRow()" class="text-[11px] bg-purple-600 hover:bg-purple-700 text-white font-bold px-2.5 py-1 rounded-xl transition shadow flex items-center gap-1" title="افزودن پکیج ترکیبی مثل کابین+سنگ یا ست شیرآلات با یک قیمت کل">
-                            <span>✨</span> پکیج ترکیبی (کابین+سنگ / ست)
-                        </button>
-                    </div>
-                </div>
-
-                <!-- ورودی بارکدخوان سریع کالا با صدای بیپ و ثبت آنی -->
-                <div class="flex items-center gap-2 mb-3 p-2 bg-indigo-50/80 border border-indigo-200 rounded-xl">
-                    <span class="text-sm">🏷️</span>
-                    <input type="text" id="quickBarcodeInput" placeholder="اسکن بارکدخوان یا تایپ بارکد کالا..." class="w-full bg-white border border-indigo-200 rounded-lg p-1.5 text-xs font-bold text-left focus:ring-2 focus:ring-indigo-600" dir="ltr" autocomplete="off" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); handleBarcodeScan(this.value); }">
-                    <button type="button" onclick="handleBarcodeScan(document.getElementById('quickBarcodeInput').value)" class="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shadow-sm">
-                        ثبت بارکدخوان ⚡
-                    </button>
-                </div>
-
-                <div id="invoiceItemsContainer" class="space-y-2.5 max-h-[32rem] overflow-y-auto custom-scrollbar p-1">
-                    <!-- ردیف کالا مدرن، فوق‌سریع و فشرده -->
-                    <div class="item-row bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/80 space-y-2 text-xs shadow-sm hover:border-slate-600 transition">
-                        <!-- نشانگر پکیج ترکیبی -->
-                        <div class="combo-indicator hidden flex items-center justify-between pb-1 border-b border-purple-500/20 text-[10px]">
-                            <span class="font-bold text-purple-300 flex items-center gap-1">
-                                <span>✨</span> عضو پکیج ترکیبی (<span class="combo-member-role text-amber-300 font-bold"></span>)
-                            </span>
-                            <span class="text-purple-400 font-mono">کسر خودکار موجودی انبار</span>
-                        </div>
-                        <input type="hidden" name="item_catalog_id[]" class="item-cat-id" value="">
-                        <!-- سطر ۱: انتخاب کالا (انبار شعبه یا نام کاتالوگ/دلخواه) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 items-center">
-                            <div class="sm:col-span-5">
-                                <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-xs font-bold text-slate-100 focus:ring-1 focus:ring-indigo-500">
-                                    <option value="">📦 انتخاب از انبار شعبه...</option>
-                                    {% for item in inventory_items %}
-                                    <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}" data-catalog-id="{{ item.catalog_id or '' }}">
-                                        {{ item.name }} (موجودی: {{ item.stock_quantity }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="sm:col-span-4">
-                                <input type="text" name="item_custom_name[]" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="✍️ یا نام کالا / کاتالوگ..." class="item-name w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-xs font-bold text-white placeholder-slate-400 focus:ring-1 focus:ring-indigo-500">
-                            </div>
-                            <div class="sm:col-span-3">
-                                <input type="text" name="item_category[]" placeholder="دسته‌بندی" class="item-cat w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-[11px] text-slate-300 placeholder-slate-500 text-center">
-                            </div>
-                        </div>
-
-                        <!-- سطر ۲: تعداد، قیمت واحد، تخفیف اختیاری، جمع ردیف و حذف -->
-                        <div class="grid grid-cols-12 gap-2 pt-2 border-t border-slate-800 items-center">
-                            <!-- استپر تعداد (عرض ۴ در موبایل، ۳ در دسکتاپ) -->
-                            <div class="col-span-4 sm:col-span-2 flex items-center justify-between bg-slate-800 p-1 rounded-xl border border-slate-700 h-9" title="تعداد کالا">
-                                <button type="button" onclick="stepQty(this, -1)" class="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-black text-xs flex items-center justify-center transition active:scale-95">−</button>
-                                <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty w-8 bg-transparent text-center font-black text-amber-300 text-xs border-0 p-0 focus:ring-0">
-                                <button type="button" onclick="stepQty(this, 1)" class="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-black text-xs flex items-center justify-center transition active:scale-95">+</button>
-                            </div>
-
-                            <!-- قیمت واحد (تومان) (عرض ۸ در موبایل، ۴ در دسکتاپ) -->
-                            <div class="col-span-8 sm:col-span-4 relative">
-                                <input type="text" name="item_price[]" placeholder="قیمت واحد (تومان)" 
-                                       oninput="onPriceOrDiscountChange(this, 'price')" 
-                                       onchange="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
-                                       onblur="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
-                                       onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
-                                       class="currency-input item-price w-full h-9 px-2.5 border border-emerald-500/50 bg-emerald-500/10 rounded-xl text-xs font-black text-emerald-300 text-left font-mono focus:ring-1 focus:ring-emerald-400" 
-                                       dir="ltr" title="قیمت واحد هر قلم کالا (تومان)">
-                                <input type="hidden" name="item_original_price[]" class="item-orig-price currency-input" value="">
-                            </div>
-
-                            <!-- تخفیف ٪ اختیاری (عرض ۴ در موبایل، ۲ در دسکتاپ) -->
-                            <div class="col-span-4 sm:col-span-2 relative flex items-center" title="درصد تخفیف اختیاری">
-                                <input type="text" name="item_discount_percent[]" placeholder="٪ تخفیف" 
-                                       oninput="onPriceOrDiscountChange(this, 'percent')" 
-                                       onchange="onPriceOrDiscountChange(this, 'percent')" 
-                                       onblur="onPriceOrDiscountChange(this, 'percent')" 
-                                       onkeyup="onPriceOrDiscountChange(this, 'percent')" 
-                                       class="item-discount-pct w-full h-9 pl-5 pr-2 border border-amber-500/40 bg-amber-500/10 rounded-xl text-[11px] font-black text-amber-300 text-center font-mono placeholder:text-amber-500/60" 
-                                       dir="ltr">
-                                <span class="absolute left-1.5 text-[10px] text-amber-400 font-bold pointer-events-none">٪</span>
-                            </div>
-
-                            <!-- جمع ردیف (عرض ۶ در موبایل، ۳ در دسکتاپ) -->
-                            <div class="col-span-6 sm:col-span-3 bg-emerald-950/70 border border-emerald-500/30 px-2 h-9 rounded-xl flex items-center justify-center text-center whitespace-nowrap">
-                                <span class="item-row-total-display font-mono text-emerald-300 font-black text-xs">۰ ت</span>
-                            </div>
-
-                            <!-- بهای خرید (فیلد پنهان) -->
-                            <input type="hidden" name="item_buy_price[]" class="item-buy-price currency-input" value="">
-
-                            <!-- دکمه حذف (عرض ۲ در موبایل، ۱ در دسکتاپ) -->
-                            <div class="col-span-2 sm:col-span-1 flex justify-end">
-                                <button type="button" onclick="removeInvoiceItemRow(this)" class="w-9 h-9 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl flex items-center justify-center transition active:scale-95" title="حذف این ردیف">
-                                    ✕
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <datalist id="catalogDatalist">
-                    {% for p in catalog_products %}
-                    <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}" data-id="{{ p.id }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
-                    {% endfor %}
-                </datalist>
-
-                <!-- باکس پیشنهادهای هوشمند مکمل سبد خرید (AI Cross-Selling) -->
-                <div id="aiCrossSellBox" class="hidden mt-3 p-3.5 bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/60 rounded-2xl border border-indigo-500/30 space-y-2.5 shadow-sm">
-                    <div class="flex items-center justify-between flex-wrap gap-2">
+                <!-- بخش اقلام فاکتور با تعداد و دسته دلخواه -->
+                <div class="mb-4 bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 shadow-md">
+                    <div class="flex justify-between items-center mb-3 flex-wrap gap-2 pb-2.5 border-b border-slate-800">
+                        <label class="text-xs font-black text-white flex items-center gap-2">
+                            <span>📦</span>
+                            <span>اقلام و تعداد کالاهای فاکتور (کسر آنی انبار)</span>
+                        </label>
                         <div class="flex items-center gap-2">
-                            <span class="text-base p-1 bg-indigo-500/20 rounded-lg">✨</span>
-                            <span class="text-xs font-black text-indigo-300">
-                                پیشنهادهای هوشمند مکمل سبد خرید (Google AI Cross-Sell)
-                            </span>
-                        </div>
-                        <span class="text-[10px] bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-lg border border-indigo-500/30 font-bold">
-                            تکمیل سبد مشتری & افزایش فروش
-                        </span>
-                    </div>
-                    <div id="aiCrossSellContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <!-- کارت‌های پیشنهاد هوشمند -->
-                    </div>
-                </div>
-
-                <!-- خلاصه اقلام و مبلغ نهایی فاکتور (یکپارچه و درشت) -->
-                <div class="mt-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-700/80 space-y-2">
-                    <div class="flex justify-between items-center text-slate-400 text-xs">
-                        <span>مجموع اقلام:</span>
-                        <span id="subtotalDisplay" class="font-mono text-slate-200 font-bold">۰ تومان</span>
-                    </div>
-                    <div id="totalDiscountRow" class="flex justify-between items-center text-amber-400 text-xs hidden">
-                        <span>مجموع تخفیف‌ها:</span>
-                        <span id="totalDiscountDisplay" class="font-mono bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg font-bold">۰ تومان</span>
-                    </div>
-                    <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between gap-3">
-                        <label class="text-xs font-black text-emerald-400 whitespace-nowrap">💰 مبلغ نهایی فاکتور:</label>
-                        <div class="relative flex-1">
-                            <input type="text" name="total_amount" id="totalAmountInput" required oninput="onManualTotalInput(this)" onchange="onManualTotalInput(this)" onblur="formatNumber(this); onManualTotalInput(this)" onkeyup="onManualTotalInput(this)" placeholder="۰" class="currency-input w-full p-2.5 bg-slate-800 border border-emerald-500/60 rounded-xl text-base font-black text-emerald-300 text-left font-mono focus:ring-2 focus:ring-emerald-500" dir="ltr">
-                            <span class="absolute left-2.5 top-3 text-[11px] text-emerald-400/80 font-bold pointer-events-none">تومان</span>
+                            <button type="button" onclick="addInvoiceItemRow()" class="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black px-3 py-1.5 rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center gap-1 active:scale-95">
+                                <span>➕</span> ردیف کالا
+                            </button>
+                            <button type="button" onclick="openComboModal()" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black px-3 py-1.5 rounded-xl transition shadow-md shadow-purple-600/20 flex items-center gap-1 active:scale-95" title="افزودن پکیج ترکیبی مثل کابین+سنگ یا ست شیرآلات با یک قیمت کل">
+                                <span>✨</span> پکیج ترکیبی
+                            </button>
                         </div>
                     </div>
-                    <span id="calculatedTotalDisplay" class="hidden">۰ تومان</span>
-                </div>
-            </div>
 
-            <!-- بخش پرداخت فوق‌سریع و هوشمند (Quick-Pay System) -->
-            <div class="mb-4 bg-slate-900/90 p-3.5 rounded-2xl border border-indigo-500/30 shadow-md space-y-3">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                        <span>💳</span> نحوه تسویه فاکتور:
-                    </span>
-                    <button type="button" onclick="payFullWithPos()" class="text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1 rounded-lg transition shadow-sm active:scale-95 flex items-center gap-1">
-                        <span>⚡</span>
-                        <span>تسویه کامل با کارتخوان</span>
-                    </button>
-                </div>
-
-                <!-- تب‌های انتخاب سریع روش پرداخت -->
-                <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-center">
-                    <button type="button" onclick="switchPayTab('pos')" id="tabBtnPos" class="pay-tab-btn active bg-indigo-600 text-white text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
-                        🛒 کارتخوان
-                    </button>
-                    <button type="button" onclick="switchPayTab('card')" id="tabBtnCard" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
-                        💳 کارت/شبا
-                    </button>
-                    <button type="button" onclick="switchPayTab('cash')" id="tabBtnCash" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
-                        💵 نقد
-                    </button>
-                    <button type="button" onclick="switchPayTab('cheque')" id="tabBtnCheque" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
-                        🗓️ چک
-                    </button>
-                    <button type="button" onclick="switchPayTab('debt')" id="tabBtnDebt" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
-                        ⏳ بیعانه
-                    </button>
-                    <button type="button" onclick="switchPayTab('split')" id="tabBtnSplit" class="pay-tab-btn text-slate-300 hover:bg-slate-700 text-[11px] font-bold py-1.5 px-1 rounded-lg transition">
-                        🔀 ترکیبی
-                    </button>
-                </div>
-
-                <!-- پنل ۱: کارتخوان POS (پیش‌فرض) -->
-                <div id="payPanelPos" class="pay-panel bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-1.5">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-slate-300 w-24">🛒 مبلغ کارتخوان:</span>
-                        <input type="text" name="paid_pos" id="paidPosInput" oninput="window.isUserTypingPos = true; calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
-                    </div>
-                </div>
-
-                <!-- پنل ۲: کارت به کارت و شبا -->
-                <div id="payPanelCard" class="pay-panel hidden bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-blue-300 w-24">💳 کارت / شبا:</span>
-                        <input type="text" name="paid_card" id="paidCardInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-blue-300 text-left font-mono" dir="ltr">
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 border-t border-slate-700/40">
-                        <select onchange="document.getElementById('destCardInput').value = this.value" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-slate-300">
-                            <option value="">-- شماره کارت مقصد --</option>
-                            {% for acc in bank_accounts %}
-                                {% if acc.card_number %}
-                                <option value="{{ acc.card_number }}">{{ acc.title }} ({{ acc.bank_name }})</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                        <select onchange="document.getElementById('destShebaInput').value = this.value" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-slate-300">
-                            <option value="">-- شماره شبا مقصد --</option>
-                            {% for acc in bank_accounts %}
-                                {% if acc.sheba_number %}
-                                <option value="{{ acc.sheba_number }}">{{ acc.title }} ({{ acc.bank_name }})</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-                        <input type="text" name="dest_card_number" id="destCardInput" placeholder="۱۶ رقمی کارت..." class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-left font-mono" dir="ltr">
-                        <input type="text" name="dest_sheba_number" id="destShebaInput" placeholder="شبا (IR...)" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-left font-mono" dir="ltr">
-                        <input type="text" name="payment_tracking_code" placeholder="پیگیری فیش..." class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-left" dir="ltr">
-                    </div>
-                </div>
-
-                <!-- پنل ۳: نقدی -->
-                <div id="payPanelCash" class="pay-panel hidden bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-slate-300 w-24">💵 پرداخت نقد:</span>
-                        <input type="text" name="paid_cash" id="paidCashInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پول نقد دریافتی..." class="currency-input flex-1 p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono" dir="ltr">
-                    </div>
-                </div>
-
-                <!-- پنل ۴: چک صیادی -->
-                <div id="payPanelCheque" class="pay-panel hidden bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-indigo-300">🗓️ چک‌های صیادی مشتری:</span>
-                        <button type="button" onclick="addChequeRow()" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-lg transition">
-                            ➕ افزودن چک دیگر
-                        </button>
-                    </div>
-                    <div id="chequesContainer" class="space-y-1.5">
-                        <div class="cheque-row bg-slate-900/90 p-2 rounded-xl border border-slate-700/60 space-y-1.5">
-                            <div class="grid grid-cols-2 gap-1.5">
-                                <input type="text" name="cheque_sayad[]" placeholder="شناسه ۱۶ رقمی صیاد" class="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-mono text-left" dir="ltr">
-                                <input type="text" name="cheque_bank[]" placeholder="نام بانک (ملت، صادرات...)" class="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] text-slate-200">
+                    <div id="invoiceItemsContainer" class="space-y-3 max-h-[36rem] overflow-y-auto custom-scrollbar p-1">
+                        <!-- ردیف کالا مدرن، با ابهت و تمیز -->
+                        <div class="item-row bg-[#131c2e] hover:bg-[#152035] p-3 rounded-2xl border border-slate-700/80 space-y-2.5 text-xs shadow-md transition-all duration-200">
+                            <!-- نشانگر پکیج ترکیبی -->
+                            <div class="combo-indicator hidden flex items-center justify-between pb-1.5 border-b border-purple-500/30 text-[10px]">
+                                <span class="font-bold text-purple-300 flex items-center gap-1">
+                                    <span>✨</span> عضو پکیج ترکیبی (<span class="combo-member-role text-amber-300 font-bold"></span>)
+                                </span>
+                                <span class="text-purple-400 font-mono">کسر خودکار موجودی انبار</span>
                             </div>
-                            <div class="grid grid-cols-2 gap-1.5">
-                                <input type="text" name="cheque_amount[]" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ چک (تومان)" class="currency-input chk-amount p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold text-indigo-300 text-left font-mono" dir="ltr">
-                                <input type="text" name="cheque_due_date[]" placeholder="سررسید (1405/08/20)" class="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] text-left font-bold text-amber-300" dir="ltr">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            <input type="hidden" name="item_catalog_id[]" class="item-cat-id" value="">
 
-                <!-- پنل وضعیت مانده / بیعانه -->
-                <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 flex items-center justify-between">
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-xs font-bold text-slate-400">وضعیت تسویه فاکتور:</span>
-                        <span id="remainingBalanceDisplay" class="font-mono text-xs font-black text-emerald-400">✅ تسویه کامل</span>
-                    </div>
-                    <input type="hidden" name="remaining_balance" id="remainingBalanceInput" value="0">
-                </div>
-
-                <!-- تاریخ موعد تسویه مانده (فقط در صورت وجود مانده) -->
-                <div id="dueSettlementDateBox" class="hidden bg-amber-950/40 border border-amber-500/30 p-2 rounded-xl">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[11px] text-amber-300 font-bold whitespace-nowrap">⏳ موعد تسویه مانده:</span>
-                        <input type="text" name="due_settlement_date" placeholder="مثلاً: 1405/06/25 (هنگام تحویل بار)" class="flex-1 p-1.5 bg-slate-900 border border-amber-500/40 rounded-lg text-xs text-amber-200 text-left font-bold" dir="ltr">
-                    </div>
-                </div>
-            </div>
-
-            <!-- آکاردئون هوشمند جزئیات تکمیلی (شراکت، توضیحات، رضایت) -->
-            <details class="mb-4 bg-slate-900/80 rounded-2xl border border-slate-800 p-3 group">
-                <summary class="text-xs font-bold text-slate-400 hover:text-slate-200 cursor-pointer list-none flex items-center justify-between select-none">
-                    <span class="flex items-center gap-1.5">
-                        <span>⚙️</span> تنظیمات تکمیلی (فروش شراکتی، توضیحات بار، رضایت خریدار)
-                    </span>
-                    <span class="text-xs transition group-open:rotate-180">▼</span>
-                </summary>
-
-                <div class="pt-3 space-y-3 mt-2 border-t border-slate-800 text-xs">
-                    <!-- فروش شراکتی -->
-                    <div class="bg-indigo-950/30 p-2.5 rounded-xl border border-indigo-500/20 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-bold text-indigo-300">🤝 مشارکت در فروش:</span>
-                            <span id="newSellerSingleNotice" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                                ✨ ۱۰۰٪ سهم خودتان
-                            </span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <select name="second_seller_id" id="newSellerSecondSeller" class="w-full p-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-bold" onchange="toggleNewInvoicePartner(this.value)">
-                                <option value="">-- فروش تکی (بدون همکار) --</option>
-                                {% for colleague in colleagues %}
-                                <option value="{{ colleague.id }}">همکار: {{ colleague.full_name }}</option>
-                                {% endfor %}
-                            </select>
-
-                            <div id="newSellerPartnerSection" class="opacity-40 pointer-events-none flex items-center gap-1">
-                                <input type="number" id="newPartnerShareInput" name="partner_share" min="0" max="100" step="1" value="0" placeholder="سهم همکار" class="w-16 p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-center font-black font-mono text-xs text-indigo-300" oninput="syncNewInvoicePartnerShares(this.value)">
-                                <span class="text-[10px] text-slate-400 font-bold">٪ سهم همکار</span>
-                                <div class="flex items-center gap-1 mr-auto">
-                                    <button type="button" onclick="setNewPartnerQuick(50)" class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-indigo-300 rounded text-[10px] font-bold">۵۰٪</button>
-                                    <button type="button" onclick="setNewPartnerQuick(40)" class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 text-indigo-300 rounded text-[10px] font-bold">۴۰٪</button>
+                            <!-- سطر ۱: انتخاب کالا (انبار شعبه یا نام کاتالوگ/دلخواه) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                                <div class="sm:col-span-5">
+                                    <select name="item_inventory_id[]" onchange="onSelectItem(this)" class="item-select w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                        <option value="">📦 انتخاب از موجودی انبار شعبه...</option>
+                                        {% for item in inventory_items %}
+                                        <option value="{{ item.id }}" data-price="{{ item.sell_price }}" data-buy-price="{{ item.buy_price }}" data-name="{{ item.name }}" data-category="{{ item.category }}" data-stock="{{ item.stock_quantity }}" data-catalog-id="{{ item.catalog_id or '' }}">
+                                            {{ item.name }} (موجودی: {{ item.stock_quantity }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-4">
+                                    <input type="text" name="item_custom_name[]" list="catalogDatalist" oninput="searchCatalogAsync(this)" onchange="onSelectCatalogItem(this)" placeholder="✍️ یا نام کالا / کاتالوگ..." class="item-name w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div class="sm:col-span-3">
+                                    <input type="text" name="item_category[]" placeholder="دسته‌بندی کالا" class="item-cat w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-[11px] text-slate-300 placeholder-slate-500 text-center outline-none">
                                 </div>
                             </div>
-                            <input type="hidden" name="split_ratio" id="newSplitRatioHidden" value="100">
+
+                            <!-- سطر ۲: تعداد، قیمت واحد، تخفیف اختیاری، جمع ردیف و حذف -->
+                            <div class="grid grid-cols-12 gap-2 pt-2 border-t border-slate-800 items-center">
+                                <!-- استپر تعداد -->
+                                <div class="col-span-4 sm:col-span-2 flex items-center justify-between bg-slate-900 px-1 py-0.5 rounded-xl border border-slate-700 h-9" title="تعداد کالا">
+                                    <button type="button" onclick="stepQty(this, -1)" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center transition active:scale-95">−</button>
+                                    <input type="number" name="item_quantity[]" value="1" min="1" onchange="onPriceOrDiscountChange(this, 'qty')" oninput="onPriceOrDiscountChange(this, 'qty')" class="item-qty w-8 bg-transparent text-center font-black text-amber-300 text-xs border-0 p-0 focus:ring-0">
+                                    <button type="button" onclick="stepQty(this, 1)" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-black text-xs flex items-center justify-center transition active:scale-95">+</button>
+                                </div>
+
+                                <!-- قیمت واحد (تومان) -->
+                                <div class="col-span-8 sm:col-span-4 relative">
+                                    <input type="text" name="item_price[]" placeholder="قیمت واحد (تومان)" 
+                                           oninput="onPriceOrDiscountChange(this, 'price')" 
+                                           onchange="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
+                                           onblur="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
+                                           onkeyup="formatNumber(this); onPriceOrDiscountChange(this, 'price')" 
+                                           class="currency-input item-price w-full h-9 px-2.5 border border-emerald-500/50 bg-emerald-950/20 rounded-xl text-xs font-black text-emerald-300 text-left font-mono focus:ring-2 focus:ring-emerald-400 outline-none" 
+                                           dir="ltr" title="قیمت واحد هر قلم کالا (تومان)">
+                                    <input type="hidden" name="item_original_price[]" class="item-orig-price currency-input" value="">
+                                </div>
+
+                                <!-- تخفیف ٪ اختیاری -->
+                                <div class="col-span-4 sm:col-span-2 relative flex items-center" title="درصد تخفیف اختیاری">
+                                    <input type="text" name="item_discount_percent[]" placeholder="٪ تخفیف" 
+                                           oninput="onPriceOrDiscountChange(this, 'percent')" 
+                                           onchange="onPriceOrDiscountChange(this, 'percent')" 
+                                           onblur="onPriceOrDiscountChange(this, 'percent')" 
+                                           onkeyup="onPriceOrDiscountChange(this, 'percent')" 
+                                           class="item-discount-pct w-full h-9 pl-5 pr-2 border border-amber-500/40 bg-amber-950/20 rounded-xl text-[11px] font-black text-amber-300 text-center font-mono placeholder:text-amber-500/60 outline-none" 
+                                           dir="ltr">
+                                    <span class="absolute left-1.5 text-[10px] text-amber-400 font-bold pointer-events-none">٪</span>
+                                </div>
+
+                                <!-- جمع ردیف -->
+                                <div class="col-span-6 sm:col-span-3 bg-emerald-950/80 border border-emerald-500/40 px-2 h-9 rounded-xl flex items-center justify-center text-center whitespace-nowrap shadow-inner">
+                                    <span class="item-row-total-display font-mono text-emerald-300 font-black text-xs">۰ ت</span>
+                                </div>
+
+                                <!-- بهای خرید (فیلد پنهان) -->
+                                <input type="hidden" name="item_buy_price[]" class="item-buy-price currency-input" value="">
+
+                                <!-- دکمه حذف -->
+                                <div class="col-span-2 sm:col-span-1 flex justify-end">
+                                    <button type="button" onclick="removeInvoiceItemRow(this)" class="w-9 h-9 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl flex items-center justify-center transition active:scale-95" title="حذف این ردیف">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- توضیحات کالا -->
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 mb-1">توضیحات و مدل کالاها:</label>
-                        <textarea name="items_desc" id="itemsDescInput" rows="2" placeholder="مدل دقیق، رنگ و شرایط تحویل..." class="w-full p-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500"></textarea>
+                    <datalist id="catalogDatalist">
+                        {% for p in catalog_products %}
+                        <option value="{{ p.name }}" data-price="{{ p.sell_price }}" data-buy-price="{{ p.buy_price }}" data-category="{{ p.category }}" data-id="{{ p.id }}">{{ p.category }} | {{ "{:,}".format(p.sell_price) }} ت</option>
+                        {% endfor %}
+                    </datalist>
+
+                    <!-- باکس پیشنهادهای هوشمند مکمل سبد خرید (AI Cross-Selling) -->
+                    <div id="aiCrossSellBox" class="hidden mt-3 p-3.5 bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/60 rounded-2xl border border-indigo-500/30 space-y-2.5 shadow-sm">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-base p-1 bg-indigo-500/20 rounded-lg">✨</span>
+                                <span class="text-xs font-black text-indigo-300">
+                                    پیشنهادهای هوشمند مکمل سبد خرید (Google AI Cross-Sell)
+                                </span>
+                            </div>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-lg border border-indigo-500/30 font-bold">
+                                تکمیل سبد مشتری & افزایش فروش
+                            </span>
+                        </div>
+                        <div id="aiCrossSellContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"></div>
                     </div>
 
-                    <!-- رضایت خریدار -->
-                    <div class="flex items-center justify-between bg-slate-800/60 p-2 rounded-xl border border-slate-700/60">
-                        <span class="text-[11px] font-bold text-amber-300">⭐ رضایت خریدار:</span>
-                        <select name="customer_rating" class="p-1 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-amber-400">
-                            <option value="5">⭐⭐⭐⭐⭐ عالی (۵ ستاره)</option>
-                            <option value="4">⭐⭐⭐⭐ خوب (۴ ستاره)</option>
-                            <option value="3">⭐⭐⭐ متوسط (۳ ستاره)</option>
-                        </select>
+                    <!-- خلاصه اقلام و مبلغ نهایی فاکتور (یکپارچه، درشت و با ابهت) -->
+                    <div class="mt-3.5 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-700/80 space-y-2 shadow-inner">
+                        <div class="flex justify-between items-center text-slate-400 text-xs">
+                            <span class="font-bold">مجموع اقلام فاکتور:</span>
+                            <span id="subtotalDisplay" class="font-mono text-slate-200 font-bold">۰ تومان</span>
+                        </div>
+                        <div id="totalDiscountRow" class="flex justify-between items-center text-amber-400 text-xs hidden">
+                            <span class="font-bold">مجموع تخفیف‌ها:</span>
+                            <span id="totalDiscountDisplay" class="font-mono bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg font-bold">۰ تومان</span>
+                        </div>
+                        <div class="pt-2.5 border-t border-slate-800 flex items-center justify-between gap-3">
+                            <label class="text-xs font-black text-emerald-400 whitespace-nowrap">💰 مبلغ نهایی فاکتور:</label>
+                            <div class="relative flex-1">
+                                <input type="text" name="total_amount" id="totalAmountInput" required oninput="onManualTotalInput(this)" onchange="onManualTotalInput(this)" onblur="formatNumber(this); onManualTotalInput(this)" onkeyup="onManualTotalInput(this)" placeholder="۰" class="currency-input w-full p-2.5 bg-slate-900 border border-emerald-500/60 rounded-xl text-lg font-black text-emerald-300 text-left font-mono focus:ring-2 focus:ring-emerald-500 outline-none" dir="ltr">
+                                <span class="absolute left-3 top-3 text-xs text-emerald-400/80 font-bold pointer-events-none">تومان</span>
+                            </div>
+                        </div>
+                        <span id="calculatedTotalDisplay" class="hidden">۰ تومان</span>
                     </div>
                 </div>
-            </details>
 
-            <!-- دکمه ثبت نهایی فاکتور -->
-            <button type="submit" class="btn-glass-primary w-full py-3.5 flex items-center justify-center gap-2 text-sm font-black shadow-lg hover:shadow-indigo-500/20 active:scale-98 transition">
-                <span>🛒 ثبت نهایی و صدور فاکتور (کسر از انبار)</span>
-            </button>
-        </form>
+                <!-- بخش پرداخت فوق‌سریع و هوشمند (Quick-Pay System) -->
+                <div class="mb-4 bg-slate-900/90 p-3.5 rounded-2xl border border-indigo-500/30 shadow-md space-y-3">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <span class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                            <span>💳</span> نحوه تسویه فاکتور:
+                        </span>
+                        <button type="button" onclick="payFullWithPos()" class="text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black px-3 py-1 rounded-xl transition shadow-md shadow-emerald-600/20 active:scale-95 flex items-center gap-1">
+                            <span>⚡</span>
+                            <span>تسویه کامل با کارتخوان</span>
+                        </button>
+                    </div>
 
+                    <!-- تب‌های انتخاب سریع روش پرداخت -->
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 text-center">
+                        <button type="button" onclick="switchPayTab('pos')" id="tabBtnPos" class="pay-tab-btn active bg-indigo-600 text-white text-[11px] font-bold py-2 px-1 rounded-lg transition">
+                            🛒 کارتخوان
+                        </button>
+                        <button type="button" onclick="switchPayTab('card')" id="tabBtnCard" class="pay-tab-btn text-slate-300 hover:bg-slate-800 text-[11px] font-bold py-2 px-1 rounded-lg transition">
+                            💳 کارت/شبا
+                        </button>
+                        <button type="button" onclick="switchPayTab('cash')" id="tabBtnCash" class="pay-tab-btn text-slate-300 hover:bg-slate-800 text-[11px] font-bold py-2 px-1 rounded-lg transition">
+                            💵 نقد
+                        </button>
+                        <button type="button" onclick="switchPayTab('cheque')" id="tabBtnCheque" class="pay-tab-btn text-slate-300 hover:bg-slate-800 text-[11px] font-bold py-2 px-1 rounded-lg transition">
+                            🗓️ چک
+                        </button>
+                        <button type="button" onclick="switchPayTab('debt')" id="tabBtnDebt" class="pay-tab-btn text-slate-300 hover:bg-slate-800 text-[11px] font-bold py-2 px-1 rounded-lg transition">
+                            ⏳ بیعانه
+                        </button>
+                        <button type="button" onclick="switchPayTab('split')" id="tabBtnSplit" class="pay-tab-btn text-slate-300 hover:bg-slate-800 text-[11px] font-bold py-2 px-1 rounded-lg transition">
+                            🔀 ترکیبی
+                        </button>
+                    </div>
 
-        <!-- فرم ثبت هزینه تنخواه مغازه -->
-        <div class="mt-6 border-t pt-4">
-            <h4 class="text-xs font-bold text-rose-700 mb-2 flex items-center gap-1.5">
-                <span>💸</span> ثبت هزینه جاری مغازه (خرج از تنخواه)
-            </h4>
-            <form method="POST" action="{{ url_for('add_expense') }}" onsubmit="unformatOnSubmit(this)">
-                <div class="mb-2">
-                    <input type="text" name="title" required placeholder="عنوان (کرایه وانت، دستمزد نصاب و...)" class="w-full p-2 border rounded-xl text-xs">
+                    <!-- پنل ۱: کارتخوان POS (پیش‌فرض) -->
+                    <div id="payPanelPos" class="pay-panel bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-300 w-24">🛒 مبلغ کارتخوان:</span>
+                            <input type="text" name="paid_pos" id="paidPosInput" oninput="window.isUserTypingPos = true; calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ کشیده شده در پوز..." class="currency-input flex-1 p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono outline-none focus:border-emerald-500" dir="ltr">
+                        </div>
+                    </div>
+
+                    <!-- پنل ۲: کارت به کارت و شبا -->
+                    <div id="payPanelCard" class="pay-panel hidden bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2.5">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-blue-300 w-24">💳 کارت / شبا:</span>
+                            <input type="text" name="paid_card" id="paidCardInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ واریزی..." class="currency-input flex-1 p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-blue-300 text-left font-mono outline-none focus:border-blue-500" dir="ltr">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-800">
+                            <select onchange="document.getElementById('destCardInput').value = this.value" class="p-2 bg-slate-900 border border-slate-700 rounded-xl text-[10px] text-slate-300">
+                                <option value="">-- شماره کارت مقصد --</option>
+                                {% for acc in bank_accounts %}
+                                    {% if acc.card_number %}
+                                    <option value="{{ acc.card_number }}">{{ acc.title }} ({{ acc.bank_name }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <select onchange="document.getElementById('destShebaInput').value = this.value" class="p-2 bg-slate-900 border border-slate-700 rounded-xl text-[10px] text-slate-300">
+                                <option value="">-- شماره شبا مقصد --</option>
+                                {% for acc in bank_accounts %}
+                                    {% if acc.sheba_number %}
+                                    <option value="{{ acc.sheba_number }}">{{ acc.title }} ({{ acc.bank_name }})</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input type="text" name="dest_card_number" id="destCardInput" placeholder="۱۶ رقمی کارت..." class="p-2 bg-slate-900 border border-slate-700 rounded-xl text-[10px] text-left font-mono outline-none" dir="ltr">
+                            <input type="text" name="dest_sheba_number" id="destShebaInput" placeholder="شبا (IR...)" class="p-2 bg-slate-900 border border-slate-700 rounded-xl text-[10px] text-left font-mono outline-none" dir="ltr">
+                            <input type="text" name="payment_tracking_code" placeholder="پیگیری فیش..." class="p-2 bg-slate-900 border border-slate-700 rounded-xl text-[10px] text-left outline-none" dir="ltr">
+                        </div>
+                    </div>
+
+                    <!-- پنل ۳: نقدی -->
+                    <div id="payPanelCash" class="pay-panel hidden bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-300 w-24">💵 پرداخت نقد:</span>
+                            <input type="text" name="paid_cash" id="paidCashInput" oninput="calcPaymentBalances()" onchange="formatNumber(this); calcPaymentBalances()" onblur="formatNumber(this); calcPaymentBalances()" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ پول نقد دریافتی..." class="currency-input flex-1 p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-emerald-400 text-left font-mono outline-none focus:border-emerald-500" dir="ltr">
+                        </div>
+                    </div>
+
+                    <!-- پنل ۴: چک صیادی -->
+                    <div id="payPanelCheque" class="pay-panel hidden bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-indigo-300">🗓️ چک‌های صیادی مشتری:</span>
+                            <button type="button" onclick="addChequeRow()" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2.5 py-1 rounded-xl transition">
+                                ➕ افزودن چک دیگر
+                            </button>
+                        </div>
+                        <div id="chequesContainer" class="space-y-2">
+                            <div class="cheque-row bg-slate-900 p-2.5 rounded-xl border border-slate-700/80 space-y-2">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" name="cheque_sayad[]" placeholder="شناسه ۱۶ رقمی صیاد" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-mono text-left" dir="ltr">
+                                    <input type="text" name="cheque_bank[]" placeholder="نام بانک (ملت، صادرات...)" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-[10px] text-slate-200">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" name="cheque_amount[]" onkeyup="formatNumber(this); calcPaymentBalances()" placeholder="مبلغ چک (تومان)" class="currency-input chk-amount p-2 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold text-indigo-300 text-left font-mono" dir="ltr">
+                                    <input type="text" name="cheque_due_date[]" placeholder="سررسید (1405/08/20)" class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-[10px] text-left font-bold text-amber-300" dir="ltr">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- پنل وضعیت مانده / بیعانه -->
+                    <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-400">وضعیت تسویه فاکتور:</span>
+                            <span id="remainingBalanceDisplay" class="font-mono text-xs font-black text-emerald-400">✅ تسویه کامل</span>
+                        </div>
+                        <input type="hidden" name="remaining_balance" id="remainingBalanceInput" value="0">
+                    </div>
+
+                    <!-- تاریخ موعد تسویه مانده (فقط در صورت وجود مانده) -->
+                    <div id="dueSettlementDateBox" class="hidden bg-amber-950/40 border border-amber-500/30 p-2.5 rounded-xl">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-amber-300 font-bold whitespace-nowrap">⏳ موعد تسویه مانده:</span>
+                            <input type="text" name="due_settlement_date" placeholder="مثلاً: 1405/06/25 (هنگام تحویل بار)" class="flex-1 p-2 bg-slate-900 border border-amber-500/40 rounded-lg text-xs text-amber-200 text-left font-bold outline-none" dir="ltr">
+                        </div>
+                    </div>
                 </div>
-                <div class="flex gap-2 mb-2">
-                    <input type="text" name="amount" required onkeyup="formatNumber(this)" placeholder="مبلغ (تومان)" class="currency-input w-full p-2 border rounded-xl text-xs font-bold">
-                    <select name="category" class="p-2 border rounded-xl text-xs bg-white">
-                        <option value="کرایه وانت و حمل">کرایه بار/وانت</option>
-                        <option value="دستمزد نصاب">دستمزد نصاب</option>
-                        <option value="ملزومات و پذیرایی">ملزومات مغازه</option>
-                        <option value="سایر">سایر</option>
-                    </select>
-                </div>
-                <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2 rounded-xl transition shadow">
-                    ثبت هزینه تنخواه
+
+                <!-- آکاردئون هوشمند جزئیات تکمیلی (شراکت، توضیحات، رضایت) - باز به طور پیش‌فرض به درخواست کاربر -->
+                <details open class="mb-5 bg-slate-900/90 rounded-2xl border border-slate-700/80 p-3.5 group shadow-sm">
+                    <summary class="text-xs font-black text-slate-300 hover:text-white cursor-pointer list-none flex items-center justify-between select-none">
+                        <span class="flex items-center gap-2">
+                            <span class="p-1 bg-slate-800 rounded-lg">⚙️</span>
+                            <span>تنظیمات تکمیلی (فروش شراکتی، توضیحات بار، رضایت خریدار)</span>
+                        </span>
+                        <span class="text-xs transition group-open:rotate-180 text-slate-400">▼</span>
+                    </summary>
+
+                    <div class="pt-3.5 space-y-3 mt-2.5 border-t border-slate-800 text-xs">
+                        <!-- فروش شراکتی -->
+                        <div class="bg-indigo-950/30 p-3 rounded-xl border border-indigo-500/20 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] font-black text-indigo-300">🤝 مشارکت در فروش:</span>
+                                <span id="newSellerSingleNotice" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                                    ✨ ۱۰۰٪ سهم خودتان
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <select name="second_seller_id" id="newSellerSecondSeller" class="w-full p-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 font-bold outline-none" onchange="toggleNewInvoicePartner(this.value)">
+                                    <option value="">-- فروش تکی (بدون همکار) --</option>
+                                    {% for colleague in colleagues %}
+                                    <option value="{{ colleague.id }}">همکار: {{ colleague.full_name }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                <div id="newSellerPartnerSection" class="opacity-40 pointer-events-none flex items-center gap-1.5">
+                                    <input type="number" id="newPartnerShareInput" name="partner_share" min="0" max="100" step="1" value="0" placeholder="سهم همکار" class="w-16 p-2 bg-slate-800 border border-slate-700 rounded-xl text-center font-black font-mono text-xs text-indigo-300 outline-none" oninput="syncNewInvoicePartnerShares(this.value)">
+                                    <span class="text-[10px] text-slate-400 font-bold">٪ سهم همکار</span>
+                                    <div class="flex items-center gap-1 mr-auto">
+                                        <button type="button" onclick="setNewPartnerQuick(50)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 rounded-lg text-[10px] font-bold transition">۵۰٪</button>
+                                        <button type="button" onclick="setNewPartnerQuick(40)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 rounded-lg text-[10px] font-bold transition">۴۰٪</button>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="split_ratio" id="newSplitRatioHidden" value="100">
+                            </div>
+                        </div>
+
+                        <!-- توضیحات کالا و بار -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 mb-1">توضیحات و مدل کالاها:</label>
+                            <textarea name="items_desc" id="itemsDescInput" rows="2" placeholder="مدل دقیق، رنگ و شرایط تحویل..." class="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500"></textarea>
+                        </div>
+
+                        <!-- رضایت خریدار -->
+                        <div class="flex items-center justify-between bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
+                            <span class="text-[11px] font-bold text-amber-300">⭐ رضایت خریدار:</span>
+                            <select name="customer_rating" class="p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-bold text-amber-400 outline-none">
+                                <option value="5">⭐⭐⭐⭐⭐ عالی (۵ ستاره)</option>
+                                <option value="4">⭐⭐⭐⭐ خوب (۴ ستاره)</option>
+                                <option value="3">⭐⭐⭐ متوسط (۳ ستاره)</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- دکمه ثبت نهایی فاکتور -->
+                <button type="submit" class="w-full py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:via-teal-500 hover:to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2.5 text-sm font-black shadow-xl shadow-emerald-600/25 hover:shadow-emerald-500/40 active:scale-98 transition duration-200 border border-emerald-400/30">
+                    <span class="text-base">🛒</span>
+                    <span>ثبت نهایی و صدور فاکتور (کسر از انبار)</span>
                 </button>
             </form>
         </div>
     </div>
 
     <!-- جدول کلیه اسناد ماه -->
-    <div class="lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
+    <div id="invoicesTableColumn" class="xl:col-span-7 lg:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 overflow-x-auto transition-all duration-300">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b pb-3">
             <div>
                 <h3 class="text-md font-bold text-slate-800 flex items-center gap-2">
@@ -875,6 +847,73 @@
             </tbody>
         </table>
     </div>
+</div>
+
+<!-- ==================== بخش مستقل و اختصاصی ثبت هزینه تنخواه مغازه ==================== -->
+<div id="pettyCashStandaloneCard" class="glass-card p-6 mb-8 border-r-4 border-r-rose-500 bg-gradient-to-r from-rose-950/30 via-slate-900/90 to-slate-900 shadow-xl rounded-3xl border border-white/10">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center text-2xl shadow-lg shadow-rose-500/30 flex-shrink-0">
+                💸
+            </div>
+            <div>
+                <h3 class="font-black text-white text-base sm:text-lg flex items-center gap-2">
+                    <span>ثبت هزینه جاری و تنخواه مغازه</span>
+                    <span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] px-2.5 py-0.5 rounded-full font-bold">بخش مستقل تنخواه</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">خریدهای خرد روزانه شعبه (پذیرایی، ملزومات، پیک و حمل، نظافت) — خارج از فاکتور فروش مشتری</p>
+            </div>
+        </div>
+        
+        <!-- میانبرهای دسته‌بندی سریع -->
+        <div class="flex flex-wrap items-center gap-1.5 text-xs">
+            <span class="text-slate-400 text-[11px] font-bold ml-1">پیش‌فرض‌های سریع:</span>
+            <button type="button" onclick="setExpenseTitle('خرید قند و چای مغازه', 'پذیرایی و عمومی')" class="px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">☕ چای و پذیرایی</button>
+            <button type="button" onclick="setExpenseTitle('مواد شوینده و نظافت مغازه', 'نظافت و بهداشت')" class="px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">🧹 نظافت و بهداشت</button>
+            <button type="button" onclick="setExpenseTitle('کرایه پیک و ایاب ذهاب', 'پیک و ایاب ذهاب')" class="px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">🛵 پیک و باربری</button>
+            <button type="button" onclick="setExpenseTitle('خرید نایلون و چسب بسته بندی', 'ملزومات بسته بندی')" class="px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">📦 نایلون و ملزومات</button>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('add_expense') }}" class="mt-5 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-5">
+                <label class="block text-xs font-bold text-slate-300 mb-1.5">عنوان یا شرح هزینه <span class="text-rose-400">*</span></label>
+                <input type="text" name="title" id="card_expense_title" required placeholder="مثال: خرید چای، قند و بیسکوییت برای فروشگاه" class="w-full bg-[#161f33] border border-white/15 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none transition font-medium">
+            </div>
+
+            <div class="md:col-span-4">
+                <label class="block text-xs font-bold text-slate-300 mb-1.5">مبلغ پرداختی (تومان) <span class="text-rose-400">*</span></label>
+                <div class="relative">
+                    <input type="text" name="amount" id="card_expense_amount" required placeholder="مثلاً: ۵۰,۰۰۰" oninput="formatNumber(this)" class="currency-input w-full bg-[#161f33] border border-white/15 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none transition font-mono font-black text-left pr-3 pl-14">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-bold pointer-events-none">تومان</span>
+                </div>
+            </div>
+
+            <div class="md:col-span-3">
+                <label class="block text-xs font-bold text-slate-300 mb-1.5">دسته‌بندی تنخواه</label>
+                <select name="category" id="card_expense_cat" class="w-full bg-[#161f33] border border-white/15 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition">
+                    <option value="پذیرایی و عمومی">☕ پذیرایی و عمومی</option>
+                    <option value="نظافت و بهداشت">🧹 نظافت و شوینده</option>
+                    <option value="پیک و ایاب ذهاب">🛵 پیک و باربری</option>
+                    <option value="ملزومات بسته بندی">📦 ملزومات و نایلون</option>
+                    <option value="تعمیرات و نگهداری">🔧 تعمیرات و تأسیسات</option>
+                    <option value="قبوض و انرژی">⚡ قبوض و شارژ</option>
+                    <option value="سایر هزینه ها">📝 سایر هزینه‌های جاری</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/5">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="text-rose-400">ℹ️</span>
+                <span>این هزینه مستقیماً در دفاتر حساب تنخواه شعبه شما ثبت شده و در مغایرت‌گیری دخل روزانه اعمال می‌شود.</span>
+            </span>
+            <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-black shadow-lg shadow-rose-600/25 active:scale-95 transition flex items-center justify-center gap-2">
+                <span>💾</span> ثبت فوری در تنخواه
+            </button>
+        </div>
+    </form>
 </div>
 
 <!-- ===== بخش فاکتورهای دارای مانده تسویه‌نشده ===== -->
@@ -3169,6 +3208,75 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         const modal = document.getElementById('dailyShiftModal');
         if (modal) modal.classList.add('hidden');
     }
+
+    // ===== توابع مدیریت پنل و مودال هزینه تنخواه =====
+    function openPettyCashModal() {
+        const modal = document.getElementById('pettyCashModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            const titleInput = document.getElementById('modal_expense_title');
+            if (titleInput) titleInput.focus();
+        } else {
+            const card = document.getElementById('pettyCashStandaloneCard');
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth' });
+                const inp = document.getElementById('card_expense_title');
+                if (inp) inp.focus();
+            }
+        }
+    }
+
+    function closePettyCashModal() {
+        const modal = document.getElementById('pettyCashModal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function setExpenseTitle(title, cat) {
+        const modalTitle = document.getElementById('modal_expense_title');
+        const modalCat = document.getElementById('modal_expense_cat');
+        if (modalTitle) modalTitle.value = title;
+        if (modalCat && cat) modalCat.value = cat;
+
+        const cardTitle = document.getElementById('card_expense_title');
+        const cardCat = document.getElementById('card_expense_cat');
+        if (cardTitle) cardTitle.value = title;
+        if (cardCat && cat) cardCat.value = cat;
+    }
+
+    // تغییر نمای میزکار ثبت فاکتور بین حالت عریض (Full Width) و استاندارد (Split View)
+    function toggleInvoiceWorkspaceWidth() {
+        const formCol = document.getElementById('invoiceFormColumn');
+        const tableCol = document.getElementById('invoicesTableColumn');
+        const iconSpan = document.getElementById('toggleWidthIcon');
+        const textSpan = document.getElementById('toggleWidthText');
+        if (!formCol) return;
+
+        const isExpanded = formCol.classList.contains('xl:col-span-12');
+        if (isExpanded) {
+            formCol.classList.remove('xl:col-span-12');
+            formCol.classList.add('xl:col-span-5');
+            if (tableCol) tableCol.classList.remove('hidden');
+            if (iconSpan) iconSpan.textContent = '⛶';
+            if (textSpan) textSpan.textContent = 'حالت عریض';
+            try { localStorage.setItem('seller_workspace_wide', '0'); } catch(e){}
+        } else {
+            formCol.classList.remove('xl:col-span-5');
+            formCol.classList.add('xl:col-span-12');
+            if (tableCol) tableCol.classList.add('hidden');
+            if (iconSpan) iconSpan.textContent = '🗗';
+            if (textSpan) textSpan.textContent = 'نمای دو ستونه';
+            try { localStorage.setItem('seller_workspace_wide', '1'); } catch(e){}
+        }
+    }
+
+    // بستن مودال‌ها با کلید Escape
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closePettyCashModal();
+            closeDailyShiftModal();
+        }
+    });
+
 </script>
 
 <!-- ==================== مودال بستن دخل و ثبت گزارش روزانه فروشنده ==================== -->
@@ -3270,6 +3378,71 @@ function openSettleModal(invoiceId, invoiceNumber, remaining, customerName) {
         </form>
     </div>
 </div>
+
+<!-- ==================== مودال اختصاصی ثبت هزینه جاری تنخواه ==================== -->
+<div id="pettyCashModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-card max-w-xl w-full p-6 border border-white/20 shadow-2xl rounded-3xl bg-[#0f172a]">
+        <div class="flex justify-between items-center pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center text-xl shadow-lg shadow-rose-500/30 flex-shrink-0">
+                    💸
+                </div>
+                <div>
+                    <h3 class="font-black text-white text-base">ثبت فوری هزینه تنخواه مغازه</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">ثبت هزینه جاری خارج از فاکتور فروش مشتری</p>
+                </div>
+            </div>
+            <button type="button" onclick="closePettyCashModal()" class="text-slate-400 hover:text-white text-2xl transition">✕</button>
+        </div>
+
+        <div class="my-4 flex flex-wrap gap-1.5 text-xs">
+            <button type="button" onclick="setExpenseTitle('خرید قند و چای مغازه', 'پذیرایی و عمومی')" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">☕ چای و قند</button>
+            <button type="button" onclick="setExpenseTitle('مواد شوینده و نظافت مغازه', 'نظافت و بهداشت')" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">🧹 نظافت</button>
+            <button type="button" onclick="setExpenseTitle('کرایه پیک و ایاب ذهاب', 'پیک و ایاب ذهاب')" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">🛵 پیک</button>
+            <button type="button" onclick="setExpenseTitle('خرید نایلون و چسب بسته بندی', 'ملزومات بسته بندی')" class="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-white border border-white/10 text-[11px] font-bold transition">📦 نایلون و چسب</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('add_expense') }}" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1.5">عنوان هزینه <span class="text-rose-400">*</span></label>
+                <input type="text" name="title" id="modal_expense_title" required placeholder="مثلاً: خرید چای و قند برای مغازه" class="w-full bg-[#161f33] border border-white/15 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none transition font-medium">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5">مبلغ پرداختی (تومان) <span class="text-rose-400">*</span></label>
+                    <div class="relative">
+                        <input type="text" name="amount" id="modal_expense_amount" required placeholder="مثلاً: ۵۰,۰۰۰" oninput="formatNumber(this)" class="currency-input w-full bg-[#161f33] border border-white/15 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none transition font-mono font-black text-left pr-3 pl-14">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 font-bold pointer-events-none">تومان</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5">دسته‌بندی</label>
+                    <select name="category" id="modal_expense_cat" class="w-full bg-[#161f33] border border-white/15 focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none transition">
+                        <option value="پذیرایی و عمومی">☕ پذیرایی و عمومی</option>
+                        <option value="نظافت و بهداشت">🧹 نظافت و شوینده</option>
+                        <option value="پیک و ایاب ذهاب">🛵 پیک و باربری</option>
+                        <option value="ملزومات بسته بندی">📦 ملزومات و نایلون</option>
+                        <option value="تعمیرات و نگهداری">🔧 تعمیرات و تأسیسات</option>
+                        <option value="قبوض و انرژی">⚡ قبوض و شارژ</option>
+                        <option value="سایر هزینه ها">📝 سایر هزینه‌های جاری</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <button type="button" onclick="closePettyCashModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                    انصراف
+                </button>
+                <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition flex items-center gap-2">
+                    <span>💾</span> ثبت در تنخواه
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 

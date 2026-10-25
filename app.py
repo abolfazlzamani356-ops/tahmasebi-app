@@ -628,9 +628,19 @@ def internal_error(e):
     </div>
     """, 500
 
+@app.route('/favicon.ico')
+def favicon():
+    return ('', 204)
+
 @app.errorhandler(404)
 def not_found(e):
-    if request.path.startswith('/uploads/') or request.path.startswith('/static/') or request.path.startswith('/api/') or request.path.startswith('/avatar/'):
+    if (request.path.startswith('/uploads/') or 
+        request.path.startswith('/static/') or 
+        request.path.startswith('/api/') or 
+        request.path.startswith('/avatar/') or
+        request.path.endswith('.ico') or
+        request.path.endswith('.png') or
+        request.path.endswith('.map')):
         return ('Not Found', 404)
     if 'user_id' in session:
         return redirect(url_for('index'))
@@ -1708,7 +1718,7 @@ def add_invoice():
             if existing_inv:
                 seller_name = existing_inv.seller.full_name if existing_inv.seller else 'نامشخص'
                 shop_name = existing_inv.shop.name if existing_inv.shop else f'شعبه {existing_inv.shop_id}'
-                err_msg = f'شماره فاکتور «{invoice_number}» قبلاً توسط {seller_name} در {shop_name} (تاریخ {existing_inv.shamsi_date_time}) ثبت شده است! لطفاً شماره فاکتور دیگری وارد فرمایید.'
+                err_msg = f'شماره فاکتور «{invoice_number}» قبلاً در سامانه ثبت شده است (توسط {seller_name} در {shop_name} - تاریخ {existing_inv.shamsi_date_time})! لطفاً شماره فاکتور دیگری وارد فرمایید.'
                 if is_json:
                     return jsonify({
                         'success': False,
@@ -6276,8 +6286,9 @@ def add_petty_deposit():
 def add_expense():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    raw_amt = to_english_digits(request.form.get('amount', '0')).replace(',', '').strip()
+    amount = int(raw_amt) if raw_amt.isdigit() else 0
     now_j = jdatetime.datetime.now()
-    amount = int(request.form.get('amount', '0').replace(',', ''))
     exp = Expense(
         title=request.form.get('title'),
         amount=amount,

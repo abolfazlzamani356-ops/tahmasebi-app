@@ -13,13 +13,12 @@
         </div>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-        <!-- غیرفعال موقت به درخواست کاربر: ورود به صندوق لمسی POS v2
+        <!-- غیرفعال موقت به درخواست کاربر: ورود به صندوق لمسی POS v2 -->
         <a href="{{ url_for('pos_v2_view') }}" 
            onclick="setTahmasebiUiMode('pos_v2')" 
-           class="bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:via-teal-400 hover:to-emerald-400 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-cyan-500/25 border border-cyan-300/30">
+           class="hidden" style="display: none !important;">
             <span>📱</span> ورود به صندوق لمسی POS v2
         </a>
-        -->
         <button type="button" onclick="openDailyShiftModal()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-emerald-500/25">
             <span>📑</span> ثبت گزارش پایان روز و دخل
         </button>
@@ -150,8 +149,8 @@
     {% endif %}
 </div>
 
-<!-- غیرفعال موقت به درخواست کاربر: رونمایی از صندوق فروشگاهی لمسی نسل جدید (POS v2 Touch)
-<div class="glass-card p-4 mb-6 border-r-4 border-r-emerald-500 bg-gradient-to-r from-emerald-950/40 via-cyan-950/20 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">
+<!-- غیرفعال موقت به درخواست کاربر: رونمایی از صندوق فروشگاهی لمسی نسل جدید (POS v2 Touch) -->
+<div class="hidden" style="display: none !important;">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 text-white flex items-center justify-center text-xl shadow-lg shadow-emerald-500/20 shrink-0">
             💎
@@ -170,7 +169,6 @@
         </a>
     </div>
 </div>
--->
 
 <!-- غیرفعال موقت به درخواست کاربر: سفارشات ساخت کارگاهی (کابینت، روشویی، آینه و باکس سفارشی)
 <div class="glass-card p-4 mb-6 border-r-4 border-r-amber-500 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">

@@ -7972,6 +7972,354 @@ def api_share_workshop_order_text(order_id):
         'text': text.strip()
     })
 
+
+# =========================================================================
+# سیستم پورسانت کلی (۲٪ تجمیعی و تقسیم مساوی بین ۴ فروشنده)
+# =========================================================================
+
+@app.route('/admin/collective-commissions')
+@app.route('/admin/collective_commissions')
+def collective_commissions_view():
+    """
+    سیستم پورسانت کلی مدیریت:
+    محاسبه ۲٪ از کل فاکتورهای فروش و تسهیم مساوی آن بین ۴ فروشنده منتخب:
+    خانم نقدی، خانم امیریان (امیری)، خانم حاجیلو، خانم بیدریغ
+    این بخش کاملاً مستقل از محاسبات فاکتور و پورسانت‌های فردی پرسنل است.
+    """
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_role = session.get('role')
+    can_manage_inv = session.get('can_manage_inventory', False)
+    if user_role != 'admin' and not can_manage_inv:
+        flash('دسترسی به سیستم پورسانت کلی فقط برای مدیریت کل و مدیران مالی مجاز است.', 'warning')
+        return redirect(url_for('seller_dashboard'))
+
+    now_j = jdatetime.datetime.now()
+    selected_year = request.args.get('year', default=now_j.year, type=int)
+    selected_month = request.args.get('month', default=now_j.month, type=int)
+    selected_shop = request.args.get('shop_id', default=0, type=int)
+    selected_seller = request.args.get('seller_id', default=0, type=int)
+    search_query = request.args.get('search', '').strip()
+
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all() if tenant_id else Shop.query.all()
+    tenant_shop_ids = [s.id for s in shops] if shops else [1, 2]
+
+    # ۴ فروشنده منتخب و ذینفع طبق دستور کاربر
+    core_targets = [
+        {'id': 2, 'username': 'naqdi', 'name': 'خانم نقدی', 'role_tag': 'فروشنده ارشد'},
+        {'id': 3, 'username': 'amiri', 'name': 'خانم امیریان (امیری)', 'role_tag': 'فروشنده ارشد'},
+        {'id': 5, 'username': 'hajilou', 'name': 'خانم حاجیلو', 'role_tag': 'فروشنده ارشد'},
+        {'id': 4, 'username': 'bidrigh', 'name': 'خانم بیدریغ', 'role_tag': 'فروشنده ارشد'},
+    ]
+    core_ids = {t['id'] for t in core_targets}
+
+    # دریافت سال‌های موجود در دیتابیس
+    years_query = db.session.query(Invoice.shamsi_year).filter(
+        Invoice.shamsi_year.isnot(None)
+    ).distinct().order_by(Invoice.shamsi_year.desc()).all()
+    available_years = [y[0] for y in years_query if y[0]]
+    if now_j.year not in available_years:
+        available_years.insert(0, now_j.year)
+
+    # کوئری پایه فاکتورهای قطعی فروش
+    query = Invoice.query.options(
+        joinedload(Invoice.seller),
+        joinedload(Invoice.shop)
+    ).filter(
+        Invoice.status == 'final',
+        Invoice.invoice_type == 'sale'
+    )
+
+    if tenant_shop_ids:
+        query = query.filter(Invoice.shop_id.in_(tenant_shop_ids))
+
+    if selected_year:
+        query = query.filter(Invoice.shamsi_year == selected_year)
+
+    if selected_month and selected_month > 0:
+        query = query.filter(Invoice.shamsi_month == selected_month)
+
+    if selected_shop and selected_shop > 0:
+        query = query.filter(Invoice.shop_id == selected_shop)
+
+    if selected_seller and selected_seller > 0:
+        query = query.filter(Invoice.seller_id == selected_seller)
+
+    if search_query:
+        query = query.filter(
+            or_(
+                Invoice.invoice_number.ilike(f'%{search_query}%'),
+                Invoice.customer_name.ilike(f'%{search_query}%')
+            )
+        )
+
+    invoices = query.order_by(Invoice.created_at.desc(), Invoice.id.desc()).all()
+
+    # محاسبات فاکتور به فاکتور
+    invoice_rows = []
+    seller_stats = {}
+    total_sales_amount = 0
+    total_pool_2pct = 0
+
+    for inv in invoices:
+        amount = inv.total_amount or 0
+        pool_2 = int(round(amount * 0.02))
+        share_each = int(round(pool_2 / 4.0))
+
+        total_sales_amount += amount
+        total_pool_2pct += pool_2
+
+        s_id = inv.seller_id
+        s_name = inv.seller.full_name if inv.seller else 'نامشخص'
+        if s_id not in seller_stats:
+            seller_stats[s_id] = {
+                'id': s_id,
+                'name': s_name,
+                'count': 0,
+                'sales': 0,
+                'pool': 0,
+                'is_core': s_id in core_ids
+            }
+        seller_stats[s_id]['count'] += 1
+        seller_stats[s_id]['sales'] += amount
+        seller_stats[s_id]['pool'] += pool_2
+
+        invoice_rows.append({
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'shamsi_date_time': inv.shamsi_date_time or '',
+            'customer_name': inv.customer_name or 'مشتری آزاد',
+            'seller_name': s_name,
+            'shop_name': inv.shop.name if inv.shop else 'شعبه نامشخص',
+            'total_amount': amount,
+            'pool_2pct': pool_2,
+            'share_each': share_each
+        })
+
+    # سهم مساوی هر یک از ۴ نفر
+    share_per_seller = int(round(total_pool_2pct / 4.0)) if total_pool_2pct > 0 else 0
+
+    # کارت‌های ۴ فروشنده ذینفع
+    beneficiary_cards = []
+    for ct in core_targets:
+        uid = ct['id']
+        stats = seller_stats.get(uid, {'count': 0, 'sales': 0, 'pool': 0})
+        beneficiary_cards.append({
+            'id': uid,
+            'name': ct['name'],
+            'role_tag': ct['role_tag'],
+            'earned_commission': share_per_seller,
+            'own_invoices_count': stats['count'],
+            'own_sales_amount': stats['sales'],
+            'own_pool_generated': stats['pool']
+        })
+
+    # لیست مشارکت تمام فروشندگان برای جدول تحلیلی
+    contribution_rows = []
+    for s_id, s_data in sorted(seller_stats.items(), key=lambda x: x[1]['sales'], reverse=True):
+        contribution_rows.append({
+            'seller_id': s_id,
+            'seller_name': s_data['name'],
+            'invoices_count': s_data['count'],
+            'sales_amount': s_data['sales'],
+            'pool_generated': s_data['pool'],
+            'is_core': s_data['is_core']
+        })
+
+    # لیست همه فروشندگان برای منوی کشویی فیلتر
+    all_sellers = User.query.filter(User.role.in_(['seller', 'admin'])).order_by(User.full_name).all()
+
+    return render_template(
+        'collective_commissions.html',
+        selected_year=selected_year,
+        selected_month=selected_month,
+        selected_shop=selected_shop,
+        selected_seller=selected_seller,
+        search_query=search_query,
+        available_years=available_years,
+        months=PERSIAN_MONTHS,
+        shops=shops,
+        all_sellers=all_sellers,
+        total_invoices_count=len(invoices),
+        total_sales_amount=total_sales_amount,
+        total_pool_2pct=total_pool_2pct,
+        share_per_seller=share_per_seller,
+        beneficiary_cards=beneficiary_cards,
+        contribution_rows=contribution_rows,
+        invoice_rows=invoice_rows
+    )
+
+
+@app.route('/admin/export/collective-commissions-excel')
+@app.route('/admin/export/collective_commissions_excel')
+def export_collective_commissions_excel():
+    """خروجی جامع اکسل از سیستم پورسانت کلی (۲٪ فاکتورها تقسیم بر ۴ فروشنده)"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_role = session.get('role')
+    can_manage_inv = session.get('can_manage_inventory', False)
+    if user_role != 'admin' and not can_manage_inv:
+        flash('دسترسی غیرمجاز.', 'warning')
+        return redirect(url_for('seller_dashboard'))
+
+    now_j = jdatetime.datetime.now()
+    selected_year = request.args.get('year', default=now_j.year, type=int)
+    selected_month = request.args.get('month', default=now_j.month, type=int)
+    selected_shop = request.args.get('shop_id', default=0, type=int)
+    selected_seller = request.args.get('seller_id', default=0, type=int)
+    search_query = request.args.get('search', '').strip()
+
+    tenant_id = get_current_tenant_id()
+    shops = Shop.query.filter_by(tenant_id=tenant_id).all() if tenant_id else Shop.query.all()
+    tenant_shop_ids = [s.id for s in shops] if shops else [1, 2]
+
+    query = Invoice.query.options(
+        joinedload(Invoice.seller),
+        joinedload(Invoice.shop)
+    ).filter(
+        Invoice.status == 'final',
+        Invoice.invoice_type == 'sale'
+    )
+
+    if tenant_shop_ids:
+        query = query.filter(Invoice.shop_id.in_(tenant_shop_ids))
+    if selected_year:
+        query = query.filter(Invoice.shamsi_year == selected_year)
+    if selected_month and selected_month > 0:
+        query = query.filter(Invoice.shamsi_month == selected_month)
+    if selected_shop and selected_shop > 0:
+        query = query.filter(Invoice.shop_id == selected_shop)
+    if selected_seller and selected_seller > 0:
+        query = query.filter(Invoice.seller_id == selected_seller)
+    if search_query:
+        query = query.filter(
+            or_(
+                Invoice.invoice_number.ilike(f'%{search_query}%'),
+                Invoice.customer_name.ilike(f'%{search_query}%')
+            )
+        )
+
+    invoices = query.order_by(Invoice.created_at.desc(), Invoice.id.desc()).all()
+
+    total_sales = sum(inv.total_amount or 0 for inv in invoices)
+    total_pool = sum(int(round((inv.total_amount or 0) * 0.02)) for inv in invoices)
+    share_each = int(round(total_pool / 4.0)) if total_pool > 0 else 0
+
+    wb = openpyxl.Workbook()
+
+    # Sheet 1: خلاصه پورسانت کلی ۴ نفر
+    ws1 = wb.active
+    ws1.title = "خلاصه پورسانت کلی"
+    ws1.views.sheetView[0].rightToLeft = True
+
+    header_font = openpyxl.styles.Font(name='Tahoma', size=11, bold=True, color='FFFFFF')
+    header_fill = openpyxl.styles.PatternFill(start_color='1F2937', end_color='1F2937', fill_type='solid')
+    amber_fill = openpyxl.styles.PatternFill(start_color='D97706', end_color='D97706', fill_type='solid')
+    green_fill = openpyxl.styles.PatternFill(start_color='059669', end_color='059669', fill_type='solid')
+    center_align = openpyxl.styles.Alignment(horizontal='center', vertical='center')
+    right_align = openpyxl.styles.Alignment(horizontal='right', vertical='center')
+
+    month_lbl = PERSIAN_MONTHS.get(selected_month, 'کل سال') if selected_month > 0 else 'کل سال'
+    title_cell = ws1.cell(row=1, column=1, value=f"گزارش رسمی سیستم پورسانت کلی فروشگاه‌های طهماسبی - سال {selected_year} ({month_lbl})")
+    title_cell.font = openpyxl.styles.Font(name='Tahoma', size=14, bold=True, color='1E3A8A')
+    ws1.merge_cells("A1:E1")
+
+    ws1.cell(row=3, column=1, value="شاخص کلیدی").font = header_font
+    ws1.cell(row=3, column=1).fill = header_fill
+    ws1.cell(row=3, column=2, value="مقدار").font = header_font
+    ws1.cell(row=3, column=2).fill = header_fill
+
+    kpis = [
+        ("تعداد کل فاکتورهای محاسبه‌شده", f"{len(invoices)} فاکتور"),
+        ("مجموع مبلغ کل فاکتورها (فروش)", f"{total_sales:,} تومان"),
+        ("نرخ پورسانت کلی استخر", "۲ درصد (۲٪)"),
+        ("مجموع استخر پورسانت کلی (۲٪ فروش)", f"{total_pool:,} تومان"),
+        ("تعداد فروشندگان ذینفع", "۴ نفر (نقدی، امیریان، حاجیلو، بیدریغ)"),
+        ("سهم هر یک از ۴ فروشنده (تقسیم بر ۴)", f"{share_each:,} تومان"),
+    ]
+    for r_idx, (k, v) in enumerate(kpis, start=4):
+        ws1.cell(row=r_idx, column=1, value=k).alignment = right_align
+        ws1.cell(row=r_idx, column=2, value=v).alignment = center_align
+
+    # Table of 4 sellers
+    ws1.cell(row=12, column=1, value="نام فروشنده ذینفع").font = header_font
+    ws1.cell(row=12, column=1).fill = amber_fill
+    ws1.cell(row=12, column=2, value="درصد سهم از استخر").font = header_font
+    ws1.cell(row=12, column=2).fill = amber_fill
+    ws1.cell(row=12, column=3, value="سهم دریافتی (تومان)").font = header_font
+    ws1.cell(row=12, column=3).fill = green_fill
+
+    core_names = [
+        "خانم نقدی",
+        "خانم امیریان (امیری)",
+        "خانم حاجیلو",
+        "خانم بیدریغ"
+    ]
+    for r_idx, s_name in enumerate(core_names, start=13):
+        ws1.cell(row=r_idx, column=1, value=s_name).alignment = right_align
+        ws1.cell(row=r_idx, column=2, value="۲۵٪ (معادل ۰.۵٪ فاکتورها)").alignment = center_align
+        ws1.cell(row=r_idx, column=3, value=f"{share_each:,} تومان").alignment = center_align
+
+    # Sheet 2: ریز فاکتورها
+    ws2 = wb.create_sheet(title="ریز محاسبات فاکتورها")
+    ws2.views.sheetView[0].rightToLeft = True
+
+    cols = [
+        ("ردیف", 8),
+        ("شماره فاکتور", 18),
+        ("تاریخ و زمان شمسی", 20),
+        ("مشتری", 22),
+        ("صادرکننده فاکتور", 20),
+        ("شعبه", 16),
+        ("مبلغ فاکتور (تومان)", 20),
+        ("پورسانت ۲٪ فاکتور (تومان)", 22),
+        ("سهم خانم نقدی", 18),
+        ("سهم خانم امیریان", 18),
+        ("سهم خانم حاجیلو", 18),
+        ("سهم خانم بیدریغ", 18),
+    ]
+
+    for col_idx, (col_name, col_width) in enumerate(cols, start=1):
+        cell = ws2.cell(row=1, column=col_idx, value=col_name)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        ws2.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = col_width
+
+    for r_idx, inv in enumerate(invoices, start=2):
+        amt = inv.total_amount or 0
+        p_2 = int(round(amt * 0.02))
+        s_each = int(round(p_2 / 4.0))
+
+        ws2.cell(row=r_idx, column=1, value=r_idx - 1).alignment = center_align
+        ws2.cell(row=r_idx, column=2, value=inv.invoice_number).alignment = center_align
+        ws2.cell(row=r_idx, column=3, value=inv.shamsi_date_time or '').alignment = center_align
+        ws2.cell(row=r_idx, column=4, value=inv.customer_name or 'مشتری آزاد').alignment = right_align
+        ws2.cell(row=r_idx, column=5, value=inv.seller.full_name if inv.seller else 'نامشخص').alignment = right_align
+        ws2.cell(row=r_idx, column=6, value=inv.shop.name if inv.shop else 'شعبه نامشخص').alignment = center_align
+        ws2.cell(row=r_idx, column=7, value=amt).number_format = '#,##0'
+        ws2.cell(row=r_idx, column=8, value=p_2).number_format = '#,##0'
+        ws2.cell(row=r_idx, column=9, value=s_each).number_format = '#,##0'
+        ws2.cell(row=r_idx, column=10, value=s_each).number_format = '#,##0'
+        ws2.cell(row=r_idx, column=11, value=s_each).number_format = '#,##0'
+        ws2.cell(row=r_idx, column=12, value=s_each).number_format = '#,##0'
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"collective_commissions_{selected_year}_{selected_month}.xlsx"
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

@@ -591,6 +591,12 @@ def initialize_database():
     except Exception as e:
         app.logger.warning(f"Datees import warning: {e}")
 
+    try:
+        from meta_catalog_data import generate_all_meta_items
+        _seed_catalog('متا (Meta)', generate_all_meta_items, 25.0, 'Meta', update_existing=True)
+    except Exception as e:
+        app.logger.warning(f"Meta import warning: {e}")
+
 
 
 

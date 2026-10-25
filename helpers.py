@@ -1541,18 +1541,50 @@ def ai_customer_credit_risk(customer_id):
         'sms_draft': sms_draft
     }
 
-def ai_audit_store_anomalies(limit=15):
+def ai_audit_store_anomalies(limit=50, year=None, month=None, tenant_id=None):
     """
     ممیزی و دیده‌بان هوشمند خطاهای مالی، تخفیف‌های غیرمجاز و فروش با زیان
+    به صورت پیش‌فرض یا انتخابی با ماه و سال فیلتر می‌شود تا در جابجایی ماه‌ها،
+    فقط خطاهای ماه جاری یا ماه درخواستی نمایش داده شوند.
     """
+    now_j = jdatetime.datetime.now()
+
+    # تبدیل و اعتبارسنجی سال
+    if year is not None and str(year).lower() not in ['all', '0', 'none', '']:
+        year_filter = safe_int(year, now_j.year)
+    else:
+        year_filter = None
+
+    # تبدیل و اعتبارسنجی ماه
+    if month is not None and str(month).lower() not in ['all', '0', 'none', '']:
+        month_filter = safe_int(month, now_j.month)
+    else:
+        month_filter = None
+
     anomalies = []
-    
-    loss_items = db.session.query(InvoiceItem, Invoice).join(Invoice).filter(
+
+    loss_query = db.session.query(InvoiceItem, Invoice).join(Invoice).filter(
         Invoice.status == 'final',
         Invoice.invoice_type == 'sale',
         InvoiceItem.unit_buy_price > 0,
         InvoiceItem.unit_sell_price < InvoiceItem.unit_buy_price
-    ).order_by(Invoice.id.desc()).limit(limit).all()
+    )
+
+    if year_filter:
+        loss_query = loss_query.filter(Invoice.shamsi_year == year_filter)
+    if month_filter:
+        loss_query = loss_query.filter(Invoice.shamsi_month == month_filter)
+    if tenant_id:
+        try:
+            from models import Shop
+            tenant_shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+            if tenant_shops:
+                t_shop_ids = [s.id for s in tenant_shops]
+                loss_query = loss_query.filter(Invoice.shop_id.in_(t_shop_ids))
+        except Exception:
+            pass
+
+    loss_items = loss_query.order_by(Invoice.id.desc()).limit(limit).all()
 
     total_loss_amount = 0
     loss_items_count = 0
@@ -1575,15 +1607,33 @@ def ai_audit_store_anomalies(limit=15):
             'unit_buy_price': it.unit_buy_price,
             'unit_sell_price': it.unit_sell_price,
             'details': f"کالای «{it.item_name}» به قیمت خرید {it.unit_buy_price:,} با قیمت فروش {it.unit_sell_price:,} تومان فاکتور شده است (زیان کل: {total_loss:,} تومان).",
-            'date': inv.shamsi_date_time
+            'date': inv.shamsi_date_time,
+            'shamsi_year': inv.shamsi_year,
+            'shamsi_month': inv.shamsi_month
         })
 
-    high_disc_invoices = Invoice.query.filter(
+    high_disc_query = Invoice.query.filter(
         Invoice.status == 'final',
         Invoice.invoice_type == 'sale',
         Invoice.subtotal_amount > 1000000,
         Invoice.discount_amount > (Invoice.subtotal_amount * 0.25)
-    ).order_by(Invoice.id.desc()).limit(limit).all()
+    )
+
+    if year_filter:
+        high_disc_query = high_disc_query.filter(Invoice.shamsi_year == year_filter)
+    if month_filter:
+        high_disc_query = high_disc_query.filter(Invoice.shamsi_month == month_filter)
+    if tenant_id:
+        try:
+            from models import Shop
+            tenant_shops = Shop.query.filter_by(tenant_id=tenant_id).all()
+            if tenant_shops:
+                t_shop_ids = [s.id for s in tenant_shops]
+                high_disc_query = high_disc_query.filter(Invoice.shop_id.in_(t_shop_ids))
+        except Exception:
+            pass
+
+    high_disc_invoices = high_disc_query.order_by(Invoice.id.desc()).limit(limit).all()
 
     total_high_discount_amount = 0
     for inv in high_disc_invoices:
@@ -1599,7 +1649,9 @@ def ai_audit_store_anomalies(limit=15):
             'discount_amount': inv.discount_amount or 0,
             'discount_percent': disc_pct,
             'details': f"مبلغ ناخالص: {inv.subtotal_amount:,} تومان | تخفیف اعمال‌شده: {inv.discount_amount:,} تومان.",
-            'date': inv.shamsi_date_time
+            'date': inv.shamsi_date_time,
+            'shamsi_year': inv.shamsi_year,
+            'shamsi_month': inv.shamsi_month
         })
 
     neg_stock_items = InventoryItem.query.filter(InventoryItem.stock_quantity < 0).limit(5).all()
@@ -1615,19 +1667,22 @@ def ai_audit_store_anomalies(limit=15):
             'date': 'هم‌اکنون'
         })
 
+    month_name = PERSIAN_MONTHS.get(month_filter, 'کل ماه‌ها') if month_filter else 'کل ماه‌ها'
     summary = {
         'total_loss_amount': total_loss_amount,
         'loss_items_count': loss_items_count,
         'high_discount_count': len(high_disc_invoices),
         'total_high_discount_amount': total_high_discount_amount,
         'negative_stock_count': len(neg_stock_items),
-        'total_anomalies_count': len(anomalies)
+        'total_anomalies_count': len(anomalies),
+        'year': year_filter,
+        'month': month_filter,
+        'month_name': month_name,
+        'is_current_month': (month_filter == now_j.month and (year_filter is None or year_filter == now_j.year))
     }
 
     return {
         'anomalies': anomalies,
         'summary': summary
     }
-
-
 

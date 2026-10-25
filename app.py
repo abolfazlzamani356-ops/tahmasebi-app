@@ -1226,13 +1226,33 @@ def api_ai_customer_risk(customer_id):
 
 @app.route('/api/ai/audit_anomalies', methods=['GET'])
 def api_ai_audit_anomalies():
-    """ستون ۵: دیده‌بان ممیزی و کشف خطاهای مالی، فروش با زیان و تخفیف‌های غیرمجاز"""
+    """ستون ۵: دیده‌بان ممیزی و کشف خطاهای مالی، فروش با زیان و تخفیف‌های غیرمجاز - همگام با ماه جاری"""
     if 'user_id' not in session or not (session.get('role') in ['admin', 'manager'] or is_admin()):
         return jsonify({'success': False, 'message': 'دسترسی فقط ویژه مدیریت سیستم است.'}), 200
 
+    now_j = jdatetime.datetime.now()
     limit = safe_int(request.args.get('limit', 50), 50)
+    month_arg = request.args.get('month', default=None)
+    year_arg = request.args.get('year', default=None)
+
+    # اگر ماه مشخص نشده باشد، به صورت خودکار ماه جاری قرار می‌گیرد
+    if month_arg is None or month_arg == '':
+        selected_month = now_j.month
+    elif str(month_arg).lower() in ['all', '0']:
+        selected_month = None
+    else:
+        selected_month = safe_int(month_arg, now_j.month)
+
+    if year_arg is None or year_arg == '':
+        selected_year = now_j.year
+    elif str(year_arg).lower() in ['all', '0']:
+        selected_year = None
+    else:
+        selected_year = safe_int(year_arg, now_j.year)
+
+    tenant_id = get_current_tenant_id()
     try:
-        res = ai_audit_store_anomalies(limit=limit)
+        res = ai_audit_store_anomalies(limit=limit, year=selected_year, month=selected_month, tenant_id=tenant_id)
         if isinstance(res, dict):
             anomalies = res.get('anomalies', [])
             summary = res.get('summary', {})
@@ -1246,6 +1266,7 @@ def api_ai_audit_anomalies():
             'count': len(anomalies)
         }), 200
     except Exception as e:
+        app.logger.error(f"Audit watchdog crash: {e}")
         return jsonify({
             'success': False,
             'message': f'خطا در واکشی ممیزی: {str(e)}',
@@ -3381,6 +3402,7 @@ def admin_dashboard():
         selected_month=selected_month,
         selected_month_name=PERSIAN_MONTHS.get(selected_month, ''),
         current_year=now_j.year,
+        now_month=now_j.month,
         shops=shops,
         all_categories=all_categories,
         bank_accounts=bank_accounts,

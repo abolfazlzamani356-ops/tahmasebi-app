@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Database update script for Ilia Steel (ایلیا استیل) Catalog (13 Mehr 1405)
-With 18% purchase discount.
+Database update script for Ilia Steel (ایلیا استیل) Catalog (02 Aban 1405)
+With 15% purchase discount.
 """
 import sys, os, sqlite3, shutil
 from datetime import datetime
@@ -19,8 +19,8 @@ shutil.copy2(db_path, backup_path)
 conn = sqlite3.connect(db_path)
 c = conn.cursor()
 
-# Generate new items with 18% discount
-new_items = ilia_steel_catalog_data.generate_all_ilia_steel_items(18.0)
+# Generate new items with 15% discount
+new_items = ilia_steel_catalog_data.generate_all_ilia_steel_items(15.0)
 print(f"Generated {len(new_items)} items from ilia_steel_catalog_data.")
 
 updated_count = 0

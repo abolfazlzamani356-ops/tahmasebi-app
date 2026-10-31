@@ -14,8 +14,8 @@ shutil.copy2(db_path, backup_path)
 conn = sqlite3.connect(db_path)
 c = conn.cursor()
 
-# Generate new items with 20% discount
-new_items = kasra_catalog_data.generate_all_kasra_items(20.0)
+# Generate new items with 25% discount
+new_items = kasra_catalog_data.generate_all_kasra_items(25.0)
 print(f"Generated {len(new_items)} items from kasra_catalog_data.")
 
 updated_count = 0

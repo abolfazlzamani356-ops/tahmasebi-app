@@ -380,6 +380,9 @@
                 {% endif %}
 
                 {% if session.get('role') == 'admin' %}
+                <a href="{{ url_for('admin_vanity_production') }}" class="nav-pill {% if request.endpoint == 'admin_vanity_production' %}active{% endif %}" title="آمار و رهگیری ۷ مرحله خط تولید کابین روشویی">
+                    <span>🏭</span> خط تولید کابین
+                </a>
                 <a href="{{ url_for('admin_shift_reports_view') }}" class="nav-pill {% if request.endpoint == 'admin_shift_reports_view' %}active{% endif %}" title="گزارش پایان روز و بستن دخل فروشندگان">
                     <span>📑</span> گزارش دخل
                 </a>

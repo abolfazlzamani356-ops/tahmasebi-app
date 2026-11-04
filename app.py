@@ -7361,6 +7361,19 @@ def api_admin_financial_summary():
         'summary': summary
     })
 
+# ==================== ماژول مدیریت و آمار روزانه خط تولید کابین روشویی (کارگاه‌یار) ====================
+@app.route('/admin/vanity-production')
+def admin_vanity_production():
+    """
+    سامانه هوشمند ثبت آمار روزانه و رهگیری ۷ مرحله خط تولید کابین روشویی
+    منحصر به پنل مدیریت ارشد سیستم (فقط role == 'admin')
+    """
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('دسترسی غیرمجاز: این بخش فقط و فقط ویژه پنل مدیریت سیستم است.', 'danger')
+        return redirect(url_for('admin_dashboard') if 'user_id' in session else url_for('login'))
+        
+    return render_template('vanity_production.html')
+
 # ==================== ماژول جامع سفارشات ساخت کارگاه (کابین، آینه، باکس سفارشی) ====================
 
 @app.route('/workshop_orders')

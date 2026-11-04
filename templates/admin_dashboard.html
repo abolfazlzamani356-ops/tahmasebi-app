@@ -43,6 +43,10 @@
                 </select>
             </form>
 
+            <a href="{{ url_for('admin_vanity_production') }}" class="bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-500 hover:to-cyan-600 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-teal-700/30 transition flex items-center gap-1.5" title="ثبت آمار روزانه و رهگیری ۷ مرحله خط تولید کابین روشویی">
+                <span>🏭</span> آمار خط تولید کابین
+            </a>
+
             <a href="{{ url_for('workshop_orders_hub') }}" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-orange-500/30 transition flex items-center gap-1.5">
                 <span>🔨</span> سفارشات کارگاه
                 {% if pending_workshop_orders_count and pending_workshop_orders_count > 0 %}

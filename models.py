@@ -688,3 +688,73 @@ class DailyShiftReport(db.Model):
             'is_verified': self.is_verified_by_admin
         }
 
+
+# ==================== ماژول خط تولید و آمار روزانه ۷ مرحله‌ای کارگاه کابین روشویی ====================
+
+class VanityCabinetModel(db.Model):
+    """مدل‌های کابین روشویی در خط تولید کارگاه"""
+    __tablename__ = 'vanity_cabinet_models'
+    id = db.Column(db.String(80), primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    code = db.Column(db.String(80), nullable=True)
+    dimensions = db.Column(db.String(100), default='سفارشی')
+    category = db.Column(db.String(100), default='وال‌هنگ (دیواری)')
+    color_finish = db.Column(db.String(100), default='پلی‌اورتان')
+    initial_cutting = db.Column(db.Integer, default=0)
+    initial_frame_assembly = db.Column(db.Integer, default=0)
+    initial_pre_putty_sanding = db.Column(db.Integer, default=0)
+    initial_putty = db.Column(db.Integer, default=0)
+    initial_post_putty_sanding = db.Column(db.Integer, default=0)
+    initial_painted = db.Column(db.Integer, default=0)
+    initial_final_packaged = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    logs = db.relationship('VanityProductionLog', backref='model', cascade='all, delete-orphan', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'code': self.code or self.name,
+            'dimensions': self.dimensions or 'سفارشی',
+            'category': self.category or 'وال‌هنگ (دیواری)',
+            'colorFinish': self.color_finish or 'پلی‌اورتان',
+            'initialStageWip': {
+                'cutting': self.initial_cutting or 0,
+                'frame_assembly': self.initial_frame_assembly or 0,
+                'pre_putty_sanding': self.initial_pre_putty_sanding or 0,
+                'putty': self.initial_putty or 0,
+                'post_putty_sanding': self.initial_post_putty_sanding or 0,
+                'painted': self.initial_painted or 0,
+                'final_packaged': self.initial_final_packaged or 0,
+            }
+        }
+
+
+class VanityProductionLog(db.Model):
+    """ثبت آمار کارکرد و پیشرفت هر قسمت از مراحل ۷ گانه تولید"""
+    __tablename__ = 'vanity_production_logs'
+    id = db.Column(db.String(80), primary_key=True)
+    date = db.Column(db.String(20), nullable=False, index=True)
+    model_id = db.Column(db.String(80), db.ForeignKey('vanity_cabinet_models.id', ondelete='CASCADE'), nullable=False, index=True)
+    stage_id = db.Column(db.String(40), nullable=False, index=True)
+    quantity = db.Column(db.Integer, default=0)
+    defect_count = db.Column(db.Integer, default=0)
+    operator_name = db.Column(db.String(120), default='')
+    note = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'date': self.date,
+            'modelId': self.model_id,
+            'stageId': self.stage_id,
+            'quantity': self.quantity or 0,
+            'defectCount': self.defect_count or 0,
+            'operatorName': self.operator_name or '',
+            'note': self.note or '',
+            'createdAt': self.created_at.isoformat() if self.created_at else datetime.utcnow().isoformat()
+        }
+
+

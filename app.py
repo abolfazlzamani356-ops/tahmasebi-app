@@ -21,7 +21,8 @@ from models import (
     InventoryItem, StockLog, StockTransfer,
     Invoice, InvoiceItem, Cheque, SalarySlip,
     PettyCashDeposit, Expense, AuditLog, ProductCatalog,
-    CustomWorkshopOrder, PurchaseInvoice, DailyShiftReport
+    CustomWorkshopOrder, PurchaseInvoice, DailyShiftReport,
+    VanityCabinetModel, VanityProductionLog
 )
 from helpers import (
     PERSIAN_MONTHS, DEFAULT_CATEGORIES, RETURN_REASONS,
@@ -7373,6 +7374,219 @@ def admin_vanity_production():
         return redirect(url_for('admin_dashboard') if 'user_id' in session else url_for('login'))
         
     return render_template('vanity_production.html')
+
+# ==================== وب‌سرویس‌ها و API دیتابیس پایدار خط تولید کابین روشویی ====================
+
+@app.route('/api/workshop/data', methods=['GET'])
+def api_workshop_data():
+    """دریافت مدل‌ها و رکوردهای آمار روزانه کارگاه از دیتابیس پایدار سرور"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز (فقط مدیریت)'}), 403
+
+    try:
+        models = VanityCabinetModel.query.order_by(VanityCabinetModel.created_at.asc()).all()
+        if not models:
+            seed_defaults = [
+                {'id': 'model-1', 'code': 'VN-60', 'name': 'کابین روشویی وال‌هنگ مدل ونیز ۶۰', 'dimensions': '60x42x50', 'category': 'وال‌هنگ (دیواری)', 'color_finish': 'سفید براق'},
+                {'id': 'model-2', 'code': 'RY-80', 'name': 'کابین روشویی کلاسیک مدل رویال ۸۰', 'dimensions': '80x48x85', 'category': 'پایه‌دار کلاسیک', 'color_finish': 'طوسی مات'},
+                {'id': 'model-3', 'code': 'PR-100', 'name': 'کابین روشویی مدرن فلت مدل پارما ۱۰۰', 'dimensions': '100x46x45', 'category': 'مدرن فلت', 'color_finish': 'مشکی سوپرمات'},
+                {'id': 'model-4', 'code': 'ML-75', 'name': 'ست کابین و آینه‌باکس مدل میلان ۷۵', 'dimensions': '75x44x82', 'category': 'ست آینه‌باکس و کابین', 'color_finish': 'طرح چوب گردو'},
+            ]
+            for s in seed_defaults:
+                m = VanityCabinetModel(
+                    id=s['id'],
+                    code=s['code'],
+                    name=s['name'],
+                    dimensions=s['dimensions'],
+                    category=s['category'],
+                    color_finish=s['color_finish'],
+                    initial_cutting=0,
+                    initial_frame_assembly=0,
+                    initial_pre_putty_sanding=0,
+                    initial_putty=0,
+                    initial_post_putty_sanding=0,
+                    initial_painted=0,
+                    initial_final_packaged=0
+                )
+                db.session.add(m)
+            db.session.commit()
+            models = VanityCabinetModel.query.order_by(VanityCabinetModel.created_at.asc()).all()
+
+        logs = VanityProductionLog.query.order_by(VanityProductionLog.created_at.desc()).all()
+
+        return jsonify({
+            'success': True,
+            'models': [m.to_dict() for m in models],
+            'logs': [l.to_dict() for l in logs]
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/models', methods=['POST'])
+def api_workshop_save_model():
+    """افزودن یا به‌روزرسانی مدل کابین در دیتابیس دائم"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'message': 'نام مدل الزامی است'}), 400
+
+    model_id = data.get('id') or f"model-{int(datetime.utcnow().timestamp()*1000)}"
+    model = VanityCabinetModel.query.get(model_id)
+    if not model:
+        model = VanityCabinetModel.query.filter(VanityCabinetModel.name == name).first()
+        if not model:
+            model = VanityCabinetModel(id=model_id, name=name)
+            db.session.add(model)
+
+    model.name = name
+    model.code = data.get('code') or model.code or name
+    model.dimensions = data.get('dimensions') or model.dimensions or 'سفارشی'
+    model.category = data.get('category') or model.category or 'وال‌هنگ (دیواری)'
+    model.color_finish = data.get('colorFinish') or model.color_finish or 'پلی‌اورتان'
+
+    init_wip = data.get('initialStageWip') or {}
+    if 'cutting' in init_wip: model.initial_cutting = int(init_wip.get('cutting') or 0)
+    if 'frame_assembly' in init_wip: model.initial_frame_assembly = int(init_wip.get('frame_assembly') or 0)
+    if 'pre_putty_sanding' in init_wip: model.initial_pre_putty_sanding = int(init_wip.get('pre_putty_sanding') or 0)
+    if 'putty' in init_wip: model.initial_putty = int(init_wip.get('putty') or 0)
+    if 'post_putty_sanding' in init_wip: model.initial_post_putty_sanding = int(init_wip.get('post_putty_sanding') or 0)
+    if 'painted' in init_wip: model.initial_painted = int(init_wip.get('painted') or 0)
+    if 'final_packaged' in init_wip: model.initial_final_packaged = int(init_wip.get('final_packaged') or 0)
+
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'model': model.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/models/<model_id>', methods=['DELETE'])
+def api_workshop_delete_model(model_id):
+    """حذف مدل از دیتابیس دائم"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    model = VanityCabinetModel.query.get(model_id)
+    if not model:
+        return jsonify({'success': False, 'message': 'مدل پیدا نشد'}), 404
+
+    try:
+        db.session.delete(model)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/logs', methods=['POST'])
+def api_workshop_save_logs():
+    """ثبت آمار کارکرد (تکی یا گروهی) در دیتابیس دائم"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    data = request.get_json(silent=True) or {}
+    items = data.get('logs') if isinstance(data, dict) and 'logs' in data else data
+    if isinstance(items, dict):
+        items = [items]
+    if not isinstance(items, list):
+        items = []
+
+    saved_count = 0
+    try:
+        for idx, item in enumerate(items):
+            log_id = item.get('id') or f"log-{int(datetime.utcnow().timestamp()*1000)}-{idx}"
+            model_id = item.get('modelId')
+            stage_id = item.get('stageId')
+            date_str = item.get('date') or datetime.utcnow().strftime('%Y-%m-%d')
+            quantity = int(item.get('quantity') or 0)
+            defect_count = int(item.get('defectCount') or 0)
+            operator_name = item.get('operatorName') or ''
+            note = item.get('note') or ''
+
+            if not model_id or not stage_id or quantity <= 0:
+                continue
+
+            model = VanityCabinetModel.query.get(model_id)
+            if not model:
+                model = VanityCabinetModel(id=model_id, name=f"مدل {model_id}")
+                db.session.add(model)
+                db.session.flush()
+
+            existing = VanityProductionLog.query.get(log_id)
+            if existing:
+                existing.quantity = quantity
+                existing.defect_count = defect_count
+                existing.operator_name = operator_name
+                existing.note = note
+                existing.date = date_str
+            else:
+                log_entry = VanityProductionLog(
+                    id=log_id,
+                    date=date_str,
+                    model_id=model_id,
+                    stage_id=stage_id,
+                    quantity=quantity,
+                    defect_count=defect_count,
+                    operator_name=operator_name,
+                    note=note
+                )
+                db.session.add(log_entry)
+            saved_count += 1
+
+        db.session.commit()
+        return jsonify({'success': True, 'count': saved_count})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/logs/<log_id>', methods=['DELETE'])
+def api_workshop_delete_log(log_id):
+    """حذف یک رکورد آمار از دیتابیس دائم"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    log_entry = VanityProductionLog.query.get(log_id)
+    if not log_entry:
+        return jsonify({'success': True})
+
+    try:
+        db.session.delete(log_entry)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/reset', methods=['POST'])
+def api_workshop_reset():
+    """صفر کردن کامل کلیه آمار و رکوردهای کارگاه با حفظ مدل‌ها در دیتابیس دائم"""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    try:
+        VanityProductionLog.query.delete()
+        for m in VanityCabinetModel.query.all():
+            m.initial_cutting = 0
+            m.initial_frame_assembly = 0
+            m.initial_pre_putty_sanding = 0
+            m.initial_putty = 0
+            m.initial_post_putty_sanding = 0
+            m.initial_painted = 0
+            m.initial_final_packaged = 0
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'کلیه آمار کارگاه با موفقیت در دیتابیس صفر شد.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # ==================== ماژول جامع سفارشات ساخت کارگاه (کابین، آینه، باکس سفارشی) ====================
 

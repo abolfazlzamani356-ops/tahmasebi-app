@@ -36,6 +36,11 @@
             {% endif %}
         </a>
         -->
+        {% if session.get('role') in ['admin', 'manager'] or session.get('username') in ['admin', 'zamani', 'abolfazl'] or session.get('can_manage_inventory') %}
+        <a href="{{ url_for('admin_vanity_production') }}" class="bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-500 hover:to-cyan-600 text-white px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-teal-700/25" title="ثبت آمار روزانه و رهگیری ۷ مرحله خط تولید کابین روشویی">
+            <span>🏭</span> خط تولید کابین
+        </a>
+        {% endif %}
         <a href="#leaderboard" class="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
             <span>🏆</span> سکوی رقابت ماه
         </a>

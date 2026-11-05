@@ -1500,7 +1500,7 @@ def register_store():
 @app.route('/super-admin')
 def super_admin_dashboard():
     """پنل مدیریت کل جهت نظارت بر تمام فروشگاه‌های مشترک و مدیریت پلن‌ها"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     # فقط مدیران مستر پلتفرم به این پنل دسترسی دارند
@@ -1525,7 +1525,7 @@ def super_admin_dashboard():
 @app.route('/super-admin/tenant/<int:tenant_id>/toggle-status', methods=['POST'])
 def super_admin_toggle_tenant(tenant_id):
     """فعال/غیرفعال کردن اشتراک یک فروشگاه توسط سوپرادمین"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
     user = User.query.get(session['user_id'])
     if not (user and (user.tenant_id == 1 or getattr(user.tenant, 'is_master', False) or user.username == 'admin')):
@@ -1545,7 +1545,7 @@ def super_admin_toggle_tenant(tenant_id):
 @app.route('/super-admin/tenant/<int:tenant_id>/extend-plan', methods=['POST'])
 def super_admin_extend_plan(tenant_id):
     """تمدید ۳۰ روزه یا ۱ ساله اشتراک فروشگاه توسط سوپرادمین"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
     user = User.query.get(session['user_id'])
     if not (user and (user.tenant_id == 1 or getattr(user.tenant, 'is_master', False) or user.username == 'admin')):
@@ -2880,7 +2880,7 @@ def send_invoice_sms_action(invoice_id):
 @app.route('/admin/dashboard')
 @app.route('/admin_dashboard')
 def admin_dashboard():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     now_j = jdatetime.datetime.now()
@@ -3452,7 +3452,7 @@ def admin_dashboard():
 @app.route('/api/admin/bi_analytics')
 def api_admin_bi_analytics():
     """ارسال داده‌های جامع هوش تجاری شامل مقایسه شعب، سودآوری برندها و ترازنامه به صورت JSON"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'error': 'Unauthorized'}), 401
 
     now_j = jdatetime.datetime.now()
@@ -3681,7 +3681,7 @@ def api_admin_bi_analytics():
 # ==================== مدیریت حساب‌های بانکی (شماره کارت و شماره شبا) ====================
 @app.route('/admin/bank_account/add', methods=['POST'])
 def add_bank_account():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     title = request.form.get('title', 'حساب بانکی طهماسبی').strip()
@@ -3714,7 +3714,7 @@ def add_bank_account():
 
 @app.route('/admin/bank_account/delete/<int:account_id>', methods=['POST'])
 def delete_bank_account(account_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     acc = BankAccount.query.get_or_404(account_id)
@@ -3729,7 +3729,7 @@ def delete_bank_account(account_id):
 # ==================== تنظیم و به‌روزرسانی اجاره شعب ====================
 @app.route('/admin/shops/rent/update', methods=['POST'])
 def update_shops_rent():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     for shop in Shop.query.all():
@@ -4402,7 +4402,7 @@ def delete_catalog_item(item_id):
 @app.route('/admin/catalog/delete_all', methods=['POST'])
 def delete_all_catalog():
     """حذف کلیه کالاهای کاتالوگ یا یک دسته‌بندی خاص"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     cat_filter = request.form.get('category', 'all').strip()
@@ -4526,7 +4526,7 @@ def import_catalog_excel():
 @app.route('/admin/catalog/sample_excel')
 def download_sample_excel():
     """دانلود قالب فایل اکسل نمونه جهت ورود کاتالوگ کالاها"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     wb = openpyxl.Workbook()
@@ -4765,7 +4765,7 @@ def api_barcode_lookup():
 @app.route('/admin/catalog/faucet_wizard', methods=['POST'])
 def faucet_wizard():
     """ثبت خودکار ۴ تکه شیرآلات به همراه ست کامل با کسر درصد تخفیف همکاری از قیمت فروش"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     model_name = normalize_persian_text(request.form.get('model_name', '')).strip()
@@ -4848,7 +4848,7 @@ def faucet_wizard():
 @app.route('/admin/catalog/seed_abs_faucets', methods=['POST'])
 def seed_abs_faucets():
     """بارگذاری مستقیم کلیه مدل‌های شیرآلات آس (ABS) طبق لیست قیمت رسمی کارخانه با تخفیف ۲۸٪"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
 
     from abs_catalog_data import generate_all_abs_items
@@ -5044,7 +5044,7 @@ def reject_transfer(transfer_id):
 @app.route('/admin/payroll')
 @app.route('/payroll')
 def payroll_view():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     now_j = jdatetime.datetime.now()
@@ -5098,7 +5098,7 @@ def payroll_view():
 
 @app.route('/admin/payroll/base_salary/<int:user_id>', methods=['POST'])
 def update_user_base_salary(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     month = request.form.get('month', 1)
@@ -5111,7 +5111,7 @@ def update_user_base_salary(user_id):
 
 @app.route('/admin/payroll/advance/<int:user_id>', methods=['POST'])
 def add_user_advance(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     month = int(request.form.get('month', 1))
@@ -5139,7 +5139,7 @@ def add_user_advance(user_id):
 # ==================== ماژول مشتریان CRM ====================
 @app.route('/admin/customers')
 def customers_view():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     search_q = request.args.get('search', '').strip()
@@ -5180,7 +5180,7 @@ def customers_view():
 
 @app.route('/admin/customer/add', methods=['POST'])
 def add_customer():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     name = normalize_persian_text(request.form.get('name', '')).strip()
@@ -5222,7 +5222,7 @@ def add_customer():
 
 @app.route('/admin/customer/edit/<int:customer_id>', methods=['POST'])
 def edit_customer(customer_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     cust = Customer.query.get_or_404(customer_id)
@@ -5412,7 +5412,7 @@ def api_parse_invoice():
 # ==================== سایر عملیات مدیریت (تنخواه، کمیسیون، تنظیمات) ====================
 @app.route('/admin/commission/<int:user_id>', methods=['POST'])
 def update_commission(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     month = request.form.get('month', 1)
@@ -5430,7 +5430,7 @@ def update_commission(user_id):
 
 @app.route('/admin/user/set_password/<int:user_id>', methods=['POST'])
 def set_custom_password(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     user.set_password(request.form.get('new_password'))
@@ -5441,7 +5441,7 @@ def set_custom_password(user_id):
 
 @app.route('/admin/change_my_password', methods=['POST'])
 def admin_change_own_password():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(session['user_id'])
     new_pw = request.form.get('new_admin_password', '').strip()
@@ -5463,7 +5463,7 @@ def admin_change_own_password():
 
 @app.route('/admin/user/edit/<int:user_id>', methods=['POST'])
 def edit_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     
@@ -5521,7 +5521,7 @@ def edit_user(user_id):
 
 @app.route('/admin/user/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     user = User.query.get_or_404(user_id)
     user.is_active = False
@@ -5532,7 +5532,7 @@ def delete_user(user_id):
 
 @app.route('/admin/invoice/delete/<int:invoice_id>', methods=['POST'])
 def delete_invoice(invoice_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     inv = Invoice.query.get_or_404(invoice_id)
     inv_num = inv.invoice_number
@@ -5569,7 +5569,7 @@ def delete_invoice(invoice_id):
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 def store_settings_view():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
 
     tenant_id = get_current_tenant_id()
@@ -5742,7 +5742,7 @@ def send_test_sms(phone):
 
 @app.route('/admin/settings/test_sms', methods=['POST'])
 def test_sms_route():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     test_mobile = request.form.get('test_phone', '').strip()
     try:
@@ -5757,7 +5757,7 @@ def test_sms_route():
 
 @app.route('/admin/shop/add', methods=['POST'])
 def add_shop():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     name = request.form.get('name', '').strip()
     phone = request.form.get('phone', '').strip()
@@ -5776,7 +5776,7 @@ def add_shop():
 
 @app.route('/admin/shop/edit/<int:shop_id>', methods=['POST'])
 def edit_shop(shop_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     shop = Shop.query.get_or_404(shop_id)
     shop.name = request.form.get('name', '').strip() or shop.name
@@ -5790,7 +5790,7 @@ def edit_shop(shop_id):
 
 @app.route('/admin/shop/delete/<int:shop_id>', methods=['POST'])
 def delete_shop(shop_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     shop = Shop.query.get_or_404(shop_id)
     if shop.invoices or shop.users or shop.inventory_items:
@@ -5921,7 +5921,7 @@ def cheques_view():
 
 @app.route('/admin/cheque/add', methods=['POST'])
 def add_manual_cheque():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     sayad = request.form.get('sayad_number', '').strip()
@@ -5959,7 +5959,7 @@ def add_manual_cheque():
 
 @app.route('/admin/cheque/delete/<int:cheque_id>', methods=['POST'])
 def delete_cheque(cheque_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     chk = Cheque.query.get_or_404(cheque_id)
     sayad = chk.sayad_number
@@ -5971,7 +5971,7 @@ def delete_cheque(cheque_id):
 
 @app.route('/admin/customer/statement/<int:customer_id>')
 def customer_statement(customer_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     customer = Customer.query.get_or_404(customer_id)
@@ -6012,7 +6012,7 @@ def customer_statement(customer_id):
 
 @app.route('/admin/settings/update', methods=['POST'])
 def update_settings():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     tenant_id = get_current_tenant_id()
     settings = Settings.query.filter_by(tenant_id=tenant_id).first() or Settings.query.first()
@@ -6028,7 +6028,7 @@ def update_settings():
 
 @app.route('/admin/user/add', methods=['POST'])
 def add_user():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     username = request.form.get('username', '').strip()
     if User.query.filter_by(username=username).first():
@@ -6264,7 +6264,7 @@ def api_customer_ledger():
 
 @app.route('/admin/petty_deposit/add', methods=['POST'])
 def add_petty_deposit():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     now_j = jdatetime.datetime.now()
     amount = int(request.form.get('amount', '0').replace(',', ''))
@@ -6428,7 +6428,7 @@ def add_warehouse_purchase():
 @app.route('/warehouse/purchase/delete/<int:purchase_id>', methods=['POST'])
 def delete_warehouse_purchase(purchase_id):
     """حذف فاکتور خرید توسط مدیر کل"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
     p = PurchaseInvoice.query.get_or_404(purchase_id)
     num = p.purchase_number
@@ -6629,7 +6629,7 @@ def submit_shift_report():
 @app.route('/admin/shift_reports', methods=['GET'])
 def admin_shift_reports_view():
     """مشاهده لیست کلیه گزارش‌های پایان روز فروشندگان توسط مدیریت"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     tenant_id = get_current_tenant_id()
@@ -6647,7 +6647,7 @@ def admin_shift_reports_view():
 @app.route('/admin/shift_report/verify/<int:report_id>', methods=['POST'])
 def verify_shift_report(report_id):
     """تایید گزارش دخل توسط مدیریت"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'غیرمجاز'}), 403
     rep = DailyShiftReport.query.get_or_404(report_id)
     rep.is_verified_by_admin = True
@@ -6863,7 +6863,7 @@ except Exception as th_err:
 
 @app.route('/admin/backup')
 def download_backup():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     
     res = perform_system_backup(label="manual")
@@ -6879,7 +6879,7 @@ def download_backup():
 @app.route('/api/admin/backups/list')
 def api_backups_list():
     """لیست نسخه‌های پشتیبان موجود در سیستم برای نمایش در پنل تنظیمات"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'عدم دسترسی'}), 403
     try:
         files = []
@@ -6905,7 +6905,7 @@ def api_backups_list():
 @app.route('/api/admin/backups/create', methods=['POST'])
 def api_backups_create():
     """تهیه فوری نسخه پشتیبان با کلیک ادمین"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'عدم دسترسی'}), 403
     res = perform_system_backup(label="instant")
     if res.get('success'):
@@ -6918,7 +6918,7 @@ def api_backups_create():
 @app.route('/admin/backups/download/<filename>')
 def download_specific_backup(filename):
     """دانلود یک نسخه پشتیبان خاص از لیست بکاپ‌ها"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     safe_name = os.path.basename(filename)
     target_path = os.path.join(BACKUPS_DIR, safe_name)
@@ -6931,7 +6931,7 @@ def download_specific_backup(filename):
 @app.route('/api/admin/backups/test_email', methods=['POST'])
 def api_test_backup_email():
     """ارسال فوری ایمیل آزمایشی پشتیبان دیتابیس به جیمیل مدیریت جهت تست اتصال"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'عدم دسترسی'}), 403
 
     target_email = request.form.get('email') or (request.json.get('email') if request.is_json else None)
@@ -6942,7 +6942,7 @@ def api_test_backup_email():
 
 @app.route('/admin/export/excel')
 def export_excel():
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
     now_j = jdatetime.datetime.now()
     month = request.args.get('month', default=now_j.month, type=int)
@@ -6985,7 +6985,7 @@ def export_excel():
 @app.route('/admin/export/invoices_excel')
 def export_invoices_excel():
     """خروجی جامع اکسل از فاکتورها، مبالغ پرداختی تفکیکی، سود و مشتریان"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     now_j = jdatetime.datetime.now()
@@ -7138,7 +7138,7 @@ def export_inventory_excel():
 @app.route('/admin/export/debtors_excel')
 def export_debtors_excel():
     """خروجی اکسل بدهکاران و مانده مطالبات معوقه مشتریان"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     now_j = jdatetime.datetime.now()
@@ -7186,7 +7186,7 @@ def export_debtors_excel():
 @app.route('/admin/export/payroll_excel')
 def export_payroll_excel():
     """خروجی اکسل کامل پرونده حقوق و دستمزد ماهانه همراه با شماره حساب و شبا"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     now_j = jdatetime.datetime.now()
@@ -7261,7 +7261,7 @@ def export_payroll_excel():
 @app.route('/admin/export/monthly_summary_excel')
 def export_monthly_summary_excel():
     """خروجی اکسل مدیریتی جامع از خلاصه وضعیت مالی و سود و زیان ماهانه"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return redirect(url_for('login'))
         
     now_j = jdatetime.datetime.now()
@@ -7348,7 +7348,7 @@ def export_monthly_summary_excel():
 @app.route('/api/admin/financial_summary')
 def api_admin_financial_summary():
     """ای‌پی‌آی زنده دریافت شاخص‌های مالی و سود و زیان فروشگاه برای داشبورد و ابزارها"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'error': 'Unauthorized'}), 403
     now_j = jdatetime.datetime.now()
     month = request.args.get('month', default=now_j.month, type=int)
@@ -7363,15 +7363,32 @@ def api_admin_financial_summary():
     })
 
 # ==================== ماژول مدیریت و آمار روزانه خط تولید کابین روشویی (کارگاه‌یار) ====================
+
+def has_vanity_production_access():
+    """بررسی دسترسی به خط تولید کارگاه برای مدیریت کل، ابوالفضل زمانی و مسئولان مجاز"""
+    if 'user_id' not in session:
+        return False
+    user_role = session.get('role', '')
+    user_name = session.get('username', '')
+    if user_role in ['admin', 'manager'] or is_admin() or session.get('can_manage_inventory', False):
+        return True
+    if user_name in ['admin', 'zamani', 'abolfazl']:
+        return True
+    user = db.session.get(User, session['user_id'])
+    return bool(user and (user.role in ['admin', 'manager'] or getattr(user, 'can_manage_inventory', False) or user.username in ['admin', 'zamani', 'abolfazl']))
+
 @app.route('/admin/vanity-production')
 def admin_vanity_production():
     """
     سامانه هوشمند ثبت آمار روزانه و رهگیری ۷ مرحله خط تولید کابین روشویی
-    منحصر به پنل مدیریت ارشد سیستم (فقط role == 'admin')
     """
-    if 'user_id' not in session or session.get('role') != 'admin':
-        flash('دسترسی غیرمجاز: این بخش فقط و فقط ویژه پنل مدیریت سیستم است.', 'danger')
-        return redirect(url_for('admin_dashboard') if 'user_id' in session else url_for('login'))
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    if not has_vanity_production_access():
+        flash('دسترسی غیرمجاز: این بخش ویژه پنل مدیریت سیستم است.', 'danger')
+        target = 'admin_dashboard' if session.get('role') == 'admin' else 'seller_dashboard'
+        return redirect(url_for(target))
         
     return render_template('vanity_production.html')
 
@@ -7380,8 +7397,8 @@ def admin_vanity_production():
 @app.route('/api/workshop/data', methods=['GET'])
 def api_workshop_data():
     """دریافت مدل‌ها و رکوردهای آمار روزانه کارگاه از دیتابیس پایدار سرور"""
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز (فقط مدیریت)'}), 403
+    if not has_vanity_production_access():
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     try:
         models = VanityCabinetModel.query.order_by(VanityCabinetModel.created_at.asc()).all()
@@ -7427,7 +7444,7 @@ def api_workshop_data():
 @app.route('/api/workshop/models', methods=['POST'])
 def api_workshop_save_model():
     """افزودن یا به‌روزرسانی مدل کابین در دیتابیس دائم"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     data = request.get_json(silent=True) or {}
@@ -7469,7 +7486,7 @@ def api_workshop_save_model():
 @app.route('/api/workshop/models/<model_id>', methods=['DELETE'])
 def api_workshop_delete_model(model_id):
     """حذف مدل از دیتابیس دائم"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     model = VanityCabinetModel.query.get(model_id)
@@ -7488,7 +7505,7 @@ def api_workshop_delete_model(model_id):
 @app.route('/api/workshop/logs', methods=['POST'])
 def api_workshop_save_logs():
     """ثبت آمار کارکرد (تکی یا گروهی) در دیتابیس دائم"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     data = request.get_json(silent=True) or {}
@@ -7550,7 +7567,7 @@ def api_workshop_save_logs():
 @app.route('/api/workshop/logs/<log_id>', methods=['DELETE'])
 def api_workshop_delete_log(log_id):
     """حذف یک رکورد آمار از دیتابیس دائم"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     log_entry = VanityProductionLog.query.get(log_id)
@@ -7569,7 +7586,7 @@ def api_workshop_delete_log(log_id):
 @app.route('/api/workshop/reset', methods=['POST'])
 def api_workshop_reset():
     """صفر کردن کامل کلیه آمار و رکوردهای کارگاه با حفظ مدل‌ها در دیتابیس دائم"""
-    if 'user_id' not in session or session.get('role') != 'admin':
+    if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
 
     try:

@@ -22,7 +22,7 @@ from models import (
     Invoice, InvoiceItem, Cheque, SalarySlip,
     PettyCashDeposit, Expense, AuditLog, ProductCatalog,
     CustomWorkshopOrder, PurchaseInvoice, DailyShiftReport,
-    VanityCabinetModel, VanityProductionLog
+    VanityCabinetModel, VanityProductionLog, VanityWorkshopStage
 )
 from helpers import (
     PERSIAN_MONTHS, DEFAULT_CATEGORIES, RETURN_REASONS,
@@ -7429,11 +7429,44 @@ def api_workshop_data():
             db.session.commit()
             models = VanityCabinetModel.query.order_by(VanityCabinetModel.created_at.asc()).all()
 
+        # بررسی و ایجاد جدول ایستگاه‌ها در صورت عدم وجود
+        try:
+            VanityWorkshopStage.__table__.create(db.engine, checkfirst=True)
+        except Exception:
+            pass
+
+        stages = VanityWorkshopStage.query.order_by(VanityWorkshopStage.order.asc()).all()
+        if not stages:
+            default_stages = [
+                {'id': 'cutting', 'order': 1, 'title': 'برش', 'short_title': '۱. برش', 'workstation_role': 'ایستگاه برش ورق PVC و MDF', 'next_stage_label': 'آماده مونتاژ (کلاف)', 'description': 'برش دقیق قطعات بدنه، درب‌ها و قیدهای کابین روشویی طبق نقشه', 'default_target_daily': 30},
+                {'id': 'frame_assembly', 'order': 2, 'title': 'مونتاژ (کلاف)', 'short_title': '۲. مونتاژ (کلاف)', 'workstation_role': 'ایستگاه کلاف‌کوبی و مونتاژ خام', 'next_stage_label': 'آماده سمباده پیش بتونه', 'description': 'مونتاژ بدنه خام، کلاف‌بندی، چسب‌کاری و میخ‌کوبی اسکلت کابین', 'default_target_daily': 26},
+                {'id': 'pre_putty_sanding', 'order': 3, 'title': 'سمباده پیش بتونه', 'short_title': '۳. سمباده پیش بتونه', 'workstation_role': 'ایستگاه سمباده‌زنی خام', 'next_stage_label': 'آماده بتونه', 'description': 'گیریس‌گیری، هم‌سطح‌سازی لبه‌های برش و سمباده اولیه پیش از بتونه‌کاری', 'default_target_daily': 25},
+                {'id': 'putty', 'order': 4, 'title': 'بتونه', 'short_title': '۴. بتونه', 'workstation_role': 'ایستگاه بتونه‌کاری و درزگیری', 'next_stage_label': 'آماده سمباده بعد از بتونه', 'description': 'بتونه‌کاری درزها، جای میخ‌ها و منافذ سطح کابین و درب‌ها', 'default_target_daily': 25},
+                {'id': 'post_putty_sanding', 'order': 5, 'title': 'سمباده بعد از بتونه', 'short_title': '۵. سمباده بعد از بتونه', 'workstation_role': 'ایستگاه پرداخت و زیرسازی رنگ', 'next_stage_label': 'آماده رنگ‌آمیزی', 'description': 'سمباده‌زنی ظریف پس از خشک شدن بتونه برای ایجاد سطح کاملاً صیقلی', 'default_target_daily': 24},
+                {'id': 'painted', 'order': 6, 'title': 'رنگ شده', 'short_title': '۶. رنگ شده', 'workstation_role': 'کابین رنگ (آستر و رنگ نهایی)', 'next_stage_label': 'آماده مونتاژ و بسته‌بندی', 'description': 'پاشش آستر پلی‌اورتان و رنگ نهایی ضدآب و خشک شدن کامل در کوره/اتاق رنگ', 'default_target_daily': 22},
+                {'id': 'final_packaged', 'order': 7, 'title': 'مونتاژ شده و بسته بندی شده', 'short_title': '۷. مونتاژ و بسته‌بندی', 'workstation_role': 'ایستگاه یراق‌کوبی و بسته‌بندی نهایی', 'next_stage_label': 'تکمیل شده در انبار ارسال', 'description': 'نصب لولا آرام‌بند، جک، دستگیره، کاسه روشویی، کنترل کیفیت و کارتن‌پیچی', 'default_target_daily': 20},
+            ]
+            for ds in default_stages:
+                st = VanityWorkshopStage(
+                    id=ds['id'],
+                    order=ds['order'],
+                    title=ds['title'],
+                    short_title=ds['short_title'],
+                    workstation_role=ds['workstation_role'],
+                    next_stage_label=ds['next_stage_label'],
+                    description=ds['description'],
+                    default_target_daily=ds['default_target_daily']
+                )
+                db.session.add(st)
+            db.session.commit()
+            stages = VanityWorkshopStage.query.order_by(VanityWorkshopStage.order.asc()).all()
+
         logs = VanityProductionLog.query.order_by(VanityProductionLog.created_at.desc()).all()
 
         return jsonify({
             'success': True,
             'models': [m.to_dict() for m in models],
+            'stages': [s.to_dict() for s in stages],
             'logs': [l.to_dict() for l in logs]
         })
     except Exception as e:
@@ -7495,6 +7528,64 @@ def api_workshop_delete_model(model_id):
 
     try:
         db.session.delete(model)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/stages', methods=['POST'])
+def api_workshop_save_stage():
+    """افزودن یا به‌روزرسانی ایستگاه کاری جدید خط تولید در دیتابیس دائم"""
+    if not has_vanity_production_access():
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'success': False, 'message': 'عنوان ایستگاه کاری الزامی است'}), 400
+
+    stage_id = (data.get('id') or '').strip()
+    if not stage_id:
+        stage_id = f"stage_{int(datetime.utcnow().timestamp()*1000)}"
+
+    stage = VanityWorkshopStage.query.get(stage_id)
+    if not stage:
+        max_order = db.session.query(func.max(VanityWorkshopStage.order)).scalar() or 0
+        order = int(data.get('order') or (max_order + 1))
+        stage = VanityWorkshopStage(id=stage_id, title=title, order=order)
+        db.session.add(stage)
+
+    stage.title = title
+    if 'order' in data and data['order']:
+        stage.order = int(data['order'])
+    stage.short_title = data.get('shortTitle') or f"{stage.order}. {title}"
+    stage.workstation_role = data.get('workstationRole') or f"ایستگاه {title}"
+    stage.next_stage_label = data.get('nextStageLabel') or 'مرحله بعد'
+    stage.description = data.get('description') or ''
+    stage.default_target_daily = int(data.get('defaultTargetDaily') or 20)
+
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'stage': stage.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/workshop/stages/<stage_id>', methods=['DELETE'])
+def api_workshop_delete_stage(stage_id):
+    """حذف ایستگاه کاری سفارشی از دیتابیس دائم"""
+    if not has_vanity_production_access():
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    stage = VanityWorkshopStage.query.get(stage_id)
+    if not stage:
+        return jsonify({'success': False, 'message': 'ایستگاه پیدا نشد'}), 404
+
+    try:
+        db.session.delete(stage)
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:

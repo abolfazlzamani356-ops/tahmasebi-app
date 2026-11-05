@@ -758,3 +758,29 @@ class VanityProductionLog(db.Model):
         }
 
 
+class VanityWorkshopStage(db.Model):
+    """ایستگاه‌های کاری خط تولید کارگاه"""
+    __tablename__ = 'vanity_workshop_stages'
+    id = db.Column(db.String(60), primary_key=True)
+    order = db.Column(db.Integer, default=1)
+    title = db.Column(db.String(100), nullable=False)
+    short_title = db.Column(db.String(100), default='')
+    workstation_role = db.Column(db.String(150), default='')
+    next_stage_label = db.Column(db.String(150), default='')
+    description = db.Column(db.Text, default='')
+    default_target_daily = db.Column(db.Integer, default=20)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order': self.order,
+            'title': self.title,
+            'shortTitle': self.short_title or f"{self.order}. {self.title}",
+            'workstationRole': self.workstation_role or f"ایستگاه {self.title}",
+            'nextStageLabel': self.next_stage_label or 'مرحله بعد',
+            'description': self.description or '',
+            'defaultTargetDaily': self.default_target_daily or 20
+        }
+
+

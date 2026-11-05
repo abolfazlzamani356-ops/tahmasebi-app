@@ -7429,8 +7429,10 @@ def api_workshop_data():
             db.session.commit()
             models = VanityCabinetModel.query.order_by(VanityCabinetModel.created_at.asc()).all()
 
-        # بررسی و ایجاد جدول ایستگاه‌ها در صورت عدم وجود
+        # اطمینان از وجود کلیه جداول خط تولید کارگاه در پایگاه داده
         try:
+            VanityCabinetModel.__table__.create(db.engine, checkfirst=True)
+            VanityProductionLog.__table__.create(db.engine, checkfirst=True)
             VanityWorkshopStage.__table__.create(db.engine, checkfirst=True)
         except Exception:
             pass
@@ -7595,9 +7597,9 @@ def api_workshop_delete_stage(stage_id):
 
 @app.route('/api/workshop/logs', methods=['POST'])
 def api_workshop_save_logs():
-    """ثبت آمار کارکرد (تکی یا گروهی) در دیتابیس دائم"""
+    """ثبت آمار کارکرد (تکی یا گروهی) در دیتابیس دائم با مقاومت در برابر قفل دیتابیس و تلاش مجدد"""
     if not has_vanity_production_access():
-        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+        return jsonify({'success': False, 'message': 'دسترسی غیرمجاز. لطفاً وارد پنل مدیریت شوید.'}), 403
 
     data = request.get_json(silent=True) or {}
     items = data.get('logs') if isinstance(data, dict) and 'logs' in data else data
@@ -7606,53 +7608,74 @@ def api_workshop_save_logs():
     if not isinstance(items, list):
         items = []
 
-    saved_count = 0
+    if not items:
+        return jsonify({'success': True, 'count': 0, 'message': 'رکوردی برای ثبت دریافت نشد.'})
+
+    # اطمینان از آماده بودن جداول پایگاه داده
     try:
-        for idx, item in enumerate(items):
-            log_id = item.get('id') or f"log-{int(datetime.utcnow().timestamp()*1000)}-{idx}"
-            model_id = item.get('modelId')
-            stage_id = item.get('stageId')
-            date_str = item.get('date') or datetime.utcnow().strftime('%Y-%m-%d')
-            quantity = int(item.get('quantity') or 0)
-            defect_count = int(item.get('defectCount') or 0)
-            operator_name = item.get('operatorName') or ''
-            note = item.get('note') or ''
+        VanityCabinetModel.__table__.create(db.engine, checkfirst=True)
+        VanityProductionLog.__table__.create(db.engine, checkfirst=True)
+    except Exception:
+        pass
 
-            if not model_id or not stage_id or quantity <= 0:
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            saved_count = 0
+            for idx, item in enumerate(items):
+                log_id = (item.get('id') or '').strip()
+                if not log_id:
+                    log_id = f"log-{int(datetime.utcnow().timestamp()*1000)}-{idx}"
+                model_id = (item.get('modelId') or '').strip()
+                stage_id = (item.get('stageId') or '').strip()
+                date_str = (item.get('date') or '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
+                quantity = int(item.get('quantity') or 0)
+                defect_count = int(item.get('defectCount') or 0)
+                operator_name = (item.get('operatorName') or '').strip()
+                note = (item.get('note') or '').strip()
+
+                if not model_id or not stage_id or quantity <= 0:
+                    continue
+
+                model = VanityCabinetModel.query.get(model_id)
+                if not model:
+                    model = VanityCabinetModel(id=model_id, name=f"مدل {model_id}")
+                    db.session.add(model)
+                    db.session.flush()
+
+                existing = VanityProductionLog.query.get(log_id)
+                if existing:
+                    existing.quantity = quantity
+                    existing.defect_count = defect_count
+                    existing.operator_name = operator_name
+                    existing.note = note
+                    existing.date = date_str
+                    existing.stage_id = stage_id
+                    existing.model_id = model_id
+                else:
+                    log_entry = VanityProductionLog(
+                        id=log_id,
+                        date=date_str,
+                        model_id=model_id,
+                        stage_id=stage_id,
+                        quantity=quantity,
+                        defect_count=defect_count,
+                        operator_name=operator_name,
+                        note=note
+                    )
+                    db.session.add(log_entry)
+                saved_count += 1
+
+            db.session.commit()
+            return jsonify({'success': True, 'count': saved_count})
+        except Exception as e:
+            db.session.rollback()
+            if attempt < max_retries - 1:
+                time.sleep(0.2)
                 continue
-
-            model = VanityCabinetModel.query.get(model_id)
-            if not model:
-                model = VanityCabinetModel(id=model_id, name=f"مدل {model_id}")
-                db.session.add(model)
-                db.session.flush()
-
-            existing = VanityProductionLog.query.get(log_id)
-            if existing:
-                existing.quantity = quantity
-                existing.defect_count = defect_count
-                existing.operator_name = operator_name
-                existing.note = note
-                existing.date = date_str
-            else:
-                log_entry = VanityProductionLog(
-                    id=log_id,
-                    date=date_str,
-                    model_id=model_id,
-                    stage_id=stage_id,
-                    quantity=quantity,
-                    defect_count=defect_count,
-                    operator_name=operator_name,
-                    note=note
-                )
-                db.session.add(log_entry)
-            saved_count += 1
-
-        db.session.commit()
-        return jsonify({'success': True, 'count': saved_count})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
+            app.logger.error(f"Error saving vanity production logs: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/api/workshop/logs/<log_id>', methods=['DELETE'])
@@ -7679,6 +7702,10 @@ def api_workshop_reset():
     """صفر کردن کامل کلیه آمار و رکوردهای کارگاه با حفظ مدل‌ها در دیتابیس دائم"""
     if not has_vanity_production_access():
         return jsonify({'success': False, 'message': 'دسترسی غیرمجاز'}), 403
+
+    data = request.get_json(silent=True) or {}
+    if not data.get('confirmed'):
+        return jsonify({'success': False, 'message': 'تاییدیه ارسال نشده است'}), 400
 
     try:
         VanityProductionLog.query.delete()

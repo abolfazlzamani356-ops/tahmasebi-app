@@ -514,13 +514,13 @@ def initialize_database():
     # بارگذاری کاتالوگ‌های رسمی
     try:
         from abs_catalog_data import generate_all_abs_items
-        _seed_catalog('آس (ABS)', generate_all_abs_items, 18.0, 'ABS')
+        _seed_catalog('آس (ABS)', generate_all_abs_items, 18.0, 'ABS', update_existing=True)
     except Exception as e:
         app.logger.warning(f"ABS import warning: {e}")
 
     try:
         from zarsham_catalog_data import generate_all_zarsham_items
-        _seed_catalog('زرشام (Zarsham)', generate_all_zarsham_items, 20.0, 'Zarsham')
+        _seed_catalog('زرشام (Zarsham)', generate_all_zarsham_items, 20.0, 'Zarsham', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Zarsham import warning: {e}")
 
@@ -546,7 +546,7 @@ def initialize_database():
 
     try:
         from negin_almas_catalog_data import generate_all_negin_almas_items
-        _seed_catalog('نگین الماس (Negin Almas)', generate_all_negin_almas_items, 15.0, 'Negin Almas')
+        _seed_catalog('نگین الماس (Negin Almas)', generate_all_negin_almas_items, 15.0, 'Negin Almas', update_existing=True)
     except Exception as e:
         app.logger.warning(f"Negin Almas import warning: {e}")
 
